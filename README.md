@@ -5,7 +5,7 @@ One MCP server for an Umbraco 17 site. It detects which Umbraco HQ products are 
 | Part | What it does |
 |---|---|
 | `src/Umbraco.Mcp` (NuGet) | Detects products, serves `GET /umbraco/management/api/v1/mcp/capabilities`, adds an **MCP** backoffice health check |
-| `npm/` (`@umbraco/mcp`) | Stdio MCP server: CMS always, Forms/Automate when detected; tools are prefixed `cms--`, `forms--`, `automate--`; `get-mcp-health` explains what loaded and why |
+| `npm/` (`@umbraco/mcp`) | Stdio MCP server: CMS always, Forms/Automate/Engage when detected; tools are prefixed `cms--`, `forms--`, `automate--`, `engage--`; `get-mcp-health` explains what loaded and why |
 
 Agents get a routing table (MCP server `instructions`) that says which prefix to use for which kind of request, and every tool description starts with its product, e.g. `[Umbraco Forms] …`.
 
@@ -52,7 +52,7 @@ On the site, the "MCP API user" health check (Settings → Health Check → MCP)
 | Umbraco CMS | 17.x |
 | `@umbraco-cms/mcp-server-sdk` | 1.0.0-beta.45 (single copy enforced) |
 | `@umbraco-cms/mcp-dev` | 17.6.10 |
-| `@umbraco-forms/mcp-dev` / `@umbraco-automate/mcp-dev` | local builds with the `createApiClient` export (`npm/vendor/`); these changes are never pushed |
+| `@umbraco-forms/mcp-dev` / `@umbraco-automate/mcp-dev` / `@umbraco-engage/mcp-dev` | local builds with the `createApiClient` export (`npm/vendor/`); these changes are never pushed |
 
 ## Develop
 
@@ -67,5 +67,5 @@ On the site, the "MCP API user" health check (Settings → Health Check → MCP)
 - Tool names are prefixed (`cms--get-document`), so they differ from the standalone CMS MCP's names.
 - `@umbraco-cms/mcp-dev/collections` does not export the CMS server's runtime setup (`setUmbracoVersion`, `setAllowFilePathUploads`). In the umbrella, version-gated CMS tools (for example `create-and-publish-document`, `update-and-publish-document`, `sort-document-children`, `sort-document-root-children`) are not registered, document/data type schema tools use their fallback path, and media tools do not accept local file paths. Fixing this needs the CMS package to export a setup hook from `./collections`.
 - Only `--list-tools` is supported as a CLI flag; `--describe-tool` is not implemented.
-- Forms and Automate are consumed as local builds with a `createApiClient` export (`npm/vendor/`); that change is not upstream.
+- Forms, Automate and Engage are consumed as local builds with a `createApiClient` export (`npm/vendor/`); that change is not upstream.
 - Collection filters do not pull in dependent collections (e.g. `media` does not add `temporary-file`) the way the standalone CMS MCP does.
