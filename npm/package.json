@@ -1,6 +1,6 @@
 {
   "name": "umbrella-mcp",
-  "version": "17.0.0-alpha.1",
+  "version": "17.0.0-alpha.2",
   "description": "One MCP server for your Umbraco 17 site: loads the tools for the Umbraco products the site has installed.",
   "keywords": [
     "umbraco",
@@ -37,7 +37,7 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@umbraco-cms/mcp-server-sdk": "1.0.0-beta.45",
     "@umbraco-cms/mcp-dev": "17.6.10",
-    "@umbraco-forms/mcp-dev": "17.6.1-beta.2",
+    "@umbraco-forms/mcp-dev": "17.6.1-beta.3",
     "@umbraco-automate/mcp-dev": "17.4.0-beta.1",
     "zod": "^4.4.3"
   },
