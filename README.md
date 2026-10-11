@@ -45,6 +45,8 @@ Working names: final package names need product sign-off. Nothing is published t
 
 On the site, the "MCP API user" health check (Settings → Health Check → MCP) checks the API user behind `Umbraco:Mcp:ClientId` (default `umbraco-back-office-mcp`). It warns when no user has that client id, when the user is disabled or locked out, and when its groups lack the section of a detected product. Set `Umbraco:Mcp:ClientId` in the site's appsettings if the MCP server uses a different `UMBRACO_CLIENT_ID`. The client secret is not checked.
 
+The "MCP client setup" health check in the same group shows an MCP client config to copy, filled in with the site's URL and that client id. It starts the server with `npx -y @umbraco/mcp`, which only works once the npm package is published; until then use the `node …/dist/index.js` config above. The secret is a placeholder: Umbraco stores only its hash.
+
 ## Compatibility (v1)
 
 | Component | Version |
