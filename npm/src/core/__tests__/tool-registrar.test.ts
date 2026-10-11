@@ -80,6 +80,15 @@ describe("registerModuleTools", () => {
     expect(registerModuleTools(c, mod("forms"), l, filter)).toBe(1);
   });
 
+  it("excludes non-read-only tools in readonly mode", () => {
+    const c = ctx();
+    const l = loaded("forms-client", [tool("list-forms"), tool("delete-form", { annotations: { destructiveHint: true } })]);
+    const filter = createCollectionConfigLoader({ modeRegistry: [], allModeNames: [], allSliceNames: ["read"] })
+      .loadFromConfig({ readonly: true });
+    expect(registerModuleTools(c, mod("forms"), l, filter)).toBe(1);
+    expect([...c.calls.keys()]).toEqual(["forms--list-forms"]);
+  });
+
   it("throws on a duplicate final name", () => {
     const c = ctx();
     c.registered.set("forms--a", "other");

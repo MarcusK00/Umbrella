@@ -14,7 +14,7 @@ Working names: final package names need product sign-off. Nothing is published t
 ## Use it locally
 
 1. Add a project reference (or local NuGet package) to `Umbraco.Mcp` in your Umbraco 17 site and restart it.
-2. Create an API user with client credentials in the backoffice.
+2. Create an API user with client credentials: `node scripts/create-api-user.mjs` (prints a client secret for `npm/.env`).
 3. `cd npm && npm install && npm run build`
 4. MCP client config:
 
@@ -39,7 +39,8 @@ Working names: final package names need product sign-off. Nothing is published t
 | Variable | Meaning |
 |---|---|
 | `UMBRACO_MCP_MODULES` | Force modules on without detection, e.g. `forms,automate` |
-| `UMBRACO_TOOL_MODES`, `UMBRACO_INCLUDE_/EXCLUDE_TOOL_COLLECTIONS`, `UMBRACO_INCLUDE_/EXCLUDE_TOOLS` | Toolkit filters. Unprefixed entries apply to CMS; `forms:<value>` targets a module; `forms:*` means no restriction for that module |
+| `UMBRACO_TOOL_MODES`, `UMBRACO_INCLUDE_/EXCLUDE_TOOL_COLLECTIONS`, `UMBRACO_INCLUDE_/EXCLUDE_TOOLS` | Toolkit filters. Unprefixed entries apply to CMS; `forms:<value>` targets a module; `forms:*` means no restriction for that module. In the two `*_TOOLS` lists you can also use the visible name, e.g. `cms--delete-document` or `forms--list-forms` |
+| `UMBRACO_READONLY` | `true` registers only read-only tools, for every module |
 | `UMBRACO_INCLUDE_SLICES`, `UMBRACO_EXCLUDE_SLICES` | Apply to every module |
 
 ## Compatibility (v1)
@@ -65,3 +66,4 @@ Working names: final package names need product sign-off. Nothing is published t
 - `@umbraco-cms/mcp-dev/collections` does not export the CMS server's runtime setup (`setUmbracoVersion`, `setAllowFilePathUploads`). In the umbrella, version-gated CMS tools (for example `create-and-publish-document`, `update-and-publish-document`, `sort-document-children`, `sort-document-root-children`) are not registered, document/data type schema tools use their fallback path, and media tools do not accept local file paths. Fixing this needs the CMS package to export a setup hook from `./collections`.
 - Only `--list-tools` is supported as a CLI flag; `--describe-tool` is not implemented.
 - Forms and Automate are consumed as local builds with a `createApiClient` export (`npm/vendor/`); that change is not upstream.
+- Collection filters do not pull in dependent collections (e.g. `media` does not add `temporary-file`) the way the standalone CMS MCP does.

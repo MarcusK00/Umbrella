@@ -39,4 +39,31 @@ describe("buildModuleFilterInput", () => {
   it("returns an empty config when no vars are set", () => {
     expect(buildModuleFilterInput({}, "cms", true)).toEqual({});
   });
+
+  it("maps UMBRACO_READONLY=true (case-insensitive) to readonly on every module", () => {
+    expect(buildModuleFilterInput({ UMBRACO_READONLY: "true" }, "cms", true).readonly).toBe(true);
+    expect(buildModuleFilterInput({ UMBRACO_READONLY: "TRUE" }, "forms", false).readonly).toBe(true);
+    expect(buildModuleFilterInput({ UMBRACO_READONLY: "false" }, "cms", true).readonly).toBeUndefined();
+    expect(buildModuleFilterInput({}, "cms", true).readonly).toBeUndefined();
+  });
+
+  it("accepts <moduleId>--<tool> in include/exclude tool lists and routes it to that module", () => {
+    const e = { UMBRACO_EXCLUDE_TOOLS: "cms--delete-document, forms--delete-form", UMBRACO_INCLUDE_TOOLS: "forms--list-forms" };
+    expect(buildModuleFilterInput(e, "cms", true).excludeTools).toEqual(["delete-document"]);
+    expect(buildModuleFilterInput(e, "forms", false).excludeTools).toEqual(["delete-form"]);
+    expect(buildModuleFilterInput(e, "forms", false).includeTools).toEqual(["list-forms"]);
+    expect(buildModuleFilterInput(e, "cms", true).includeTools).toBeUndefined();
+    expect(buildModuleFilterInput(e, "automate", false).includeTools).toBeUndefined();
+  });
+
+  it("does not treat -- as a module prefix in other lists", () => {
+    const e = { UMBRACO_INCLUDE_TOOL_COLLECTIONS: "forms--x" };
+    expect(buildModuleFilterInput(e, "cms", true).includeToolCollections).toEqual(["forms--x"]);
+  });
+
+  it("skips empty items such as 'forms:'", () => {
+    const e = { UMBRACO_EXCLUDE_TOOLS: "forms:, ,cms--" };
+    expect(buildModuleFilterInput(e, "forms", false).excludeTools).toBeUndefined();
+    expect(buildModuleFilterInput(e, "cms", true).excludeTools).toBeUndefined();
+  });
 });

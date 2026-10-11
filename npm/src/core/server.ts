@@ -66,7 +66,12 @@ export async function startServer(options: {
   await checkUmbracoVersion({
     mcpVersion: version,
     expectedUmbracoMajor: EXPECTED_UMBRACO_MAJOR,
-    client: { getServerInformation: async () => ({ version: umbracoVersion ?? "0.0.0" }) },
+    client: {
+      getServerInformation: async () => {
+        if (!umbracoVersion) throw new Error("Server information returned no version.");
+        return { version: umbracoVersion };
+      },
+    },
   });
   configureVersionCheckHook();
   const versionCheckMessage = getVersionCheckMessage();
