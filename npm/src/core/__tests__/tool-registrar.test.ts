@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { createCollectionConfigLoader, getApiClient, type CollectionConfiguration } from "@umbraco-cms/mcp-server-sdk";
 import { installClientContext } from "../client-context.js";
 import type { LoadedModule, McpProductModule } from "../module-contract.js";
@@ -63,7 +64,30 @@ describe("registerModuleTools", () => {
     const c = ctx();
     const l = loaded("forms-client", [tool("list-forms")]);
     registerModuleTools(c, mod("forms"), l, noFilter(l));
-    expect(c.configs.get("forms--list-forms")!.description).toBe("[forms] list-forms tool");
+    expect(c.configs.get("forms--list-forms")!.description).toBe("[forms] forms--list-forms tool");
+  });
+
+  it("points tool mentions in descriptions at the registered names", () => {
+    const c = ctx();
+    const l = loaded("forms-client", [
+      tool("list-forms"),
+      tool("get-form", {
+        description: "Gets a form. Use list-forms to find its id.",
+        inputSchema: { id: z.string().describe("Id from list-forms."), name: z.string() },
+      }),
+    ]);
+    registerModuleTools(c, mod("forms"), l, noFilter(l));
+    const cfg = c.configs.get("forms--get-form") as { description: string; inputSchema: Record<string, z.ZodType> };
+    expect(cfg.description).toBe("[forms] Gets a form. Use forms--list-forms to find its id.");
+    expect(cfg.inputSchema.id.description).toBe("Id from forms--list-forms.");
+    expect(cfg.inputSchema.name.description).toBeUndefined();
+  });
+
+  it("uses the shared tool name index for mentions of other products' tools", () => {
+    const c = { ...ctx(), toolNames: new Map([["create-document-type", ["cms--create-document-type"]]]) };
+    const l = loaded("engage-client", [tool("post-segment", { description: "Needs create-document-type first." })]);
+    registerModuleTools(c, mod("engage"), l, noFilter(l));
+    expect(c.configs.get("engage--post-segment")!.description).toBe("[engage] Needs cms--create-document-type first.");
   });
 
   it("skips tools whose enabled(user) is false", () => {

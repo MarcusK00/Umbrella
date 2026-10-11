@@ -5,9 +5,10 @@ import {
   shouldIncludeTool,
   type CollectionConfiguration,
 } from "@umbraco-cms/mcp-server-sdk";
+import type { ZodRawShape, ZodType } from "zod";
 import { bindClient } from "./client-context.js";
 import type { LoadedModule, McpProductModule } from "./module-contract.js";
-import { describeTool } from "./routing.js";
+import { buildToolNameIndex, describeTool, prefixToolReferences, type ToolNameIndex } from "./routing.js";
 
 export class DuplicateToolNameError extends Error {
   constructor(public readonly toolName: string, existingModule: string, newModule: string) {
@@ -21,6 +22,8 @@ export interface RegistrationContext {
   user: unknown;
   /** final tool name -> owning module id */
   registered: Map<string, string>;
+  /** Every loaded module's tool names, so descriptions can point at other products' tools too. */
+  toolNames?: ToolNameIndex;
 }
 
 export function registerModuleTools(
@@ -30,6 +33,9 @@ export function registerModuleTools(
   filter: CollectionConfiguration,
 ): number {
   let count = 0;
+  const ownIndex = buildToolNameIndex([{ module, toolNames: listToolNames(loaded, ctx.user) }]);
+  const index = new Map([...(ctx.toolNames ?? []), ...ownIndex]);
+  const references = (text: string) => prefixToolReferences(text, module, index);
   for (const collection of loaded.collections) {
     const collectionName = collection.metadata.name;
     for (const tool of collection.tools(ctx.user)) {
@@ -45,8 +51,8 @@ export function registerModuleTools(
       ctx.server.registerTool(
         name,
         {
-          description: describeTool(module, tool.description),
-          inputSchema: tool.inputSchema,
+          description: describeTool(module, references(tool.description)),
+          inputSchema: tool.inputSchema && prefixInputReferences(tool.inputSchema, references),
           outputSchema: tool.outputSchema,
           annotations: createToolAnnotations(tool),
         },
@@ -56,4 +62,23 @@ export function registerModuleTools(
     }
   }
   return count;
+}
+
+/** The unprefixed names of every tool a module provides, before filters. */
+export function listToolNames(loaded: LoadedModule, user: unknown): string[] {
+  return loaded.collections.flatMap((collection) => collection.tools(user).map((tool) => tool.name));
+}
+
+/**
+ * Applies `references` to each top-level input field's description. Nested descriptions are left as they are.
+ * Product tools are built with classic zod, whose schemas carry `description` and `describe()`.
+ */
+function prefixInputReferences(shape: ZodRawShape, references: (text: string) => string): ZodRawShape {
+  return Object.fromEntries(
+    Object.entries(shape).map(([key, field]) => {
+      const { description } = field as ZodType;
+      const updated = description && references(description);
+      return [key, updated && updated !== description ? (field as ZodType).describe(updated) : field];
+    }),
+  );
 }

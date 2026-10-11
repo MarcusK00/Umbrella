@@ -17,9 +17,9 @@ import { buildModuleFilterInput } from "./filter-config.js";
 import { HEALTH_TOOL_NAME, registerHealthTool, type HealthState, type ModuleRuntimeState } from "./health.js";
 import type { LoadedModule, McpProductModule } from "./module-contract.js";
 import { parseForcedModules, selectModules } from "./module-selection.js";
-import { buildRoutingInstructions } from "./routing.js";
+import { buildRoutingInstructions, buildToolNameIndex } from "./routing.js";
 import { checkPackageInstalled, checkSingleSdk } from "./sdk-instance.js";
-import { DuplicateToolNameError, registerModuleTools, type RegistrationContext } from "./tool-registrar.js";
+import { DuplicateToolNameError, listToolNames, registerModuleTools, type RegistrationContext } from "./tool-registrar.js";
 
 const EXPECTED_UMBRACO_MAJOR = "17";
 
@@ -115,7 +115,19 @@ export async function startServer(options: {
   );
 
   // Phase 2: register each loaded module's tools.
-  const ctx: RegistrationContext = { server, user, registered: new Map([[HEALTH_TOOL_NAME, "core"]]) };
+  const ctx: RegistrationContext = {
+    server,
+    user,
+    registered: new Map([[HEALTH_TOOL_NAME, "core"]]),
+    toolNames: buildToolNameIndex(ready.flatMap(({ state, loaded }) => {
+      // A module whose tools can't be listed reports that when it registers below.
+      try {
+        return [{ module: state.decision.module, toolNames: listToolNames(loaded, user) }];
+      } catch {
+        return [];
+      }
+    })),
+  };
   for (const { state, loaded } of ready) {
     const { module } = state.decision;
     try {
