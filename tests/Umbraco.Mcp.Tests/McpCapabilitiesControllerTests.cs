@@ -1,7 +1,10 @@
+using System.Reflection;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NUnit.Framework;
 using Umbraco.Mcp.Api;
 using Umbraco.Mcp.Capabilities;
+using Umbraco.Cms.Web.Common.Authorization;
 using Umbraco.Mcp.Detection;
 
 namespace Umbraco.Mcp.Tests;
@@ -24,5 +27,14 @@ public class McpCapabilitiesControllerTests
 
         Assert.That(result, Is.InstanceOf<OkObjectResult>());
         Assert.That(((OkObjectResult)result).Value, Is.SameAs(caps));
+    }
+
+    [Test]
+    public void Controller_requires_back_office_access()
+    {
+        var attribute = typeof(McpCapabilitiesController).GetCustomAttribute<AuthorizeAttribute>(inherit: false);
+
+        Assert.That(attribute, Is.Not.Null);
+        Assert.That(attribute!.Policy, Is.EqualTo(AuthorizationPolicies.BackOfficeAccess));
     }
 }

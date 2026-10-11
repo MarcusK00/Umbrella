@@ -34,10 +34,7 @@ const CLIENT_SECRET = PROVIDED_SECRET || randomBytes(24).toString("base64url");
 const ADMIN_GROUP_KEY = "e5e7f6c8-7f9c-4b5b-8d5d-9e1e5a4f7e4d";
 const SWAGGER_CLIENT_ID = "umbraco-swagger";
 
-// Fixed user key so the API user doubles as the workspace service account the
-// test builders and snapshots expect (TEST_SERVICE_ACCOUNT_KEY in
-// workspace-builder.ts). A random key makes publish fail with
-// "Service account ... not found".
+// Fixed user key so re-runs target the same API user (override with TEST_SERVICE_ACCOUNT_KEY).
 const API_USER_KEY =
   process.env.TEST_SERVICE_ACCOUNT_KEY ?? "92bce462-d4b4-441f-9056-17f283f63cc8";
 
@@ -175,6 +172,12 @@ async function createApiUser(bearerToken) {
 
   if (!res.ok) {
     const body = await res.json().catch(() => null);
+    if (res.status === 409 || /already|duplicate|exists/i.test(`${body?.detail ?? ""} ${body?.title ?? ""}`)) {
+      throw new Error(
+        "The API user already exists but the client secret did not match. " +
+          "Pass the existing secret as argv[5] or set UMBRACO_CLIENT_SECRET."
+      );
+    }
     throw new Error(
       `Failed to create API user: ${body?.detail || body?.title || `HTTP ${res.status}`}`
     );

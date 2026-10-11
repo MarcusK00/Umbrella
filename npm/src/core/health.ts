@@ -74,7 +74,7 @@ export function buildHealthReport(state: HealthState): HealthReport {
       hasModule: true,
       loaded,
       toolCount,
-      issues: [...(p?.issues ?? []), ...issues, ...(loaded ? [] : [decision.reason])],
+      issues: [...(p?.issues ?? []), ...issues, ...(decision.load ? [] : [decision.reason])],
     };
   });
 

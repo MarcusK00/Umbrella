@@ -49,6 +49,21 @@ describe("buildHealthReport", () => {
     expect(r.products.find((p) => p.id === "engage")!.hasModule).toBe(false);
   });
 
+  it("adds the decision reason to issues only when the module was not selected", () => {
+    const forms = { id: "forms", displayName: "Umbraco Forms", installed: true, enabled: true, version: "17.6.1", issues: [] };
+    const caps = { kind: "ok" as const, payload: { addonVersion: "17.0.0", products: [forms] } };
+    const failed = buildHealthReport(state(caps, [cmsLoaded, {
+      decision: { module: mod("forms", "Umbraco Forms"), product: forms, load: true, reason: "selected" },
+      loaded: false, toolCount: 0, issues: ["Failed to load: boom"],
+    }]));
+    expect(failed.products.find((p) => p.id === "forms")!.issues).toEqual(["Failed to load: boom"]);
+    const skipped = buildHealthReport(state(caps, [cmsLoaded, {
+      decision: { module: mod("forms", "Umbraco Forms"), product: forms, load: false, reason: "disabled" },
+      loaded: false, toolCount: 0, issues: [],
+    }]));
+    expect(skipped.products.find((p) => p.id === "forms")!.issues).toEqual(["disabled"]);
+  });
+
   // Review Focus 4: unknown forced ids are reported, not thrown
   it("notes forced module ids that match no module", () => {
     const r = buildHealthReport(state({ kind: "no-addon" }, [cmsLoaded], ["engage"]));
