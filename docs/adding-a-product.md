@@ -10,7 +10,7 @@ Example: Umbraco Engage. Nothing in `npm/src/core/` or the addon's core changes.
 export { getUmbracoEngageManagementAPI as createApiClient } from "./umbraco-api/api/generated/umbracoEngageManagementApi.js";
 ```
 
-and depend on the same `@umbraco-cms/mcp-server-sdk` version as `npm/package.json`. Then `npm pack --pack-destination <path-to>/Umbraco.MCP/npm/vendor` and point the umbrella's dependency at the tarball (`file:vendor/…tgz`).
+and depend on the same `@umbraco-cms/mcp-server-sdk` version as `npm/package.json`. If a published release of the product package already has both, depend on that version from the registry (as Forms and Automate do). Otherwise `npm pack --pack-destination <path-to>/Umbraco.MCP/npm/vendor` and point the umbrella's dependency at the tarball (`file:vendor/…tgz`).
 
 ## 2. npm module (`npm/src/modules/engage.ts`)
 
