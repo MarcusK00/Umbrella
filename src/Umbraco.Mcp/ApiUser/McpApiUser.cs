@@ -2,5 +2,10 @@ using Umbraco.Cms.Core.Models.Membership;
 
 namespace Umbraco.Mcp.ApiUser;
 
-/// <summary>The backoffice user behind the MCP's client id, reduced to what the health check needs.</summary>
-public sealed record McpApiUser(string Name, UserState State, IReadOnlyCollection<string> AllowedSections);
+/// <summary>An API user the MCP server has connected as, reduced to what the health check needs.</summary>
+public sealed record McpApiUser(
+    string Name,
+    UserState State,
+    IReadOnlyCollection<string> AllowedSections,
+    IReadOnlyCollection<string> ClientIds,
+    DateTimeOffset LastConnected);

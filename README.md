@@ -59,7 +59,7 @@ The config pins `umbrella-mcp` to the add-on's version: the two packages are rel
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `Umbraco:Mcp:ClientId` | `umbraco-back-office-mcp` | The client id of the API user the MCP server signs in with. Used by the health checks and the written `.mcp.json` |
+| `Umbraco:Mcp:ClientId` | `umbraco-back-office-mcp` | The client id put in the written `.mcp.json` and in the "MCP client setup" config. The "MCP API user" check does not use it: it reports on whichever API user the MCP server connected as |
 | `Umbraco:Mcp:McpJson:Enabled` | `true` | Set to `false` to never write `.mcp.json` |
 | `Umbraco:Mcp:McpJson:Path` | the site's content root | Folder to write `.mcp.json` to, relative to the content root. Use `..` if you open the solution folder in your AI tool |
 | `Umbraco:Mcp:McpJson:Command`, `Umbraco:Mcp:McpJson:Args` | `npx`, `["-y", "umbrella-mcp@<version>"]` | Override how the server is started, for example to run a local build |
@@ -85,7 +85,7 @@ About the written `.mcp.json`:
 Settings → Health Check → **MCP** has three checks:
 
 - **MCP products**: which Umbraco products the add-on detected, their versions, and whether their Management APIs are available.
-- **MCP API user**: whether the API user behind `Umbraco:Mcp:ClientId` exists, can sign in, and has the sections for each detected product. The client secret is not checked.
+- **MCP API user**: every API user the MCP server has connected as, whatever its name or client id: when it last connected, whether it can still sign in, and whether it has the sections for each detected product. The MCP server connects once when your AI tool starts it, so until then the check only says no MCP server has connected yet. A stdio MCP server has no lasting connection, so the check shows the last connection, not whether one is open right now. Connections are stored in the `umbracoKeyValue` table.
 - **MCP client setup**: the MCP client config to copy, filled in with the site's URL and client id.
 
 In your AI tool, the `get-mcp-health` tool shows what the server loaded and why.
