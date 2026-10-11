@@ -100,7 +100,7 @@ This only works because product tool handlers call `getApiClient()` lazily insid
 ### Product packages
 
 - **CMS:** `@umbraco-cms/mcp-dev` 17.6.10 comes from the registry. `cms.ts` uses `UmbracoManagementClient.getClient()` as its factory.
-- **Forms and Automate:** `@umbraco-forms/mcp-dev` 17.6.1-beta.2 and `@umbraco-automate/mcp-dev` 17.4.0-beta.1 come from the registry (`lts-17-beta` tag). These are the first v17 releases whose `./collections` exports `createApiClient` and that depend on toolkit beta.45; earlier v17 releases do not work here.
+- **Forms and Automate:** `@umbraco-forms/mcp-dev` 17.6.1-beta.3 and `@umbraco-automate/mcp-dev` 17.4.0-beta.1 come from the registry (`lts-17-beta` tag). These are the first v17 releases whose `./collections` exports `createApiClient` and that depend on toolkit beta.45; earlier v17 releases do not work here.
 - **Engage:** `@umbraco-engage/mcp-dev` is a `file:vendor/*.tgz` tarball in **`devDependencies`** (gitignored, so `npm install` fails without it), because the published `17.0.0-beta.2` lacks the `createApiClient` export.
   - **Not shipped:** it is `external` in `tsup.config.ts`, so local builds load it from `node_modules` while the published package doesn't have it. `checkPackageInstalled` (`sdk-instance.ts`) then turns the missing package into a `get-mcp-health` issue instead of a load failure.
   - **Origin:** it is packed from the local branch `v17/feature/export-create-api-client` in `~/Desktop/Umbraco/MCPS/Engage.MCP.Developer.Repository/Umbraco-Engage-MCP-Dev` (branched from `dev`).

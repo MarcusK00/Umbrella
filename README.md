@@ -98,7 +98,7 @@ In your AI tool, the `get-mcp-health` tool shows what the server loaded and why.
 | Node.js | 22 or later |
 | `@umbraco-cms/mcp-server-sdk` | 1.0.0-beta.45 (one copy shared by all products) |
 | `@umbraco-cms/mcp-dev` | 17.6.10 |
-| `@umbraco-forms/mcp-dev` | 17.6.1-beta.2 |
+| `@umbraco-forms/mcp-dev` | 17.6.1-beta.3 |
 | `@umbraco-automate/mcp-dev` | 17.4.0-beta.1 |
 
 ## Known limitations
