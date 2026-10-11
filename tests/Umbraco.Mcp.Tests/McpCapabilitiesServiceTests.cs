@@ -12,6 +12,7 @@ public class McpCapabilitiesServiceTests
     {
         public string Id => "broken";
         public string DisplayName => "Broken Product";
+        public string? SectionAlias => null;
         public McpProductStatus Detect() => throw new InvalidOperationException("boom");
     }
 
@@ -43,6 +44,30 @@ public class McpCapabilitiesServiceTests
 
         Assert.That(s.Installed, Is.False);
         Assert.That(s.Issues, Has.Some.Contains("boom"));
+    }
+
+    [Test]
+    public void Engage_is_detected_by_its_core_assembly_and_management_api()
+    {
+        var assemblies = new FakeAssemblies(("Umbraco.Engage.Core", typeof(Assert).Assembly));
+        var apis = new FakeApis("engage-management");
+
+        McpProductStatus s = new EngageDetector(assemblies, apis).Detect();
+
+        Assert.That(s.Id, Is.EqualTo("engage"));
+        Assert.That(s.DisplayName, Is.EqualTo("Umbraco Engage"));
+        Assert.That(s.Installed && s.Enabled, Is.True);
+        Assert.That(s.Issues, Is.Empty);
+    }
+
+    [Test]
+    public void Detector_section_aliases_match_backoffice_sections()
+    {
+        var a = new FakeAssemblies();
+        var r = new FakeApis();
+        Assert.That(new FormsDetector(a, r).SectionAlias, Is.EqualTo("Umb.Section.Forms"));
+        Assert.That(new AutomateDetector(a, r).SectionAlias, Is.EqualTo("Ua.Section.Automate"));
+        Assert.That(new EngageDetector(a, r).SectionAlias, Is.EqualTo("Umb.Section.Engage"));
     }
 
     [Test]

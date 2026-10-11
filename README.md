@@ -43,6 +43,8 @@ Working names: final package names need product sign-off. Nothing is published t
 | `UMBRACO_READONLY` | `true` registers only read-only tools, for every module |
 | `UMBRACO_INCLUDE_SLICES`, `UMBRACO_EXCLUDE_SLICES` | Apply to every module |
 
+On the site, the "MCP API user" health check (Settings → Health Check → MCP) checks the API user behind `Umbraco:Mcp:ClientId` (default `umbraco-back-office-mcp`). It warns when no user has that client id, when the user is disabled or locked out, and when its groups lack the section of a detected product. Set `Umbraco:Mcp:ClientId` in the site's appsettings if the MCP server uses a different `UMBRACO_CLIENT_ID`. The client secret is not checked.
+
 ## Compatibility (v1)
 
 | Component | Version |

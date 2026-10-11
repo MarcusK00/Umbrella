@@ -21,6 +21,8 @@ public abstract class ProductDetectorBase : IMcpProductDetector
 
     public abstract string DisplayName { get; }
 
+    public virtual string? SectionAlias => null;
+
     protected abstract string AssemblyName { get; }
 
     protected abstract string ApiName { get; }

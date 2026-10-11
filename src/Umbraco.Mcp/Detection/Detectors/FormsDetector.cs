@@ -7,4 +7,5 @@ public sealed class FormsDetector(ILoadedAssemblyProvider assemblies, IRegistere
     public override string DisplayName => "Umbraco Forms";
     protected override string AssemblyName => "Umbraco.Forms.Core";
     protected override string ApiName => "forms-management";
+    public override string? SectionAlias => "Umb.Section.Forms";
 }

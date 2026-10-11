@@ -8,6 +8,9 @@ public sealed class CmsDetector(IUmbracoVersion umbracoVersion) : IMcpProductDet
     public string Id => "cms";
     public string DisplayName => "Umbraco CMS";
 
+    // CMS tools span every section; a user limited to some of them is a valid setup.
+    public string? SectionAlias => null;
+
     public McpProductStatus Detect() =>
         new(Id, DisplayName, true, true, umbracoVersion.Version.ToString(3), []);
 }
