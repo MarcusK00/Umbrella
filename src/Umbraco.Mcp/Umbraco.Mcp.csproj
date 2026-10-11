@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <PackageId>Umbraco.Mcp</PackageId>
+    <Version>17.0.0-alpha.1</Version>
+    <Description>Detects installed Umbraco HQ products for the Umbraco MCP and reports their health.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Umbraco.Cms.Api.Management" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Umbraco.Mcp.Tests" />
+  </ItemGroup>
+</Project>
