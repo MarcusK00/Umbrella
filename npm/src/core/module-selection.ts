@@ -33,7 +33,7 @@ export function selectModules(
     if (module.required) return decide(true, "Required module.");
     if (forced.includes(module.id)) return decide(true, "Forced on via UMBRACO_MCP_MODULES.");
     if (capabilities.kind === "no-addon") {
-      return decide(false, "The Umbraco.Mcp addon is not installed on the site, so products cannot be detected.");
+      return decide(false, "The Umbraco.Community.Umbrella add-on is not installed on the site, so products cannot be detected.");
     }
     if (capabilities.kind === "unavailable") return decide(false, `Capabilities unavailable: ${capabilities.reason}`);
     if (!product || !product.installed) return decide(false, `${module.displayName} is not installed on the site.`);

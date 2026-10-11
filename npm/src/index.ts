@@ -12,4 +12,4 @@ if (process.argv.includes("--list-tools")) {
 }
 
 await server.connect(new StdioServerTransport());
-console.error(`Umbraco MCP started with ${toolNames.length} tool(s).`);
+console.error(`Umbrella MCP started with ${toolNames.length} tool(s).`);
