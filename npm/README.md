@@ -22,4 +22,4 @@ Product detection needs the [`Umbraco.Community.Umbrella`](https://www.nuget.org
 
 Use the same version as the NuGet package: the two are released together.
 
-Requires Node.js 22 or later and Umbraco 17. Configuration, filters and known limitations: https://github.com/MarcusK00/Umbraco.MCP#readme
+Requires Node.js 22 or later and Umbraco 17. Configuration, filters and known limitations: https://github.com/MarcusK00/Umbraco.Community.Umbrella#readme

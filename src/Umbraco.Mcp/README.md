@@ -19,4 +19,4 @@ For other AI tools, copy the config from Settings → Health Check → MCP → "
 
 Supported products: Umbraco CMS, Umbraco Forms, Umbraco Automate. Requires Umbraco 17 and Node.js 22+ on the machine running the AI tool.
 
-Documentation: https://github.com/MarcusK00/Umbraco.MCP#readme
+Documentation: https://github.com/MarcusK00/Umbraco.Community.Umbrella#readme

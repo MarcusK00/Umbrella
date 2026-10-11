@@ -10,10 +10,10 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/MarcusK00/Umbraco.Community.MCP.git",
+    "url": "git+https://github.com/MarcusK00/Umbraco.Community.Umbrella.git",
     "directory": "npm"
   },
-  "homepage": "https://github.com/MarcusK00/Umbraco.Community.MCP#readme",
+  "homepage": "https://github.com/MarcusK00/Umbraco.Community.Umbrella#readme",
   "type": "module",
   "private": true,
   "bin": {
