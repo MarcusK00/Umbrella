@@ -4,7 +4,7 @@
 
 **Goal:** Build a proof-of-concept "one MCP per Umbraco site": a NuGet addon (`Umbraco.Mcp`) that detects installed HQ products and reports health, plus one npm MCP server (`@umbraco/mcp`) that loads CMS, Forms and Automate tools in-process, only for the products the site reports.
 
-**Architecture:** The NuGet addon exposes `GET /umbraco/management/api/v1/mcp/capabilities` (built from one `IMcpProductDetector` per product) and an "MCP" backoffice health check group. The npm server authenticates once, reads capabilities, selects product modules (one small adapter file per product under `npm/src/modules/`), registers their tools with a `<id>--` prefix, and binds every tool call to its own product's API client through `AsyncLocalStorage`. A `get-mcp-health` tool reports the result.
+**Architecture:** The NuGet addon exposes `GET /umbraco/management/api/v1/mcp/capabilities` (built from one `IMcpProductDetector` per product) and an "MCP" backoffice health check group. The npm server authenticates once, reads capabilities, selects product modules (one small adapter file per product under `npm/src/modules/`), registers their tools with a `<id>--` prefix, and binds every tool call to its own product's API client through `AsyncLocalStorage`. A `get-mcp-health` tool reports the result. Each module also carries a one-sentence `description` and short `useWhen` phrases: the server sends a routing table of the loaded modules as MCP `instructions` and prefixes every tool description with its product name, so agents pick a product before searching tools.
 
 **Tech Stack:** .NET 10 / Umbraco 17.7.0 / NUnit 3 (addon); Node ≥ 22, TypeScript (strict, ESM), `@modelcontextprotocol/sdk`, `@umbraco-cms/mcp-server-sdk` 1.0.0-beta.45, tsup, Jest 30 + ts-jest (npm package).
 
@@ -32,15 +32,16 @@
 - Working names `@umbraco/mcp` and `Umbraco.Mcp` (final names need product sign-off; do not publish to any feed).
 - Test libraries (copied from existing Umbraco repos): NUnit **3.14.0**, NUnit3TestAdapter **6.2.0**, Microsoft.NET.Test.Sdk **18.8.1**; Jest **^30.4.2**, ts-jest **^29.4.11**.
 - Never commit secrets. `.env`, `appsettings.local.json` and `npm/vendor/*.tgz` are gitignored.
-- Do **not** push branches or open PRs in the product repos (Phase 0) without explicit approval from the user.
+- Product MCP repo changes (Phase 0) are **local only**: never push, never open a PR, never change the MCP project template.
+- Every registered tool description is `[<module.displayName>] <original description>`. Server `instructions` = routing table of the **loaded** modules (+ version warning), under 2,000 characters for the full module set.
 - Dates in docs use DD-MM-YYYY.
 
 ## Review Focus
 
-1. **Concurrent calls across products.** Two tool calls for different products in flight at once must each use their own product's client, including when going through the real registration path, not just `bindClient`. Pinned in Task 10 (registrar test) and Task 7.
+1. **Concurrent calls across products.** Two tool calls for different products in flight at once must each use their own product's client, including when going through the real registration path, not just `bindClient`. Pinned in Task 11 (registrar test) and Task 7.
 2. **A 200 response that isn't capabilities** (for example an HTML login page, `{}`, or a missing `products` array). Expected: treated as "unavailable", CMS-only, with a readable reason, never a crash. Pinned in Task 8.
 3. **Odd product versions** (`17.6.1-beta.1+abc`, `v17`, `null` while installed). Expected: the major is parsed from the leading digits; `null` while installed means skip with "unknown version". Pinned in Task 9.
-4. **Messy `UMBRACO_MCP_MODULES`** (`" Forms, ,automate,engage "`). Expected: lowercase, trimmed, empties dropped, unknown ids (`engage`) reported in health notes, never thrown. Pinned in Tasks 9 and 11.
+4. **Messy `UMBRACO_MCP_MODULES`** (`" Forms, ,automate,engage "`). Expected: lowercase, trimmed, empties dropped, unknown ids (`engage`) reported in health notes, never thrown. Pinned in Tasks 9 and 12.
 5. **Filter entries for unknown or unloaded modules** (`UMBRACO_TOOL_MODES=engage:analytics,content`). Expected: ignored for other modules, and `content` still applies to CMS. Pinned in Task 9.
 
 ---
@@ -88,6 +89,7 @@ Umbraco.MCP/
 │     ├─ core/capabilities.ts
 │     ├─ core/module-selection.ts
 │     ├─ core/filter-config.ts
+│     ├─ core/routing.ts                    routing instructions + tool description prefix
 │     ├─ core/tool-registrar.ts
 │     ├─ core/sdk-instance.ts
 │     ├─ core/health.ts
@@ -102,9 +104,9 @@ Umbraco.MCP/
 
 ---
 
-# Phase 0: Upstream prerequisites (in the product repos)
+# Phase 0: Local product changes (in the product repos, local only)
 
-These tasks change **other repositories**. Work on a new local branch in each and do not push. The output is a tarball the umbrella consumes.
+These tasks change **other repositories, locally only**. Work on a new local branch in each. Never push and never open a PR. The output is a tarball the umbrella consumes.
 
 ### Task 1: Forms MCP exports `createApiClient` and moves to toolkit beta.45
 
@@ -1095,7 +1097,7 @@ All commands run from `~/Desktop/Umbraco/Umbraco.MCP/npm` unless stated otherwis
 **Interfaces:**
 - Produces:
   - `interface LoadedModule { collections: ToolCollectionExport[]; allModes: ToolModeDefinition[]; allModeNames: readonly string[]; allSliceNames: readonly string[]; createApiClient: () => unknown }`
-  - `interface McpProductModule { id: string; displayName: string; toolPrefix: string; packageName: string; expectedMajor: string; required?: boolean; load(): Promise<LoadedModule> }`
+  - `interface McpProductModule { id: string; displayName: string; toolPrefix: string; packageName: string; expectedMajor: string; description: string; useWhen: string[]; required?: boolean; load(): Promise<LoadedModule> }`
   - `installClientContext(defaultFactory: () => unknown): void`
   - `bindClient<A extends unknown[], R>(factory: () => unknown, handler: (...args: A) => R): (...args: A) => R`
 
@@ -1227,6 +1229,10 @@ export interface McpProductModule {
   packageName: string;
   /** Product major this release line supports, e.g. "17". */
   expectedMajor: string;
+  /** One sentence starting with the display name: what this product is. Used in routing instructions. */
+  description: string;
+  /** Short phrases for the requests this product handles. Disambiguate words shared with other products here. */
+  useWhen: string[];
   /** Required modules load even without capabilities (CMS only). */
   required?: boolean;
   /** Dynamic import so absent products are never loaded. */
@@ -1497,7 +1503,7 @@ import type { CapabilitiesResult, ProductCapability } from "../capabilities.js";
 import { majorOf, parseForcedModules, selectModules } from "../module-selection.js";
 
 const mod = (id: string, required = false): McpProductModule => ({
-  id, displayName: id, toolPrefix: `${id}--`, packageName: `@x/${id}`, expectedMajor: "17", required,
+  id, displayName: id, toolPrefix: `${id}--`, packageName: `@x/${id}`, expectedMajor: "17", description: `${id} description`, useWhen: [`${id} requests`], required,
   load: async () => { throw new Error("not used"); },
 });
 const product = (id: string, over: Partial<ProductCapability> = {}): ProductCapability => ({
@@ -1745,14 +1751,120 @@ git add npm/src
 git commit -m "feat(npm): add capability-driven module selection and module-scoped filters"
 ```
 
-### Task 10: Tool registrar (prefix, filter, collision, client binding)
+### Task 10: Routing instructions and tool description prefix
+
+**Files:**
+- Create: `npm/src/core/routing.ts`
+- Test: `npm/src/core/__tests__/routing.test.ts`
+
+**Interfaces:**
+- Consumes: `McpProductModule` (Task 7).
+- Produces:
+  - `HEALTH_TOOL_NAME = "get-mcp-health"` (single source; `health.ts` re-exports it)
+  - `describeTool(module: Pick<McpProductModule, "displayName">, description: string): string` returns `"[<displayName>] <description>"`
+  - `buildRoutingInstructions(modules: McpProductModule[], extras?: Array<string | null>): string`
+
+- [ ] **Step 1: Write the failing tests** `npm/src/core/__tests__/routing.test.ts`
+
+```ts
+import type { McpProductModule } from "../module-contract.js";
+import { HEALTH_TOOL_NAME, buildRoutingInstructions, describeTool } from "../routing.js";
+
+const mod = (id: string, useWhen: string[]): McpProductModule => ({
+  id, displayName: `Umbraco ${id}`, toolPrefix: `${id}--`, packageName: `@x/${id}`, expectedMajor: "17",
+  description: `Umbraco ${id}: does ${id} things.`, useWhen,
+  load: async () => { throw new Error("unused"); },
+});
+
+describe("describeTool", () => {
+  it("prefixes the product display name", () => {
+    expect(describeTool({ displayName: "Umbraco Forms" }, "Lists all forms.")).toBe("[Umbraco Forms] Lists all forms.");
+  });
+});
+
+describe("buildRoutingInstructions", () => {
+  const cms = mod("cms", ["content", "media"]);
+  const forms = mod("forms", ["forms", "form workflows (after submit)"]);
+
+  it("lists one line per module with prefix, description and useWhen", () => {
+    const text = buildRoutingInstructions([cms, forms]);
+    expect(text).toContain("- `cms--` Umbraco cms: does cms things. Use for: content; media.");
+    expect(text).toContain("- `forms--` Umbraco forms: does forms things. Use for: forms; form workflows (after submit).");
+  });
+
+  it("only mentions the modules it is given", () => {
+    expect(buildRoutingInstructions([cms])).not.toContain("forms--");
+  });
+
+  it("tells the agent to pick a product first and points to the health tool", () => {
+    const text = buildRoutingInstructions([cms]);
+    expect(text).toMatch(/Pick the product/);
+    expect(text).toContain(HEALTH_TOOL_NAME);
+  });
+
+  it("appends non-null extras and skips null ones", () => {
+    const text = buildRoutingInstructions([cms], [null, "Version mismatch: 18 vs 17"]);
+    expect(text.endsWith("\n\nVersion mismatch: 18 vs 17")).toBe(true);
+    expect(text).not.toContain("null");
+  });
+});
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `npm test -- routing`
+Expected: FAIL with `Cannot find module '../routing.js'`.
+
+- [ ] **Step 3: Implement `npm/src/core/routing.ts`**
+
+```ts
+import type { McpProductModule } from "./module-contract.js";
+
+export const HEALTH_TOOL_NAME = "get-mcp-health";
+
+/** Every tool description starts with its product so keyword-based tool search finds the right product. */
+export function describeTool(module: Pick<McpProductModule, "displayName">, description: string): string {
+  return `[${module.displayName}] ${description}`;
+}
+
+/**
+ * Routing table sent as MCP server `instructions` (most clients fold it into the system prompt),
+ * so the agent chooses a product before looking through tools. Only pass modules that actually loaded.
+ */
+export function buildRoutingInstructions(modules: McpProductModule[], extras: Array<string | null> = []): string {
+  const routing = [
+    "This server exposes tools for several Umbraco products on one site. Every tool name starts with its product prefix.",
+    "Pick the product from the user's request first, then only use tools with that prefix:",
+    "",
+    ...modules.map((m) => `- \`${m.toolPrefix}\` ${m.description} Use for: ${m.useWhen.join("; ")}.`),
+    "",
+    `If the request does not clearly match one product, or product tools seem missing, call ${HEALTH_TOOL_NAME}.`,
+  ].join("\n");
+  return [routing, ...extras.filter((e): e is string => Boolean(e))].join("\n\n");
+}
+```
+
+- [ ] **Step 4: Run tests and typecheck**
+
+Run: `npm test -- routing && npm run compile`
+Expected: 5 passed; compile exit 0.
+
+- [ ] **Step 5: Commit**
+
+```bash
+cd ~/Desktop/Umbraco/Umbraco.MCP
+git add npm/src
+git commit -m "feat(npm): add routing instructions and product-prefixed tool descriptions"
+```
+
+### Task 11: Tool registrar (prefix, filter, collision, client binding)
 
 **Files:**
 - Create: `npm/src/core/tool-registrar.ts`
 - Test: `npm/src/core/__tests__/tool-registrar.test.ts`
 
 **Interfaces:**
-- Consumes: `McpProductModule`, `LoadedModule` (Task 7), `bindClient` (Task 7).
+- Consumes: `McpProductModule`, `LoadedModule` (Task 7), `bindClient` (Task 7), `describeTool` (Task 10).
 - Produces:
   - `class DuplicateToolNameError extends Error { toolName: string }`
   - `interface RegistrationContext { server: { registerTool: McpServer["registerTool"] }; user: unknown; registered: Map<string, string> }` (map: final tool name → module id)
@@ -1789,20 +1901,25 @@ const loaded = (client: string, tools: ReturnType<typeof tool>[]): LoadedModule 
 });
 
 const mod = (id: string): McpProductModule => ({
-  id, displayName: id, toolPrefix: `${id}--`, packageName: `@x/${id}`, expectedMajor: "17",
+  id, displayName: id, toolPrefix: `${id}--`, packageName: `@x/${id}`, expectedMajor: "17", description: `${id} description`, useWhen: [`${id} requests`],
   load: async () => { throw new Error("unused"); },
 });
 
 const noFilter = (l: LoadedModule): CollectionConfiguration =>
   createCollectionConfigLoader({ modeRegistry: l.allModes, allModeNames: l.allModeNames, allSliceNames: l.allSliceNames }).loadFromConfig({});
 
-const ctx = (): RegistrationContext & { calls: Map<string, (...a: unknown[]) => Promise<any>> } => {
+const ctx = (): RegistrationContext & {
+  calls: Map<string, (...a: unknown[]) => Promise<any>>;
+  configs: Map<string, { description?: string }>;
+} => {
   const calls = new Map<string, (...a: unknown[]) => Promise<any>>();
+  const configs = new Map<string, { description?: string }>();
   return {
     calls,
+    configs,
     user: { id: "u" },
     registered: new Map(),
-    server: { registerTool: ((name: string, _cfg: unknown, cb: any) => { calls.set(name, cb); }) as never },
+    server: { registerTool: ((name: string, cfg: { description?: string }, cb: any) => { calls.set(name, cb); configs.set(name, cfg); }) as never },
   };
 };
 
@@ -1815,6 +1932,13 @@ describe("registerModuleTools", () => {
     expect(registerModuleTools(c, mod("forms"), l, noFilter(l))).toBe(2);
     expect([...c.calls.keys()]).toEqual(["forms--list-forms", "forms--get-form"]);
     expect(c.registered.get("forms--list-forms")).toBe("forms");
+  });
+
+  it("prefixes every description with the product display name", () => {
+    const c = ctx();
+    const l = loaded("forms-client", [tool("list-forms")]);
+    registerModuleTools(c, mod("forms"), l, noFilter(l));
+    expect(c.configs.get("forms--list-forms")!.description).toBe("[forms] list-forms tool");
   });
 
   it("skips tools whose enabled(user) is false", () => {
@@ -1874,6 +1998,7 @@ import {
 } from "@umbraco-cms/mcp-server-sdk";
 import { bindClient } from "./client-context.js";
 import type { LoadedModule, McpProductModule } from "./module-contract.js";
+import { describeTool } from "./routing.js";
 
 export class DuplicateToolNameError extends Error {
   constructor(public readonly toolName: string, existingModule: string, newModule: string) {
@@ -1911,7 +2036,7 @@ export function registerModuleTools(
       ctx.server.registerTool(
         name,
         {
-          description: tool.description,
+          description: describeTool(module, tool.description),
           inputSchema: tool.inputSchema,
           outputSchema: tool.outputSchema,
           annotations: createToolAnnotations(tool),
@@ -1928,7 +2053,7 @@ export function registerModuleTools(
 - [ ] **Step 4: Run tests and typecheck**
 
 Run: `npm test -- tool-registrar && npm run compile`
-Expected: 5 passed; compile exit 0. If `createCollectionConfigLoader({ modeRegistry: [] ... })` rejects an empty mode list, pass `allModeNames: []` exactly as shown. The toolkit validates names only when modes are requested.
+Expected: 6 passed; compile exit 0. If `createCollectionConfigLoader({ modeRegistry: [] ... })` rejects an empty mode list, pass `allModeNames: []` exactly as shown. The toolkit validates names only when modes are requested.
 
 - [ ] **Step 5: Commit**
 
@@ -1938,7 +2063,7 @@ git add npm/src
 git commit -m "feat(npm): add tool registrar with prefixing, filtering, collision check and client binding"
 ```
 
-### Task 11: Health report and `get-mcp-health` tool
+### Task 12: Health report and `get-mcp-health` tool
 
 **Files:**
 - Create: `npm/src/core/health.ts`
@@ -1951,7 +2076,7 @@ git commit -m "feat(npm): add tool registrar with prefixing, filtering, collisio
   - `interface HealthState { capabilities: CapabilitiesResult; umbracoVersion: string | null; versionCheckMessage: string | null; forcedModules: string[]; modules: ModuleRuntimeState[] }`
   - `interface HealthReport { addon; umbraco; forcedModules; products; notes }` (shape below)
   - `buildHealthReport(state: HealthState): HealthReport`
-  - `HEALTH_TOOL_NAME = "get-mcp-health"`
+  - re-exports `HEALTH_TOOL_NAME` from `routing.ts` (Task 10)
   - `registerHealthTool(server: { registerTool: McpServer["registerTool"] }, getState: () => HealthState): void`
 
 - [ ] **Step 1: Write the failing tests**
@@ -1962,7 +2087,7 @@ import { buildHealthReport, type HealthState, type ModuleRuntimeState } from "..
 import type { McpProductModule } from "../module-contract.js";
 
 const mod = (id: string, displayName: string, required = false): McpProductModule => ({
-  id, displayName, toolPrefix: `${id}--`, packageName: `@x/${id}`, expectedMajor: "17", required,
+  id, displayName, toolPrefix: `${id}--`, packageName: `@x/${id}`, expectedMajor: "17", description: `${id} description`, useWhen: [`${id} requests`], required,
   load: async () => { throw new Error("unused"); },
 });
 
@@ -1991,7 +2116,7 @@ describe("buildHealthReport", () => {
     ));
     expect(r.addon).toEqual({ installed: true, version: "17.0.0", status: "ok" });
     expect(r.products.find((p) => p.id === "forms")).toEqual({
-      id: "forms", displayName: "Umbraco Forms", installed: true, enabled: true, version: "17.6.1",
+      id: "forms", displayName: "Umbraco Forms", description: "forms description", installed: true, enabled: true, version: "17.6.1",
       hasModule: true, loaded: true, toolCount: 118, issues: [],
     });
   });
@@ -2036,7 +2161,9 @@ import { createToolResult } from "@umbraco-cms/mcp-server-sdk";
 import type { CapabilitiesResult } from "./capabilities.js";
 import type { ModuleDecision } from "./module-selection.js";
 
-export const HEALTH_TOOL_NAME = "get-mcp-health";
+import { HEALTH_TOOL_NAME } from "./routing.js";
+
+export { HEALTH_TOOL_NAME };
 
 export interface ModuleRuntimeState {
   decision: ModuleDecision;
@@ -2056,6 +2183,7 @@ export interface HealthState {
 export interface HealthProduct {
   id: string;
   displayName: string;
+  description: string | null;
   installed: boolean | null;
   enabled: boolean | null;
   version: string | null;
@@ -2097,6 +2225,7 @@ export function buildHealthReport(state: HealthState): HealthReport {
     return {
       id: decision.module.id,
       displayName: decision.module.displayName,
+      description: decision.module.description,
       installed: p ? p.installed : null,
       enabled: p ? p.enabled : null,
       version: p ? p.version : null,
@@ -2109,7 +2238,7 @@ export function buildHealthReport(state: HealthState): HealthReport {
 
   for (const p of detected) {
     if (products.some((x) => x.id === p.id)) continue;
-    products.push({ ...p, hasModule: false, loaded: false, toolCount: 0 });
+    products.push({ ...p, description: null, hasModule: false, loaded: false, toolCount: 0 });
     if (p.installed) notes.push(`${p.displayName} is installed, but this MCP has no ${p.displayName} module yet.`);
   }
 
@@ -2155,7 +2284,7 @@ git add npm/src
 git commit -m "feat(npm): add health report and get-mcp-health tool"
 ```
 
-### Task 12: Product modules and the module contract test
+### Task 13: Product modules and the module contract test
 
 **Files:**
 - Create: `npm/src/types/product-modules.d.ts`
@@ -2175,6 +2304,7 @@ Expected: includes `UmbracoManagementClient,allModeNames,allModes,allSliceNames,
 
 ```ts
 import { createPermissiveCodegenUser } from "@umbraco-cms/mcp-server-sdk";
+import { buildRoutingInstructions } from "../../core/routing.js";
 import { modules } from "../index.js";
 
 const user = createPermissiveCodegenUser();
@@ -2185,6 +2315,12 @@ describe.each(modules.map((m) => [m.id, m] as const))("module %s", (_id, module)
     expect(module.toolPrefix).toBe(`${module.id}--`);
     expect(module.packageName).toMatch(/^@[a-z0-9-]+\/[a-z0-9-]+$/);
     expect(module.expectedMajor).toBe("17");
+  });
+
+  it("has routing text: description starts with the display name, useWhen is non-empty", () => {
+    expect(module.description.startsWith(`${module.displayName}: `)).toBe(true);
+    expect(module.useWhen.length).toBeGreaterThan(0);
+    for (const phrase of module.useWhen) expect(phrase.trim().length).toBeGreaterThan(0);
   });
 
   it("loads every LoadedModule field", async () => {
@@ -2216,6 +2352,10 @@ describe("module set", () => {
 
   it("has unique ids", () => {
     expect(new Set(modules.map((m) => m.id)).size).toBe(modules.length);
+  });
+
+  it("keeps the routing instructions for all modules under 2,000 characters", () => {
+    expect(buildRoutingInstructions(modules).length).toBeLessThan(2000);
   });
 
   it("produces unique prefixed tool names across all modules", async () => {
@@ -2261,6 +2401,15 @@ export const cmsModule: McpProductModule = {
   packageName: "@umbraco-cms/mcp-dev",
   expectedMajor: "17",
   required: true,
+  description: "Umbraco CMS: the site's content, structure, media, members and settings.",
+  useWhen: [
+    "content/documents, publishing, blueprints and the recycle bin",
+    "document types, data types, templates, partial views, stylesheets and scripts",
+    "media and media types",
+    "members, users and user groups",
+    "dictionary items, languages, domains, redirects and CMS webhooks",
+    "health checks, logs, search indexes and server information",
+  ],
   load: async (): Promise<LoadedModule> => {
     const m = await import("@umbraco-cms/mcp-dev/collections");
     return {
@@ -2285,6 +2434,12 @@ export const formsModule: McpProductModule = {
   toolPrefix: "forms--",
   packageName: "@umbraco-forms/mcp-dev",
   expectedMajor: "17",
+  description: "Umbraco Forms: forms, their fields and the entries people submit.",
+  useWhen: [
+    "forms, form fields, pages, conditions, themes and form templates",
+    "form submissions (entries/records), searching and exporting them",
+    "form workflows (actions that run after a form is submitted), data sources and prevalue sources",
+  ],
   load: async (): Promise<LoadedModule> => {
     const m = await import("@umbraco-forms/mcp-dev/collections");
     return {
@@ -2309,6 +2464,14 @@ export const automateModule: McpProductModule = {
   toolPrefix: "automate--",
   packageName: "@umbraco-automate/mcp-dev",
   expectedMajor: "17",
+  description: "Umbraco Automate: automations that react to triggers and run steps.",
+  useWhen: [
+    "automations: creating, editing, publishing and triggering them",
+    "triggers, steps, connections and the trigger/step catalogue",
+    "automation runs, their history, retries and pending approvals",
+    "workspaces, metrics and version history",
+    "general automations that are not tied to a form submission",
+  ],
   load: async (): Promise<LoadedModule> => {
     const m = await import("@umbraco-automate/mcp-dev/collections");
     return {
@@ -2347,7 +2510,7 @@ git add npm/src
 git commit -m "feat(npm): add CMS, Forms and Automate modules with an auto-applied contract test"
 ```
 
-### Task 13: Single-toolkit check
+### Task 14: Single-toolkit check
 
 **Files:**
 - Create: `npm/src/core/sdk-instance.ts`
@@ -2452,14 +2615,14 @@ git add npm/src
 git commit -m "feat(npm): skip modules that would run on a second toolkit copy"
 ```
 
-### Task 14: Server orchestration and stdio entry point
+### Task 15: Server orchestration and stdio entry point
 
 **Files:**
 - Create: `npm/src/core/server.ts`, `npm/src/index.ts`
 - Create: `npm/.env.example`
 
 **Interfaces:**
-- Consumes: everything from Tasks 7–13: `installClientContext`, `fetchCapabilities`, `parseForcedModules`, `selectModules`, `buildModuleFilterInput`, `registerModuleTools`, `DuplicateToolNameError`, `checkSingleSdk`, `registerHealthTool`, `HEALTH_TOOL_NAME`, `HealthState`, `ModuleRuntimeState`, `modules`.
+- Consumes: everything from Tasks 7–14: `installClientContext`, `buildRoutingInstructions`, `fetchCapabilities`, `parseForcedModules`, `selectModules`, `buildModuleFilterInput`, `registerModuleTools`, `DuplicateToolNameError`, `checkSingleSdk`, `registerHealthTool`, `HEALTH_TOOL_NAME`, `HealthState`, `ModuleRuntimeState`, `modules`.
 - Produces: `startServer(options: { modules: McpProductModule[]; env: NodeJS.ProcessEnv; version: string }): Promise<{ server: McpServer; toolNames: string[] }>`; CLI flag `--list-tools`.
 
 - [ ] **Step 1: Implement `npm/src/core/server.ts`**
@@ -2484,6 +2647,7 @@ import { buildModuleFilterInput } from "./filter-config.js";
 import { HEALTH_TOOL_NAME, registerHealthTool, type HealthState, type ModuleRuntimeState } from "./health.js";
 import type { LoadedModule, McpProductModule } from "./module-contract.js";
 import { parseForcedModules, selectModules } from "./module-selection.js";
+import { buildRoutingInstructions } from "./routing.js";
 import { checkSingleSdk } from "./sdk-instance.js";
 import { DuplicateToolNameError, registerModuleTools, type RegistrationContext } from "./tool-registrar.js";
 
@@ -2541,36 +2705,50 @@ export async function startServer(options: {
   const forcedModules = parseForcedModules(env.UMBRACO_MCP_MODULES);
   const decisions = selectModules(options.modules, capabilities, forcedModules);
 
-  const server = new McpServer(
-    { name: "Umbraco MCP", version },
-    versionCheckMessage ? { instructions: versionCheckMessage } : undefined,
-  );
-
-  const ctx: RegistrationContext = { server, user, registered: new Map([[HEALTH_TOOL_NAME, "core"]]) };
+  // Phase 1: load the selected modules. Server instructions are fixed at construction,
+  // so we need to know which modules loaded before creating the server.
   const states: ModuleRuntimeState[] = [];
-
+  const ready: Array<{ state: ModuleRuntimeState; loaded: LoadedModule }> = [];
   for (const decision of decisions) {
     const state: ModuleRuntimeState = { decision, loaded: false, toolCount: 0, issues: [] };
     states.push(state);
     if (!decision.load) continue;
+    if (decision.module.required) {
+      ready.push({ state, loaded: cmsLoaded });
+      continue;
+    }
     try {
       const sdkIssue = checkSingleSdk(decision.module.packageName);
       if (sdkIssue) {
         state.issues.push(sdkIssue);
         continue;
       }
-      const loaded: LoadedModule = decision.module.required ? cmsLoaded : await decision.module.load();
+      ready.push({ state, loaded: await decision.module.load() });
+    } catch (error) {
+      state.issues.push(`Failed to load: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  const server = new McpServer(
+    { name: "Umbraco MCP", version },
+    { instructions: buildRoutingInstructions(ready.map((r) => r.state.decision.module), [versionCheckMessage]) },
+  );
+
+  // Phase 2: register each loaded module's tools.
+  const ctx: RegistrationContext = { server, user, registered: new Map([[HEALTH_TOOL_NAME, "core"]]) };
+  for (const { state, loaded } of ready) {
+    const { module } = state.decision;
+    try {
       const filter = createCollectionConfigLoader({
         modeRegistry: loaded.allModes,
         allModeNames: loaded.allModeNames,
         allSliceNames: loaded.allSliceNames,
-      }).loadFromConfig(buildModuleFilterInput(env, decision.module.id, decision.module.required === true));
-      state.toolCount = registerModuleTools(ctx, decision.module, loaded, filter);
+      }).loadFromConfig(buildModuleFilterInput(env, module.id, module.required === true));
+      state.toolCount = registerModuleTools(ctx, module, loaded, filter);
       state.loaded = true;
     } catch (error) {
-      if (error instanceof DuplicateToolNameError) throw error;
-      state.issues.push(`Failed to load: ${error instanceof Error ? error.message : String(error)}`);
-      if (decision.module.required) throw error;
+      if (error instanceof DuplicateToolNameError || module.required) throw error;
+      state.issues.push(`Failed to register tools: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -2638,7 +2816,7 @@ git commit -m "feat(npm): wire startup orchestration, health state and --list-to
 
 # Phase 3: Demo site, end-to-end check and docs
 
-### Task 15: Demo site and end-to-end script
+### Task 16: Demo site and end-to-end script
 
 **Files:**
 - Create: `demo-site/` (Umbraco 17.7.0 site via template)
@@ -2646,7 +2824,7 @@ git commit -m "feat(npm): wire startup orchestration, health state and --list-to
 - Create: `scripts/e2e.sh`
 
 **Interfaces:**
-- Consumes: `Umbraco.Mcp` project (Phase 1), `npm/dist/index.js` (Task 14).
+- Consumes: `Umbraco.Mcp` project (Phase 1), `npm/dist/index.js` (Task 15).
 - Produces: a local site at `https://localhost:44399` (HTTP `http://localhost:9399`) with Forms 17.6.1, Automate 17.4.0 and `Umbraco.Mcp`; an API user `umbraco-back-office-mcp`.
 
 - [ ] **Step 1: Create the site from the Umbraco 17.7.0 template**
@@ -2726,6 +2904,8 @@ for prefix in "cms--" "forms--" "automate--"; do
 done
 echo "$TOOLS" | grep -qx "get-mcp-health" || fail "get-mcp-health missing"
 echo "   $(echo "$TOOLS" | wc -l | tr -d ' ') tools"
+LIST=$(npx -y @modelcontextprotocol/inspector@1 --cli node dist/index.js --method tools/list)
+echo "$LIST" | grep -q '\[Umbraco Forms\]' || fail "tool descriptions are not product-prefixed"
 
 echo "3. Smoke calls"
 for tool in get-mcp-health forms--list-forms automate--list-automations; do
@@ -2764,7 +2944,7 @@ git add demo-site scripts Umbraco.Mcp.slnx
 git commit -m "test: add demo site and end-to-end smoke script"
 ```
 
-### Task 16: README and "adding a product" guide
+### Task 17: README and "adding a product" guide
 
 **Files:**
 - Create: `README.md`, `docs/adding-a-product.md`
@@ -2779,7 +2959,7 @@ git commit -m "test: add demo site and end-to-end smoke script"
 
 Example: Umbraco Engage. Nothing in `npm/src/core/` or the addon's core changes.
 
-## 1. Product MCP repo
+## 1. Product MCP repo (local branch only, never a PR)
 
 `src/collections.ts` must export the API client factory next to the existing exports:
 
@@ -2787,7 +2967,7 @@ Example: Umbraco Engage. Nothing in `npm/src/core/` or the addon's core changes.
 export { getUmbracoEngageManagementAPI as createApiClient } from "./umbraco-api/api/generated/umbracoEngageManagementApi.js";
 ```
 
-and depend on the same `@umbraco-cms/mcp-server-sdk` version as `npm/package.json`.
+and depend on the same `@umbraco-cms/mcp-server-sdk` version as `npm/package.json`. Then `npm pack --pack-destination <path-to>/Umbraco.MCP/npm/vendor` and point the umbrella's dependency at the tarball (`file:vendor/…tgz`).
 
 ## 2. npm module (`npm/src/modules/engage.ts`)
 
@@ -2800,6 +2980,12 @@ export const engageModule: McpProductModule = {
   toolPrefix: "engage--",
   packageName: "@umbraco-engage/mcp-dev",
   expectedMajor: "17",
+  description: "Umbraco Engage: personalisation, A/B tests, segments and visitor analytics.",
+  useWhen: [
+    "A/B tests and their variants",
+    "personalisation, personas, segments and customer journeys",
+    "visitor analytics, goals, campaigns and reporting",
+  ],
   load: async (): Promise<LoadedModule> => {
     const m = await import("@umbraco-engage/mcp-dev/collections");
     return {
@@ -2815,6 +3001,7 @@ export const engageModule: McpProductModule = {
 
 Then:
 - add `engageModule` to `npm/src/modules/index.ts`
+- write `description` as one sentence starting with the display name, and keep `useWhen` phrases short and concrete. If a word overlaps another product (e.g. "workflow", "analytics"), say in the phrase which meaning belongs here
 - add `declare module "@umbraco-engage/mcp-dev/collections";` to `npm/src/types/product-modules.d.ts` (if the package ships no types)
 - add the dependency to `npm/package.json` on the matching major line
 
@@ -2853,6 +3040,8 @@ One MCP server for an Umbraco 17 site. It detects which Umbraco HQ products are 
 |---|---|
 | `src/Umbraco.Mcp` (NuGet) | Detects products, serves `GET /umbraco/management/api/v1/mcp/capabilities`, adds an **MCP** backoffice health check |
 | `npm/` (`@umbraco/mcp`) | Stdio MCP server: CMS always, Forms/Automate when detected; tools are prefixed `cms--`, `forms--`, `automate--`; `get-mcp-health` explains what loaded and why |
+
+Agents get a routing table (MCP server `instructions`) that says which prefix to use for which kind of request, and every tool description starts with its product, e.g. `[Umbraco Forms] …`.
 
 Working names: final package names need product sign-off. Nothing is published to npm or NuGet.
 
@@ -2894,13 +3083,13 @@ Working names: final package names need product sign-off. Nothing is published t
 | Umbraco CMS | 17.x |
 | `@umbraco-cms/mcp-server-sdk` | 1.0.0-beta.45 (single copy enforced) |
 | `@umbraco-cms/mcp-dev` | 17.6.10 |
-| `@umbraco-forms/mcp-dev` / `@umbraco-automate/mcp-dev` | local Phase 0 builds (`npm/vendor/`) until the `createApiClient` export ships |
+| `@umbraco-forms/mcp-dev` / `@umbraco-automate/mcp-dev` | local builds with the `createApiClient` export (`npm/vendor/`); these changes are never pushed |
 
 ## Develop
 
 - `dotnet test Umbraco.Mcp.slnx`
 - `cd npm && npm test`
-- `scripts/e2e.sh` (needs the demo site running; see `docs/superpowers/plans/2026-10-11-umbraco-mcp-umbrella.md`, Task 15)
+- `scripts/e2e.sh` (needs the demo site running; see `docs/superpowers/plans/2026-10-11-umbraco-mcp-umbrella.md`, Task 16)
 - Adding a product: [docs/adding-a-product.md](docs/adding-a-product.md)
 
 Known trade-off: tool names are prefixed (`cms--get-document`), so they differ from the standalone CMS MCP's names.
@@ -2920,19 +3109,20 @@ git commit -m "docs: add README and adding-a-product guide"
 
 | Spec section | Task(s) |
 |---|---|
-| 1 Success criteria: tools for detected products, removal hides tools, health group, small extension, isolation | 14, 15 (Steps 6–8), 6, 16, 7 + 10 |
-| 2 Scope (CMS/Forms/Automate, 17, stdio, upstream PRs) | 1, 2, 12, 14 |
-| 3 Background (missing exports, toolkit pins, collisions) | 1, 2, 7 (Step 3 dedupe check), 10, 12 |
-| 4.1 npm module contract (+ `packageName` delta) | 7, 12 |
+| 1 Success criteria: tools for detected products, removal hides tools, health group, small extension, isolation, routing table | 15, 16 (Steps 6–8), 6, 17, 7 + 11, 10 + 15 |
+| 2 Scope (CMS/Forms/Automate, 17, stdio, local-only product changes) | 1, 2, 13, 15 |
+| 3 Background (missing exports, toolkit pins, collisions) | 1, 2, 7 (Step 3 dedupe check), 11, 13 |
+| 4.1 npm module contract (+ `packageName`, `description`, `useWhen`) | 7, 13 |
 | 4.2 .NET detector contract, no product dependency | 3, 4 |
-| 5.1 Startup sequence | 14 |
-| 5.2 Per-call client isolation | 7, 10 |
-| 5.3 Single toolkit instance | 7 (overrides), 13, 14 |
+| 5.1 Startup sequence | 15 |
+| 5.2 Per-call client isolation | 7, 11 |
+| 5.3 Single toolkit instance | 7 (overrides), 14, 15 |
 | 5.4 Capabilities endpoint | 5, 8 |
-| 5.5 Filtering | 9, 14 |
-| 6.1 Backoffice health check | 6, 15 (Step 7) |
-| 6.2 `get-mcp-health` | 11, 14, 15 |
-| 7 Error handling table | 8, 9, 13, 14 (Steps 1 and 5) |
-| 8 Testing | every task; contract test in 12; E2E in 15 |
-| 9 Extension recipe | 16 |
+| 5.5 Filtering | 9, 15 |
+| 5.6 Routing descriptions (instructions, description prefix, health) | 10, 11, 12, 13 (length guard), 15, 16 (Step 6) |
+| 6.1 Backoffice health check | 6, 16 (Step 7) |
+| 6.2 `get-mcp-health` | 12, 15, 16 |
+| 7 Error handling table | 8, 9, 14, 15 (Steps 1 and 5) |
+| 8 Testing | every task; contract test in 13; E2E in 16 |
+| 9 Extension recipe | 17 |
 | 10 Phases | Phase 0–3 headings |

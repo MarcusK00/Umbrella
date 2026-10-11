@@ -25,6 +25,7 @@ This project delivers **one installable MCP for a whole Umbraco site** that:
 - Backoffice → Settings → Health Check shows an "MCP" group with one row per product.
 - Adding a product requires: one module file + one list entry + one dependency (npm), one detector class (.NET). No core changes.
 - Concurrent tool calls across products never use the wrong product's API client (proven by test).
+- On connect, the agent receives a short routing table (server `instructions`) naming only the loaded products, their tool prefixes and when to use each. Every tool description starts with its product name.
 
 ## 2. Scope
 
@@ -35,8 +36,9 @@ This project delivers **one installable MCP for a whole Umbraco site** that:
 - **Local stdio** runtime only (`npx`, client-credentials API user).
 - NuGet addon: product detection, capabilities endpoint, backoffice health check.
 - npm package: module registry, capability-driven loading, per-call client isolation, `get-mcp-health` tool.
+- Routing descriptions per module (section 5.6).
 - Demo site + end-to-end tests.
-- Upstream PRs: Forms and Automate MCPs export `createApiClient` from `./collections`; same change proposed to the MCP project template.
+- **Local-only** changes in the Forms and Automate MCP repos: export `createApiClient` from `./collections`, consumed as local tarballs. No PRs, nothing pushed, no template changes.
 
 ### Out of scope (v1)
 
@@ -46,6 +48,8 @@ This project delivers **one installable MCP for a whole Umbraco site** that:
 - Third-party / partner modules (HQ-only contract; may be unstable).
 - Backoffice UI beyond the health check.
 - Publishing to npm/NuGet feeds (POC uses local builds and `dotnet pack`).
+- Pull requests or pushes to any product MCP repo, and changes to the MCP project template.
+- On-demand module loading (a `load-module` tool plus `tools/list_changed`). The routing descriptions in 5.6 are designed to be reused if this is added later.
 
 ## 3. Background findings (from investigating the existing repos)
 
@@ -122,6 +126,12 @@ export interface McpProductModule {
   required?: boolean;
   /** Expected product major for this release line, e.g. "17". */
   expectedMajor: string;
+  /** npm package providing `./collections`. */
+  packageName: string;
+  /** One sentence: what this product is. Used for routing (5.6). */
+  description: string;
+  /** Short phrases for the requests this product's tools handle. Disambiguate overlapping words here. */
+  useWhen: string[];
   /** Dynamic import so absent products are never loaded. */
   load(): Promise<LoadedModule>;
 }
@@ -138,6 +148,13 @@ export const formsModule: McpProductModule = {
   displayName: "Umbraco Forms",
   toolPrefix: "forms--",
   expectedMajor: "17",
+  packageName: "@umbraco-forms/mcp-dev",
+  description: "Umbraco Forms: forms, their fields and the entries people submit.",
+  useWhen: [
+    "forms, form fields, pages, conditions, themes and form templates",
+    "form submissions (entries/records), searching and exporting them",
+    "form workflows (actions that run after a form is submitted), data sources and prevalue sources",
+  ],
   load: async () => {
     const m = await import("@umbraco-forms/mcp-dev/collections");
     return {
@@ -245,6 +262,33 @@ Reuse the SDK's existing env vars (`UMBRACO_TOOL_MODES`, `UMBRACO_INCLUDE_SLICES
 
 `filter-config.ts` splits the env values per module and feeds each module's slice through `createCollectionConfigLoader({ modeRegistry, allModeNames, allSliceNames })` and `shouldIncludeTool`. With no filter vars set, all tools of loaded modules are registered.
 
+### 5.6 Routing descriptions
+
+Goal: an agent picks the right product **before** looking through tools, instead of scanning every tool of every product.
+
+Each module declares `description` and `useWhen` (4.1). They are used in three places, always only for modules that actually loaded:
+
+1. **Server `instructions`** (sent on `initialize`; most clients fold it into the system prompt). `buildRoutingInstructions(loadedModules)` produces a short routing table:
+
+   ```text
+   This server exposes tools for several Umbraco products on one site. Every tool name starts with its product prefix.
+   Pick the product from the user's request first, then only use tools with that prefix:
+
+   - `cms--` Umbraco CMS: the site's content, structure, media, members and settings. Use for: content/documents and publishing; document types, data types, templates…
+   - `forms--` Umbraco Forms: forms, their fields and the entries people submit. Use for: …; form workflows (actions that run after a form is submitted)…
+   - `automate--` Umbraco Automate: automations that react to triggers and run steps. Use for: …; general automations not tied to a form submission…
+
+   If the request does not clearly match one product, or product tools seem missing, call get-mcp-health.
+   ```
+
+   The version-check warning, if any, is appended. The whole text must stay under 2,000 characters for the full module set (enforced by test), so it doesn't bloat the agent's context.
+2. **Tool descriptions** are prefixed with the product: `[Umbraco Forms] Lists all forms…`. This helps clients that search tools by keyword (e.g. deferred tool search).
+3. **`get-mcp-health`** includes each product's `description`.
+
+Overlapping vocabulary is resolved inside `useWhen` text, not with extra fields. Example: Forms says "form workflows (actions that run after a form is submitted)", and Automate says "general automations not tied to a form submission".
+
+Because `instructions` is fixed at server construction, startup loads the selected modules first, builds the instructions from the ones that loaded, then creates the server and registers tools.
+
 ## 6. Health
 
 ### 6.1 Backoffice health check
@@ -269,7 +313,8 @@ Read-only (`readOnlyHint: true`), no inputs. Returns:
   "umbraco": { "version": "17.7.0", "versionCheck": "ok" },
   "forcedModules": [],
   "products": [
-    { "id": "forms", "installed": true, "enabled": true, "version": "17.6.1",
+    { "id": "forms", "description": "Umbraco Forms: forms, their fields and the entries people submit.",
+      "installed": true, "enabled": true, "version": "17.6.1",
       "hasModule": true, "loaded": true, "toolCount": 118, "issues": [] }
   ],
   "notes": ["Umbraco Engage is installed, but this MCP has no Engage module yet."]
@@ -327,14 +372,14 @@ Follow existing repo conventions: Jest + msw (npm), NUnit (.NET).
 
 Documented in `docs/adding-a-product.md`:
 
-1. **Product repo:** `./collections` exports `createApiClient` (the template default once the upstream template PR lands).
-2. **npm:** add `src/modules/engage.ts` (~20 lines), one entry in `src/modules/index.ts`, and the product dependency in `npm/package.json` (on the matching major line, SDK aligned via `overrides`).
+1. **Product repo (local only):** `./collections` exports `createApiClient`. Make the change on a local branch, `npm pack` it into `npm/vendor/`; no PR.
+2. **npm:** add `src/modules/engage.ts` (~25 lines, including `description` and `useWhen`), one entry in `src/modules/index.ts`, and the product dependency in `npm/package.json` (on the matching major line, SDK aligned via `overrides`). Check that `useWhen` doesn't overlap existing modules; disambiguate shared words in the text.
 3. **.NET:** add `EngageDetector : ProductDetectorBase` (~5 lines) and register it in `McpComposer`.
 4. Contract tests and `get-mcp-health` cover it automatically. No core changes.
 
 ## 10. Delivery phases
 
-- **Phase 0, upstream prerequisites:** PRs to Forms MCP and Automate MCP adding `export { getUmbraco…ManagementAPI as createApiClient }` to `src/collections.ts` (v17 lines); align both on one SDK version; propose the same export in the MCP project template. Until merged, the POC consumes local builds via `npm link`/`file:` references.
+- **Phase 0, local product changes:** on local branches of the Forms and Automate MCP repos (v17 lines), add `export { getUmbraco…ManagementAPI as createApiClient }` to `src/collections.ts` and align both on one SDK version. `npm pack` them into `npm/vendor/`; the umbrella depends on those tarballs via `file:`. No PRs and no pushes.
 - **Phase 1, NuGet addon:** detectors, capabilities endpoint, health check, unit tests.
 - **Phase 2, npm core and modules:** contract, registry, client context, filtering, health tool, three modules, unit and contract tests.
 - **Phase 3, demo site and E2E:** Umbraco 17 demo site with Forms + Automate + project reference; E2E scripts.
@@ -344,5 +389,6 @@ Documented in `docs/adding-a-product.md`:
 - **SDK version alignment:** product teams release independently; a module on a different SDK version is skipped. Mitigation: `overrides` + startup assertion + a compatibility table in the README.
 - **Tool count:** CMS + Forms + Automate is several hundred tools. Mitigation: capability-driven loading and the existing modes/slices filters; document recommended filter presets.
 - **Tool renaming:** prefixed names differ from standalone CMS MCP names, which affects users' existing prompts/permission allowlists. Accepted for the POC; called out in docs.
-- **Upstream dependency:** Phase 0 needs product-team PRs; core CMS-adjacent work should follow Umbraco's contribution process.
+- **Local product builds drift:** the vendored Forms/Automate tarballs come from local branches. When those repos move on, re-apply the one-line export and re-pack. Anything beyond the POC would need the export upstream through the product teams and Umbraco's contribution process.
+- **Routing quality:** `useWhen` phrases are hand-written; vague or overlapping phrases send agents to the wrong product. Keep them short and concrete, and review them whenever a module is added.
 - **Global client provider:** relies on handlers calling `getApiClient()` lazily inside the call. The isolation test guards this; if a product captures the client eagerly at import time, its contract test will fail.
