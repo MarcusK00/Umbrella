@@ -9,5 +9,8 @@ public interface IMcpProductDetector
 
     string DisplayName { get; }
 
+    /// <summary>Backoffice section the MCP API user needs for this product's tools, or null when none is required.</summary>
+    string? SectionAlias { get; }
+
     McpProductStatus Detect();
 }
