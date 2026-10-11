@@ -7,4 +7,5 @@ public sealed class AutomateDetector(ILoadedAssemblyProvider assemblies, IRegist
     public override string DisplayName => "Umbraco Automate";
     protected override string AssemblyName => "Umbraco.Automate.Core";
     protected override string ApiName => "automate-management";
+    public override string? SectionAlias => "Ua.Section.Automate";
 }

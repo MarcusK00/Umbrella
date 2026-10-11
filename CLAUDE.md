@@ -60,7 +60,7 @@ scripts/e2e.sh                          # needs the site running, npm/.env and a
 - **Ids:** each .NET detector's `Id` (`Detection/Detectors/*Detector.cs`) must equal its npm module's `id` (`npm/src/modules/*.ts`), for example `"forms"`.
 - **Capabilities payload:** `{ addonVersion, products: [{ id, displayName, installed, enabled, version, issues }] }` in camelCase. It is defined by `McpCapabilities` / `McpProductStatus` in C# and by `CapabilitiesPayload` in `npm/src/core/capabilities.ts`.
 - **Detection:** `ProductDetectorBase` treats a product as **installed** when an assembly with the given name is loaded. It treats it as **enabled** when some live controller action carries Umbraco's `[MapToApi("<api-name>")]` with that API name. The check uses MVC action descriptors, not Swagger options.
-- **No product dependencies:** the add-on must never take a package dependency on any product, because detection is by name only. A concrete detector is only `Id`, `DisplayName`, `AssemblyName` and `ApiName`. `McpCapabilitiesService` catches detector exceptions and turns them into issues.
+- **No product dependencies:** the add-on must never take a package dependency on any product, because detection is by name only. A concrete detector is only `Id`, `DisplayName`, `AssemblyName`, `ApiName` and an optional `SectionAlias` (the backoffice section the MCP API user needs; the "MCP API user" health check uses it). `McpCapabilitiesService` catches detector exceptions and turns them into issues.
 
 ### npm startup (`npm/src/core/server.ts`)
 
