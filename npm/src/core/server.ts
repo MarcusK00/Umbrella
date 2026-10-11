@@ -18,7 +18,7 @@ import { HEALTH_TOOL_NAME, registerHealthTool, type HealthState, type ModuleRunt
 import type { LoadedModule, McpProductModule } from "./module-contract.js";
 import { parseForcedModules, selectModules } from "./module-selection.js";
 import { buildRoutingInstructions } from "./routing.js";
-import { checkSingleSdk } from "./sdk-instance.js";
+import { checkPackageInstalled, checkSingleSdk } from "./sdk-instance.js";
 import { DuplicateToolNameError, registerModuleTools, type RegistrationContext } from "./tool-registrar.js";
 
 const EXPECTED_UMBRACO_MAJOR = "17";
@@ -93,6 +93,11 @@ export async function startServer(options: {
       continue;
     }
     try {
+      const missing = checkPackageInstalled(decision.module.packageName, decision.module.displayName);
+      if (missing) {
+        state.issues.push(missing);
+        continue;
+      }
       const sdkIssue = checkSingleSdk(decision.module.packageName);
       if (sdkIssue) {
         state.issues.push(sdkIssue);
@@ -105,7 +110,7 @@ export async function startServer(options: {
   }
 
   const server = new McpServer(
-    { name: "Umbraco MCP", version },
+    { name: "Umbrella MCP", version },
     { instructions: buildRoutingInstructions(ready.map((r) => r.state.decision.module), [versionCheckMessage]) },
   );
 

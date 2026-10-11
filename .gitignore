@@ -11,6 +11,8 @@ appsettings.local.json
 demo-site/umbraco/Data/
 demo-site/umbraco/Logs/
 demo-site/wwwroot/media/
+# written by the add-on on startup (Development)
+demo-site/.mcp.json
 coverage/
 
 # macOS

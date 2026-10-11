@@ -3,13 +3,24 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <PackageId>Umbraco.Mcp</PackageId>
+    <PackageId>Umbraco.Community.Umbrella</PackageId>
+    <Title>Umbrella</Title>
+    <!-- Released together with the npm package umbrella-mcp, which must have the same version (see NpmPackageContractTests). -->
     <Version>17.0.0-alpha.1</Version>
-    <Description>Detects installed Umbraco HQ products for the Umbraco MCP and reports their health.</Description>
+    <Description>One MCP server for your Umbraco 17 site. Detects the installed Umbraco products (CMS, Forms, Automate) so the umbrella-mcp server loads only their tools, and adds MCP health checks to the backoffice.</Description>
+    <Authors>MarcusK00</Authors>
+    <PackageTags>umbraco;umbraco-marketplace;mcp;ai;model-context-protocol</PackageTags>
+    <PackageProjectUrl>https://github.com/MarcusK00/Umbraco.Community.Umbrella</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/MarcusK00/Umbraco.Community.Umbrella</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Umbraco.Cms.Api.Management" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="/" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Umbraco.Mcp.Tests" />

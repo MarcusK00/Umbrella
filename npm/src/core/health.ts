@@ -56,7 +56,7 @@ export function buildHealthReport(state: HealthState): HealthReport {
         : { installed: false, version: null, status: "unavailable", detail: caps.reason };
 
   if (caps.kind === "no-addon") {
-    notes.push("Install the Umbraco.Mcp NuGet package on the site to enable product tools beyond the CMS.");
+    notes.push("Install the Umbraco.Community.Umbrella NuGet package on the site to enable product tools beyond the CMS.");
   }
 
   const products: HealthProduct[] = state.modules.map(({ decision, loaded, toolCount, issues }) => {
