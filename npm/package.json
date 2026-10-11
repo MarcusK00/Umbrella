@@ -1,18 +1,37 @@
 {
-  "name": "@umbraco/mcp",
+  "name": "umbrella-mcp",
   "version": "17.0.0-alpha.1",
-  "description": "One MCP server for an Umbraco site: loads tools for the HQ products the site has installed.",
+  "description": "One MCP server for your Umbraco 17 site: loads the tools for the Umbraco products the site has installed.",
+  "keywords": [
+    "umbraco",
+    "mcp",
+    "model-context-protocol",
+    "ai"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MarcusK00/Umbraco.Community.Umbrella.git",
+    "directory": "npm"
+  },
+  "homepage": "https://github.com/MarcusK00/Umbraco.Community.Umbrella#readme",
   "type": "module",
   "private": true,
-  "bin": { "umbraco-mcp": "./dist/index.js" },
+  "bin": {
+    "umbrella-mcp": "./dist/index.js"
+  },
   "main": "dist/index.js",
-  "files": ["dist"],
-  "engines": { "node": ">=22.0.0" },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
     "build": "tsup --config tsup.config.ts",
     "compile": "tsc --noEmit",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand",
-    "list-tools": "node --env-file=.env dist/index.js --list-tools"
+    "list-tools": "node --env-file=.env dist/index.js --list-tools",
+    "prepack": "npm run build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
@@ -20,7 +39,6 @@
     "@umbraco-cms/mcp-dev": "17.6.10",
     "@umbraco-forms/mcp-dev": "17.6.1-beta.2",
     "@umbraco-automate/mcp-dev": "17.4.0-beta.1",
-    "@umbraco-engage/mcp-dev": "file:vendor/umbraco-engage-mcp-dev-17.0.0-beta.2.tgz",
     "zod": "^4.4.3"
   },
   "overrides": {
@@ -29,6 +47,7 @@
   "devDependencies": {
     "@types/jest": "^30.0.0",
     "@types/node": "^26.1.2",
+    "@umbraco-engage/mcp-dev": "file:vendor/umbraco-engage-mcp-dev-17.0.0-beta.2.tgz",
     "jest": "^30.4.2",
     "ts-jest": "^29.4.11",
     "tsup": "^8.4.0",

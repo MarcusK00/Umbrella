@@ -20,7 +20,7 @@ public sealed class McpProductsHealthCheck(IMcpCapabilitiesService capabilities)
     {
         var rows = new List<HealthCheckStatus>
         {
-            new($"Umbraco.Mcp {caps.AddonVersion} is installed.") { ResultType = StatusResultType.Info },
+            new($"{McpAddon.PackageId} {caps.AddonVersion} is installed.") { ResultType = StatusResultType.Info },
         };
 
         foreach (var p in caps.Products)

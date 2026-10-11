@@ -18,7 +18,7 @@ describe("selectModules", () => {
     const ds = selectModules(modules, { kind: "no-addon" }, []);
     expect(decision(ds, "cms").load).toBe(true);
     expect(decision(ds, "forms").load).toBe(false);
-    expect(decision(ds, "forms").reason).toMatch(/Umbraco\.Mcp addon is not installed/);
+    expect(decision(ds, "forms").reason).toMatch(/Umbraco\.Community\.Umbrella add-on is not installed/);
   });
 
   it("loads installed and enabled products with a matching major", () => {

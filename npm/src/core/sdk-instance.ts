@@ -32,3 +32,21 @@ export function checkSingleSdk(packageName: string): string | null {
   }
   return null;
 }
+
+/**
+ * Returns an issue message when a product package is not installed with the server (for example a product that
+ * is a devDependency until its package exports `createApiClient`), else null.
+ */
+export function checkPackageInstalled(
+  packageName: string,
+  displayName: string,
+  resolve: (specifier: string) => string = (specifier) => import.meta.resolve(specifier),
+): string | null {
+  try {
+    resolve(`${packageName}/collections`);
+    return null;
+  } catch (error) {
+    if ((error as { code?: string }).code !== "ERR_MODULE_NOT_FOUND") throw error;
+    return `${packageName} is not installed with umbrella-mcp, so ${displayName} tools are not available.`;
+  }
+}
