@@ -1,6 +1,7 @@
 using System.Net;
 using NUnit.Framework;
 using Umbraco.Cms.Core.HealthChecks;
+using Umbraco.Mcp.Client;
 using Umbraco.Mcp.HealthChecks;
 
 namespace Umbraco.Mcp.Tests;
@@ -30,7 +31,7 @@ public class McpClientConfigHealthCheckTests
         string text = Text(Build("https://example.com"));
 
         Assert.That(text, Does.Contain("\"command\": \"npx\""));
-        Assert.That(text, Does.Contain($"\"{McpClientConfigHealthCheck.NpmPackage}\""));
+        Assert.That(text, Does.Contain($"\"{McpClientConfig.NpmPackage}@{McpAddon.Version}\""));
     }
 
     [Test]

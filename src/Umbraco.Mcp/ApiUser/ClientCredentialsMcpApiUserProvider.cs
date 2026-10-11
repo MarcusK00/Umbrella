@@ -13,7 +13,10 @@ public sealed class ClientCredentialsMcpApiUserProvider(
 {
     public const string DefaultClientId = "umbraco-back-office-mcp";
 
-    public string ClientId => configuration["Umbraco:Mcp:ClientId"] is { Length: > 0 } id ? id : DefaultClientId;
+    public string ClientId => ReadClientId(configuration);
+
+    internal static string ReadClientId(IConfiguration configuration) =>
+        configuration["Umbraco:Mcp:ClientId"] is { Length: > 0 } id ? id : DefaultClientId;
 
     public async Task<McpApiUser?> FindAsync()
     {

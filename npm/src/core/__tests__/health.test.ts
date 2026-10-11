@@ -20,7 +20,7 @@ describe("buildHealthReport", () => {
   it("reports a missing addon with an install hint", () => {
     const r = buildHealthReport(state({ kind: "no-addon" }, [cmsLoaded]));
     expect(r.addon).toEqual({ installed: false, version: null, status: "not-installed" });
-    expect(r.notes.join(" ")).toMatch(/Install the Umbraco\.Mcp NuGet package/);
+    expect(r.notes.join(" ")).toMatch(/Install the Umbraco\.Community\.Umbrella NuGet package/);
     expect(r.umbraco).toEqual({ version: "17.7.0", versionCheck: "ok" });
   });
 

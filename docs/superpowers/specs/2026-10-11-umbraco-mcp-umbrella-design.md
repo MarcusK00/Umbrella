@@ -3,7 +3,7 @@
 - **Date:** 11-10-2026
 - **Status:** Approved design, pending spec review
 - **Author:** mkr@umbraco.dk (with Claude)
-- **Working names:** npm `@umbraco/mcp`, NuGet `Umbraco.Mcp` (final names need product sign-off)
+- **Names:** NuGet `Umbraco.Community.Umbrella`, npm `umbrella-mcp` (see §12). The sections below still use the earlier working names `Umbraco.Mcp` and `@umbraco/mcp`; the source project keeps the name `src/Umbraco.Mcp`.
 
 ## 1. Intent
 
@@ -392,3 +392,17 @@ Documented in `docs/adding-a-product.md`:
 - **Local product builds drift:** the vendored Forms/Automate tarballs come from local branches. When those repos move on, re-apply the one-line export and re-pack. Anything beyond the POC would need the export upstream through the product teams and Umbraco's contribution process.
 - **Routing quality:** `useWhen` phrases are hand-written; vague or overlapping phrases send agents to the wrong product. Keep them short and concrete, and review them whenever a module is added.
 - **Global client provider:** relies on handlers calling `getApiClient()` lazily inside the call. The isolation test guards this; if a product captures the client eagerly at import time, its contract test will fail.
+
+## 12. Distribution (spec delta, 11-10-2026)
+
+Umbrella is a personal project, published outside the Umbraco organisation.
+
+- **Names:** the add-on is the NuGet package `Umbraco.Community.Umbrella`; the server is the npm package `umbrella-mcp` (bin `umbrella-mcp`). The source folders, namespaces and solution keep their `Umbraco.Mcp` names.
+- **One manual install:** users install only the NuGet package. AI tools start the server with `npx -y umbrella-mcp@<add-on version>`, which downloads it on first start. The two packages are released together with the same version, and `NpmPackageContractTests` checks the name and version match. An exact version is used because npm ranges skip prereleases, and `^`/`>` are special characters in cmd.exe on Windows.
+- **Client config, two ways:**
+  - The "MCP client setup" health check shows the config to paste into any MCP client, with a secret placeholder.
+  - In Development, `McpJsonWriter` (a hosted service) writes `.mcp.json` next to the site once the server has started. It uses the first HTTPS server address (wildcard hosts become `localhost`), the configured client id, and `${UMBRELLA_CLIENT_SECRET}` for the secret. It never overwrites an existing file, never creates folders, and adds `NODE_TLS_REJECT_UNAUTHORIZED=0` only for loopback sites, because Node does not trust the ASP.NET Core development certificate. Settings live under `Umbraco:Mcp:McpJson` (`Enabled`, `Path`, `Command`, `Args`).
+  - NuGet has no install hook for `PackageReference` projects, and running `npm` during the site's build would need Node on every build machine, so the npm server is never installed by the NuGet package itself.
+- **Products:** CMS, Forms and Automate are registry dependencies. Engage stays a local `devDependency` (external in `tsup`) until a v17 release with the `createApiClient` export is published. The published server reports it in `get-mcp-health` via `checkPackageInstalled` instead of failing.
+- **Single toolkit copy under npx:** npm only applies `overrides` in the root project, and `umbrella-mcp` is a dependency of npx's temporary project, so `overrides` do not apply for users. All product packages currently depend on toolkit `1.0.0-beta.45` and dedupe on their own. `scripts/pack-check.sh` installs the packed package with `npx` in an empty folder to catch a regression.
+- **Release:** `docs/releasing.md`. `npm/package.json` stays `"private": true` until the first release.

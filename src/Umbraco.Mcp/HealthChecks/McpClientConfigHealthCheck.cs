@@ -1,10 +1,8 @@
 using System.Net;
-using System.Text;
-using System.Text.Encodings.Web;
-using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Umbraco.Cms.Core.HealthChecks;
 using Umbraco.Mcp.ApiUser;
+using Umbraco.Mcp.Client;
 
 namespace Umbraco.Mcp.HealthChecks;
 
@@ -17,9 +15,6 @@ public sealed class McpClientConfigHealthCheck(
     IMcpApiUserProvider apiUser,
     IHttpContextAccessor httpContextAccessor) : HealthCheck
 {
-    /// <summary>The npm package the AI tool starts with npx. Working name until the package names are signed off.</summary>
-    internal const string NpmPackage = "@umbraco/mcp";
-
     internal const string SecretPlaceholder = "<the client secret you saved when creating the API user>";
 
     internal const string SiteUrlPlaceholder = "https://your-site";
@@ -44,7 +39,14 @@ public sealed class McpClientConfigHealthCheck(
     /// </summary>
     internal static IEnumerable<HealthCheckStatus> BuildStatuses(string? siteUrl, string clientId)
     {
-        string json = BuildConfigJson(siteUrl ?? SiteUrlPlaceholder, clientId);
+        string json = McpClientConfig.Build(
+            "npx",
+            McpClientConfig.NpxArgs(McpAddon.Version),
+            [
+                new("UMBRACO_BASE_URL", siteUrl ?? SiteUrlPlaceholder),
+                new("UMBRACO_CLIENT_ID", clientId),
+                new("UMBRACO_CLIENT_SECRET", SecretPlaceholder),
+            ]);
 
         return
         [
@@ -53,36 +55,5 @@ public sealed class McpClientConfigHealthCheck(
                 $"<pre><code>{WebUtility.HtmlEncode(json)}</code></pre>")
                 { ResultType = StatusResultType.Info },
         ];
-    }
-
-    private static string BuildConfigJson(string siteUrl, string clientId)
-    {
-        using var stream = new MemoryStream();
-        using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions
-        {
-            Indented = true,
-            // Keeps quotes as \" and leaves < > readable; the result is HTML-encoded afterwards.
-            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-        }))
-        {
-            writer.WriteStartObject();
-            writer.WriteStartObject("mcpServers");
-            writer.WriteStartObject("umbraco");
-            writer.WriteString("command", "npx");
-            writer.WriteStartArray("args");
-            writer.WriteStringValue("-y");
-            writer.WriteStringValue(NpmPackage);
-            writer.WriteEndArray();
-            writer.WriteStartObject("env");
-            writer.WriteString("UMBRACO_BASE_URL", siteUrl);
-            writer.WriteString("UMBRACO_CLIENT_ID", clientId);
-            writer.WriteString("UMBRACO_CLIENT_SECRET", SecretPlaceholder);
-            writer.WriteEndObject();
-            writer.WriteEndObject();
-            writer.WriteEndObject();
-            writer.WriteEndObject();
-        }
-
-        return Encoding.UTF8.GetString(stream.ToArray());
     }
 }
