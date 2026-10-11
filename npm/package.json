@@ -18,8 +18,8 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@umbraco-cms/mcp-server-sdk": "1.0.0-beta.45",
     "@umbraco-cms/mcp-dev": "17.6.10",
-    "@umbraco-forms/mcp-dev": "file:vendor/umbraco-forms-mcp-dev-17.6.1-beta.1.tgz",
-    "@umbraco-automate/mcp-dev": "file:vendor/umbraco-automate-mcp-dev-17.0.0-beta.2.tgz",
+    "@umbraco-forms/mcp-dev": "17.6.1-beta.2",
+    "@umbraco-automate/mcp-dev": "17.4.0-beta.1",
     "@umbraco-engage/mcp-dev": "file:vendor/umbraco-engage-mcp-dev-17.0.0-beta.2.tgz",
     "zod": "^4.4.3"
   },
