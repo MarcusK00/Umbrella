@@ -1,7 +1,10 @@
 using System.Reflection;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
+using Umbraco.Cms.Core.Configuration.Models;
+using Umbraco.Cms.Core.Models.Membership;
 using Umbraco.Mcp.Api;
 using Umbraco.Mcp.Capabilities;
 using Umbraco.Cms.Web.Common.Authorization;
@@ -17,16 +20,58 @@ public class McpCapabilitiesControllerTests
         public McpCapabilities GetCapabilities() => caps;
     }
 
+    private static readonly McpCapabilities Caps =
+        new("17.0.0", [new McpProductStatus("cms", "Umbraco CMS", true, true, "17.7.0", [])]);
+
+    private static IUser User(UserKind kind) =>
+        new User(new GlobalSettings()) { Key = Guid.NewGuid(), Kind = kind };
+
+    private static McpCapabilitiesController Controller(IUser? currentUser, FakeConnectionStore store) =>
+        new(new StubService(Caps), new FakeBackOfficeSecurityAccessor(currentUser), store,
+            NullLogger<McpCapabilitiesController>.Instance);
+
     [Test]
     public void Get_returns_ok_with_service_result()
     {
-        var caps = new McpCapabilities("17.0.0", [new McpProductStatus("cms", "Umbraco CMS", true, true, "17.7.0", [])]);
-        var controller = new McpCapabilitiesController(new StubService(caps));
-
-        IActionResult result = controller.GetCapabilities();
+        IActionResult result = Controller(User(UserKind.Api), new FakeConnectionStore()).GetCapabilities();
 
         Assert.That(result, Is.InstanceOf<OkObjectResult>());
-        Assert.That(((OkObjectResult)result).Value, Is.SameAs(caps));
+        Assert.That(((OkObjectResult)result).Value, Is.SameAs(Caps));
+    }
+
+    [Test]
+    public void A_call_from_an_api_user_is_recorded_as_a_connection()
+    {
+        IUser user = User(UserKind.Api);
+        var store = new FakeConnectionStore();
+        DateTimeOffset before = DateTimeOffset.UtcNow;
+
+        Controller(user, store).GetCapabilities();
+
+        Assert.That(store.Recorded, Has.Count.EqualTo(1));
+        Assert.That(store.Recorded[0].UserKey, Is.EqualTo(user.Key));
+        Assert.That(store.Recorded[0].LastConnected, Is.InRange(before, DateTimeOffset.UtcNow));
+    }
+
+    [Test]
+    public void A_call_from_a_normal_backoffice_user_is_not_recorded()
+    {
+        // For example someone trying the endpoint in Swagger: that is not the MCP server.
+        var store = new FakeConnectionStore();
+
+        Controller(User(UserKind.Default), store).GetCapabilities();
+
+        Assert.That(store.Recorded, Is.Empty);
+    }
+
+    [Test]
+    public void A_failure_to_record_still_returns_the_capabilities()
+    {
+        var store = new FakeConnectionStore { Throws = new InvalidOperationException("database is down") };
+
+        IActionResult result = Controller(User(UserKind.Api), store).GetCapabilities();
+
+        Assert.That(((OkObjectResult)result).Value, Is.SameAs(Caps));
     }
 
     [Test]

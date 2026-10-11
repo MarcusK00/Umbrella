@@ -1,4 +1,8 @@
 using System.Reflection;
+using Umbraco.Cms.Core.Models.Membership;
+using Umbraco.Cms.Core.Security;
+using Umbraco.Cms.Core.Services;
+using Umbraco.Mcp.Connections;
 using Umbraco.Mcp.Detection;
 
 namespace Umbraco.Mcp.Tests;
@@ -22,4 +26,54 @@ internal sealed class TestDetector(ILoadedAssemblyProvider a, IRegisteredApiProv
     protected override string AssemblyName => "Test.Product.Core";
     protected override string ApiName => "test-management";
     protected override IEnumerable<string> GetIssues() => extraIssues;
+}
+
+internal sealed class FakeKeyValueService : IKeyValueService
+{
+    public Dictionary<string, string?> Values { get; } = new();
+
+    public string? GetValue(string key) => Values.GetValueOrDefault(key);
+
+    public IReadOnlyDictionary<string, string?>? FindByKeyPrefix(string keyPrefix) =>
+        Values.Where(x => x.Key.StartsWith(keyPrefix, StringComparison.Ordinal)).ToDictionary(x => x.Key, x => x.Value);
+
+    public void SetValue(string key, string value) => Values[key] = value;
+
+    public void SetValue(string key, string originValue, string newValue) => Values[key] = newValue;
+
+    public bool TrySetValue(string key, string originValue, string newValue)
+    {
+        Values[key] = newValue;
+        return true;
+    }
+}
+
+internal sealed class FakeConnectionStore : IMcpConnectionStore
+{
+    public List<McpConnection> Recorded { get; } = [];
+
+    public Exception? Throws { get; init; }
+
+    public void Record(Guid userKey, DateTimeOffset at)
+    {
+        if (Throws is not null)
+        {
+            throw Throws;
+        }
+
+        Recorded.Add(new McpConnection(userKey, at));
+    }
+
+    public IReadOnlyCollection<McpConnection> GetAll() => Recorded;
+}
+
+internal sealed class FakeBackOfficeSecurityAccessor(IUser? currentUser) : IBackOfficeSecurityAccessor, IBackOfficeSecurity
+{
+    public IBackOfficeSecurity? BackOfficeSecurity => this;
+
+    public IUser? CurrentUser => currentUser;
+
+    public bool UserHasSectionAccess(string section, IUser user) => false;
+
+    public bool IsAuthenticated() => currentUser is not null;
 }

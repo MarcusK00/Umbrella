@@ -1,3 +1,4 @@
+using System.Globalization;
 using Umbraco.Cms.Core.HealthChecks;
 using Umbraco.Cms.Core.Models.Membership;
 using Umbraco.Mcp.ApiUser;
@@ -9,7 +10,7 @@ namespace Umbraco.Mcp.HealthChecks;
 [HealthCheck(
     "b3a9e0d4-5c2f-4f8e-a6d1-7e4b2c9f0a35",
     "MCP API user",
-    Description = "Checks that the API user the Umbraco MCP signs in with exists, can sign in and can reach each detected product.",
+    Description = "Checks the API users the Umbraco MCP has connected as: that they can still sign in and can reach each detected product.",
     Group = "MCP")]
 public sealed class McpApiUserHealthCheck(
     IMcpApiUserProvider apiUser,
@@ -18,8 +19,7 @@ public sealed class McpApiUserHealthCheck(
 {
     public override async Task<IEnumerable<HealthCheckStatus>> GetStatusAsync() =>
         BuildStatuses(
-            apiUser.ClientId,
-            await apiUser.FindAsync(),
+            await apiUser.GetConnectedAsync(),
             capabilities.GetCapabilities(),
             detectors.ToDictionary(d => d.Id, d => d.SectionAlias));
 
@@ -27,22 +27,32 @@ public sealed class McpApiUserHealthCheck(
         throw new InvalidOperationException("The MCP API user health check has no actions.");
 
     internal static IEnumerable<HealthCheckStatus> BuildStatuses(
-        string clientId,
-        McpApiUser? user,
+        IReadOnlyList<McpApiUser> users,
         McpCapabilities caps,
         IReadOnlyDictionary<string, string?> sectionByProduct)
     {
-        if (user is null)
+        if (users.Count == 0)
         {
             return
             [
-                new($"No API user has the client id \"{clientId}\", so the MCP server cannot sign in. " +
-                    "Create an API user with this client id under Users, or set Umbraco:Mcp:ClientId to the client id the MCP server uses.")
-                    { ResultType = StatusResultType.Warning },
+                new("No MCP server has connected to this site yet. The MCP server connects when your AI tool starts it; " +
+                    "start it, then run this check again.")
+                    { ResultType = StatusResultType.Info },
             ];
         }
 
+        return users.SelectMany(user => BuildUserStatuses(user, caps, sectionByProduct)).ToList();
+    }
+
+    private static List<HealthCheckStatus> BuildUserStatuses(
+        McpApiUser user,
+        McpCapabilities caps,
+        IReadOnlyDictionary<string, string?> sectionByProduct)
+    {
         var rows = new List<HealthCheckStatus>();
+        string name = user.ClientIds.Count > 0
+            ? $"\"{user.Name}\" ({string.Join(", ", user.ClientIds)})"
+            : $"\"{user.Name}\"";
 
         string? blocked = user.State switch
         {
@@ -52,7 +62,7 @@ public sealed class McpApiUserHealthCheck(
         };
         if (blocked is not null)
         {
-            rows.Add(new($"The API user \"{user.Name}\" ({clientId}) is {blocked}, so the MCP server cannot sign in.")
+            rows.Add(new($"The API user {name} is {blocked}, so the MCP server can no longer sign in with it.")
                 { ResultType = StatusResultType.Warning });
         }
 
@@ -77,8 +87,9 @@ public sealed class McpApiUserHealthCheck(
 
         if (rows.Count == 0)
         {
+            string lastConnected = user.LastConnected.UtcDateTime.ToString("dd-MM-yyyy HH:mm", CultureInfo.InvariantCulture);
             string products = reachable.Count > 0 ? $" and can reach {string.Join(", ", reachable)}" : string.Empty;
-            rows.Add(new($"The API user \"{user.Name}\" ({clientId}) exists{products}. Its client secret is not checked here.")
+            rows.Add(new($"The API user {name} last connected {lastConnected} UTC{products}.")
                 { ResultType = StatusResultType.Success });
         }
 

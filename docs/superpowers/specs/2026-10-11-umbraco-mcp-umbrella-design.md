@@ -303,6 +303,13 @@ Because `instructions` is fixed at server construction, startup loads the select
 
 Plus one Info row with the addon version. No actions in v1.
 
+**MCP API user (spec delta, 11-10-2026).** The "MCP API user" check reports on the API users the MCP server actually connected as, not on a configured client id:
+
+- When `GET …/mcp/capabilities` is called by an API user (`UserKind.Api`), `McpCapabilitiesController` records `{ userKey, lastConnected }` through `IMcpConnectionStore`. The npm server calls that endpoint once at startup, so this needs no npm change. Calls from normal backoffice users are not recorded, and a failure to record is logged without affecting the response.
+- `KeyValueMcpConnectionStore` keeps one `umbracoKeyValue` row per user (`Umbraco.Mcp.Connection.<userKey>`), so connections survive restarts and are shared by load-balanced servers.
+- The check shows rows for each connected user that still exists, most recent first: Success naming the user, its client ids, the last connection (DD-MM-YYYY HH:mm UTC) and the reachable products; Warning when the user is disabled or locked out, or lacks a detected product's section. With no connections it shows one Info row.
+- `Umbraco:Mcp:ClientId` is only used for the written `.mcp.json` and the "MCP client setup" config.
+
 ### 6.2 `get-mcp-health` MCP tool
 
 Read-only (`readOnlyHint: true`), no inputs. Returns:
