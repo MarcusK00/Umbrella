@@ -1,7 +1,7 @@
 using System.Net;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
 using Umbraco.Cms.Core.HealthChecks;
-using Umbraco.Mcp.ApiUser;
 using Umbraco.Mcp.Client;
 
 namespace Umbraco.Mcp.HealthChecks;
@@ -12,7 +12,7 @@ namespace Umbraco.Mcp.HealthChecks;
     Description = "Shows the configuration to paste into an AI tool so it can connect to this site through the Umbraco MCP.",
     Group = "MCP")]
 public sealed class McpClientConfigHealthCheck(
-    IMcpApiUserProvider apiUser,
+    IConfiguration configuration,
     IHttpContextAccessor httpContextAccessor) : HealthCheck
 {
     internal const string SecretPlaceholder = "<the client secret you saved when creating the API user>";
@@ -20,7 +20,7 @@ public sealed class McpClientConfigHealthCheck(
     internal const string SiteUrlPlaceholder = "https://your-site";
 
     public override Task<IEnumerable<HealthCheckStatus>> GetStatusAsync() =>
-        Task.FromResult(BuildStatuses(GetSiteUrl(), apiUser.ClientId));
+        Task.FromResult(BuildStatuses(GetSiteUrl(), McpClientConfig.ReadClientId(configuration)));
 
     public override HealthCheckStatus ExecuteAction(HealthCheckAction action) =>
         throw new InvalidOperationException("The MCP client setup health check has no actions.");
