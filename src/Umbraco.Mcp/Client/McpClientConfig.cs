@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using Microsoft.Extensions.Configuration;
 
 namespace Umbraco.Mcp.Client;
 
@@ -15,6 +16,12 @@ internal static class McpClientConfig
 
     /// <summary>The environment variable a written <c>.mcp.json</c> reads the client secret from.</summary>
     public const string SecretEnvironmentVariable = "UMBRELLA_CLIENT_SECRET";
+
+    /// <summary>The client id suggested to AI tools when <c>Umbraco:Mcp:ClientId</c> is not set.</summary>
+    public const string DefaultClientId = "umbraco-back-office-mcp";
+
+    public static string ReadClientId(IConfiguration configuration) =>
+        configuration["Umbraco:Mcp:ClientId"] is { Length: > 0 } id ? id : DefaultClientId;
 
     /// <summary>
     /// npx pins the server to the add-on's own version, because the two halves are released together. An exact

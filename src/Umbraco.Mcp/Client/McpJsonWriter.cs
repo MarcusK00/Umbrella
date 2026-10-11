@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Umbraco.Mcp.ApiUser;
 
 namespace Umbraco.Mcp.Client;
 
@@ -49,7 +48,7 @@ public sealed class McpJsonWriter(
             }
 
             string directory = System.IO.Path.GetFullPath(options.Path ?? ".", environment.ContentRootPath);
-            string json = BuildJson(siteUrl, ClientCredentialsMcpApiUserProvider.ReadClientId(configuration), McpAddon.Version, options);
+            string json = BuildJson(siteUrl, McpClientConfig.ReadClientId(configuration), McpAddon.Version, options);
             if (TryWrite(directory, json, out string path))
             {
                 logger.LogInformation(
