@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/demo-site/">
+    <Project Path="demo-site/DemoSite.csproj" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/Umbraco.Mcp/Umbraco.Mcp.csproj" />
   </Folder>
