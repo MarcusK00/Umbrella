@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Umbraco.Cms.Core.Composing;
 using Umbraco.Cms.Core.DependencyInjection;
+using Umbraco.Mcp.ApiUser;
 using Umbraco.Mcp.Capabilities;
 using Umbraco.Mcp.Detection;
 using Umbraco.Mcp.Detection.Detectors;
@@ -18,7 +19,9 @@ public sealed class McpComposer : IComposer
         builder.Services.AddSingleton<IMcpProductDetector, CmsDetector>();
         builder.Services.AddSingleton<IMcpProductDetector, FormsDetector>();
         builder.Services.AddSingleton<IMcpProductDetector, AutomateDetector>();
+        builder.Services.AddSingleton<IMcpProductDetector, EngageDetector>();
 
         builder.Services.AddSingleton<IMcpCapabilitiesService, McpCapabilitiesService>();
+        builder.Services.AddScoped<IMcpApiUserProvider, ClientCredentialsMcpApiUserProvider>();
     }
 }
