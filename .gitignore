@@ -12,3 +12,6 @@ demo-site/umbraco/Data/
 demo-site/umbraco/Logs/
 demo-site/wwwroot/media/
 coverage/
+
+# macOS
+.DS_Store
