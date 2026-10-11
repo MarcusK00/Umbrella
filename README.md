@@ -52,7 +52,9 @@ On the site, the "MCP API user" health check (Settings → Health Check → MCP)
 | Umbraco CMS | 17.x |
 | `@umbraco-cms/mcp-server-sdk` | 1.0.0-beta.45 (single copy enforced) |
 | `@umbraco-cms/mcp-dev` | 17.6.10 |
-| `@umbraco-forms/mcp-dev` / `@umbraco-automate/mcp-dev` / `@umbraco-engage/mcp-dev` | local builds with the `createApiClient` export (`npm/vendor/`); these changes are never pushed |
+| `@umbraco-forms/mcp-dev` | 17.6.1-beta.2 |
+| `@umbraco-automate/mcp-dev` | 17.4.0-beta.1 |
+| `@umbraco-engage/mcp-dev` | local build with the `createApiClient` export (`npm/vendor/`) |
 
 ## Develop
 
@@ -67,5 +69,5 @@ On the site, the "MCP API user" health check (Settings → Health Check → MCP)
 - Tool names are prefixed (`cms--get-document`), so they differ from the standalone CMS MCP's names.
 - `@umbraco-cms/mcp-dev/collections` does not export the CMS server's runtime setup (`setUmbracoVersion`, `setAllowFilePathUploads`). In the umbrella, version-gated CMS tools (for example `create-and-publish-document`, `update-and-publish-document`, `sort-document-children`, `sort-document-root-children`) are not registered, document/data type schema tools use their fallback path, and media tools do not accept local file paths. Fixing this needs the CMS package to export a setup hook from `./collections`.
 - Only `--list-tools` is supported as a CLI flag; `--describe-tool` is not implemented.
-- Forms, Automate and Engage are consumed as local builds with a `createApiClient` export (`npm/vendor/`); that change is not upstream.
+- Engage is consumed as a local build with a `createApiClient` export (`npm/vendor/`); the published `17.0.0-beta.2` does not export it.
 - Collection filters do not pull in dependent collections (e.g. `media` does not add `temporary-file`) the way the standalone CMS MCP does.

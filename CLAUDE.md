@@ -29,7 +29,7 @@ dotnet test tests/Umbraco.Mcp.Tests/Umbraco.Mcp.Tests.csproj --filter "FullyQual
 ### npm server (`cd npm`)
 
 ```bash
-npm install            # needs the Forms/Automate/Engage tarballs in npm/vendor/ (see below)
+npm install            # needs the Engage tarball in npm/vendor/ (see below)
 npm run compile        # tsc --noEmit (strict)
 npm test               # Jest 30 + ts-jest, ESM, runInBand
 npm test -- tool-registrar                    # one test file (path pattern)
@@ -97,10 +97,11 @@ This only works because product tool handlers call `getApiClient()` lazily insid
 ### Product packages
 
 - **CMS:** `@umbraco-cms/mcp-dev` 17.6.10 comes from the registry. `cms.ts` uses `UmbracoManagementClient.getClient()` as its factory.
-- **Forms, Automate and Engage:** `@umbraco-forms/mcp-dev`, `@umbraco-automate/mcp-dev` and `@umbraco-engage/mcp-dev` are `file:vendor/*.tgz` tarballs (gitignored, so `npm install` fails without them).
-  - **Origin:** they are packed from local branches `v17/feature/export-create-api-client` in `~/Desktop/Umbraco/MCPS/Forms.MCP.Developer.Repository/Umbraco-Forms-MCP-Dev`, `~/Desktop/Umbraco/MCPS/Automate.MCP.Dev.Repository/Umbraco-Automate-MCP-Dev` and `~/Desktop/Umbraco/MCPS/Engage.MCP.Developer.Repository/Umbraco-Engage-MCP-Dev` (Engage branched from `dev`).
-  - **Changes:** those branches add `export { getUmbraco…ManagementAPI as createApiClient }` to `src/collections.ts` and bump the toolkit to beta.45.
-  - **Local only:** these changes are never pushed and never opened as PRs. Re-pack with `npm pack --pack-destination <this repo>/npm/vendor`.
+- **Forms and Automate:** `@umbraco-forms/mcp-dev` 17.6.1-beta.2 and `@umbraco-automate/mcp-dev` 17.4.0-beta.1 come from the registry (`lts-17-beta` tag). These are the first v17 releases whose `./collections` exports `createApiClient` and that depend on toolkit beta.45; earlier v17 releases do not work here.
+- **Engage:** `@umbraco-engage/mcp-dev` is a `file:vendor/*.tgz` tarball (gitignored, so `npm install` fails without it), because the published `17.0.0-beta.2` lacks the `createApiClient` export.
+  - **Origin:** it is packed from the local branch `v17/feature/export-create-api-client` in `~/Desktop/Umbraco/MCPS/Engage.MCP.Developer.Repository/Umbraco-Engage-MCP-Dev` (branched from `dev`).
+  - **Changes:** that branch adds `export { getUmbracoEngageManagementAPI as createApiClient }` to `src/collections.ts` and bumps the toolkit to beta.45.
+  - **Local only:** this change is not pushed. Re-pack with `npm pack --pack-destination <this repo>/npm/vendor`. Once a v17 Engage release with the export is published, switch to the registry version like Forms and Automate.
 - **Types:** the tarballs ship no types for `./collections`, so `npm/src/types/product-modules.d.ts` declares them.
 
 ### Tool names, filters and routing
