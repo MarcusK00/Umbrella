@@ -1,0 +1,14 @@
+bin/
+obj/
+*.user
+.vs/
+.idea/
+node_modules/
+npm/dist/
+npm/vendor/*.tgz
+.env
+appsettings.local.json
+demo-site/umbraco/Data/
+demo-site/umbraco/Logs/
+demo-site/wwwroot/media/
+coverage/

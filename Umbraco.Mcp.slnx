@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Umbraco.Mcp/Umbraco.Mcp.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Umbraco.Mcp.Tests/Umbraco.Mcp.Tests.csproj" />
+  </Folder>
+</Solution>
