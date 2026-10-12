@@ -17,7 +17,10 @@ public static class McpFindingArea
     public const string ApiUsers = "apiUsers";
 }
 
-/// <summary>A detected product, and whether and with how many tools the MCP server has loaded it.</summary>
+/// <summary>
+/// A detected product, and whether and with how many tools the MCP server has loaded it. <paramref name="Access"/> is
+/// "full", "noDestructive" or "readOnly".
+/// </summary>
 public sealed record McpOverviewProduct(
     string Id,
     string DisplayName,
@@ -26,7 +29,8 @@ public sealed record McpOverviewProduct(
     string? Version,
     IReadOnlyList<string> Issues,
     bool Loaded,
-    int ToolCount);
+    int ToolCount,
+    string Access);
 
 /// <summary>What the MCP server last reported, and whether it is the add-on's version.</summary>
 public sealed record McpServerReport(string Version, DateTimeOffset ReportedAt, bool MatchesAddon);

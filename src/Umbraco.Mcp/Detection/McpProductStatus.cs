@@ -16,4 +16,7 @@ public sealed record McpProductStatus(
 
     /// <summary>Set in the backoffice: the npm server registers only this product's read-only tools.</summary>
     public bool ReadOnly { get; init; }
+
+    /// <summary>Set in the backoffice: the npm server leaves out this product's destructive tools. Read-only wins when both are set.</summary>
+    public bool NoDestructive { get; init; }
 }

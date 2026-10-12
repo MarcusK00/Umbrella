@@ -19,16 +19,22 @@ public sealed record McpToolSettingsResponse(
     IReadOnlyList<McpProductStatus> Products,
     McpToolCatalogue Catalogue,
     IReadOnlyDictionary<string, IReadOnlyList<string>> DisabledCollections,
-    IReadOnlyList<string> ReadOnlyModules);
+    IReadOnlyList<string> ReadOnlyModules,
+    IReadOnlyList<string> NoDestructiveModules);
 
-/// <summary>Replaces all tool settings. A missing <paramref name="ReadOnlyModules"/> means no product is read-only.</summary>
+/// <summary>
+/// Replaces all tool settings. A missing <paramref name="ReadOnlyModules"/> means no product is read-only, and a missing
+/// <paramref name="NoDestructiveModules"/> means no product is limited to non-destructive tools.
+/// </summary>
 public sealed record McpToolSettingsRequest(
     IReadOnlyDictionary<string, IReadOnlyList<string>?>? DisabledCollections,
-    IReadOnlyList<string?>? ReadOnlyModules = null);
+    IReadOnlyList<string?>? ReadOnlyModules = null,
+    IReadOnlyList<string?>? NoDestructiveModules = null);
 
 public sealed record McpToolSettings(
     IReadOnlyDictionary<string, IReadOnlyList<string>> DisabledCollections,
-    IReadOnlyList<string> ReadOnlyModules);
+    IReadOnlyList<string> ReadOnlyModules,
+    IReadOnlyList<string> NoDestructiveModules);
 
 [ApiVersion("1.0")]
 [VersionedApiBackOfficeRoute("mcp")]
@@ -51,7 +57,12 @@ public sealed class McpToolSettingsController(
     {
         McpCapabilities caps = capabilities.GetCapabilities();
         return Ok(new McpToolSettingsResponse(
-            caps.AddonVersion, caps.Products, store.GetCatalogue(), store.GetDisabledCollections(), store.GetReadOnlyModules()));
+            caps.AddonVersion,
+            caps.Products,
+            store.GetCatalogue(),
+            store.GetDisabledCollections(),
+            store.GetReadOnlyModules(),
+            store.GetNoDestructiveModules()));
     }
 
     [HttpPut("tool-settings")]
@@ -63,15 +74,18 @@ public sealed class McpToolSettingsController(
     {
         var known = capabilities.GetCapabilities().Products.Select(p => p.Id).ToHashSet(StringComparer.Ordinal);
         string? settingsError = McpToolSettingsValidation.TryNormalizeSettings(request?.DisabledCollections, known, out var disabled);
-        string? readOnlyError = McpToolSettingsValidation.TryNormalizeReadOnlyModules(request?.ReadOnlyModules, known, out var readOnly);
-        if ((settingsError ?? readOnlyError) is { } error)
+        string? readOnlyError = McpToolSettingsValidation.TryNormalizeModuleIds(request?.ReadOnlyModules, known, "readOnlyModules", out var readOnly);
+        string? noDestructiveError = McpToolSettingsValidation.TryNormalizeModuleIds(request?.NoDestructiveModules, known, "noDestructiveModules", out var noDestructive);
+        string? overlapError = McpToolSettingsValidation.CheckLevelOverlap(readOnly, noDestructive);
+        if ((settingsError ?? readOnlyError ?? noDestructiveError ?? overlapError) is { } error)
         {
             return BadRequest(new ProblemDetails { Title = "Invalid MCP tool settings", Detail = error });
         }
 
         store.SetDisabledCollections(disabled);
         store.SetReadOnlyModules(readOnly);
-        return Ok(new McpToolSettings(disabled, readOnly));
+        store.SetNoDestructiveModules(noDestructive);
+        return Ok(new McpToolSettings(disabled, readOnly, noDestructive));
     }
 
     /// <summary>
