@@ -93,7 +93,8 @@ internal static class McpToolSettingsValidation
     private static McpCollectionInfo NormalizeCounts(string name, McpCollectionInfo info)
     {
         int toolCount = Math.Max(0, info.ToolCount);
-        return new McpCollectionInfo(name, toolCount, info.ReadOnlyToolCount is int readOnly ? Math.Clamp(readOnly, 0, toolCount) : null);
+        return new McpCollectionInfo(
+            name, toolCount, info.ReadOnlyToolCount is int readOnly ? Math.Clamp(readOnly, 0, toolCount) : null, info.DisabledByDefault);
     }
 
     private static string? TryNormalizeNames(IReadOnlyList<string?>? names, out List<string> clean)

@@ -40,6 +40,15 @@ public class KeyValueMcpToolSettingsStoreTests
     }
 
     [Test]
+    public void Catalogue_round_trips_disabledByDefault()
+    {
+        var values = new FakeKeyValueService();
+        Store(values).MergeCatalogue(new McpCatalogueReport("1.0.0", [new McpModuleReport("forms", false, [new McpCollectionInfo("umbraco-server", 1, 1, true)])]), First);
+
+        Assert.That(Store(values).GetCatalogue().Modules["forms"].Collections.Single().DisabledByDefault, Is.True);
+    }
+
+    [Test]
     public void The_catalogue_stores_read_only_tool_counts()
     {
         var values = new FakeKeyValueService();
