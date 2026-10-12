@@ -13,7 +13,9 @@ using Umbraco.Mcp.ToolSettings;
 
 namespace Umbraco.Mcp.Api;
 
+/// <param name="AddonVersion">The add-on's version, for comparing with the version in the catalogue.</param>
 public sealed record McpToolSettingsResponse(
+    string AddonVersion,
     IReadOnlyList<McpProductStatus> Products,
     McpToolCatalogue Catalogue,
     IReadOnlyDictionary<string, IReadOnlyList<string>> DisabledCollections,
@@ -45,9 +47,12 @@ public sealed class McpToolSettingsController(
     [MapToApiVersion("1.0")]
     [Authorize(Policy = AuthorizationPolicies.SectionAccessSettings)]
     [ProducesResponseType(typeof(McpToolSettingsResponse), StatusCodes.Status200OK)]
-    public IActionResult GetToolSettings() =>
-        Ok(new McpToolSettingsResponse(
-            capabilities.GetCapabilities().Products, store.GetCatalogue(), store.GetDisabledCollections(), store.GetReadOnlyModules()));
+    public IActionResult GetToolSettings()
+    {
+        McpCapabilities caps = capabilities.GetCapabilities();
+        return Ok(new McpToolSettingsResponse(
+            caps.AddonVersion, caps.Products, store.GetCatalogue(), store.GetDisabledCollections(), store.GetReadOnlyModules()));
+    }
 
     [HttpPut("tool-settings")]
     [MapToApiVersion("1.0")]

@@ -23,6 +23,8 @@ export interface ModuleRuntimeState {
 
 export interface HealthState {
   capabilities: CapabilitiesResult;
+  /** The running umbrella-mcp's version. */
+  serverVersion: string;
   umbracoVersion: string | null;
   versionCheckMessage: string | null;
   forcedModules: string[];
@@ -45,6 +47,7 @@ export interface HealthProduct {
 }
 
 export interface HealthReport {
+  server: { version: string };
   addon: { installed: boolean; version: string | null; status: "ok" | "not-installed" | "unavailable"; detail?: string };
   umbraco: { version: string | null; versionCheck: string };
   forcedModules: string[];
@@ -63,6 +66,16 @@ export function buildHealthReport(state: HealthState): HealthReport {
       : caps.kind === "no-addon"
         ? { installed: false, version: null, status: "not-installed" }
         : { installed: false, version: null, status: "unavailable", detail: caps.reason };
+
+  // The two halves are released together. A config pinned to an older umbrella-mcp is the usual cause after an upgrade.
+  if (caps.kind === "ok" && caps.payload.addonVersion !== state.serverVersion) {
+    const addonVersion = caps.payload.addonVersion;
+    notes.push(
+      `umbrella-mcp ${state.serverVersion} is running, but the site's Umbraco.Community.Umbrella add-on is ${addonVersion}. ` +
+      `The two are released together: set umbrella-mcp@${addonVersion} in your MCP client config. ` +
+      "A .mcp.json the site wrote and nobody edited is upgraded when the site next starts in Development.",
+    );
+  }
 
   if (caps.kind === "no-addon") {
     notes.push("Install the Umbraco.Community.Umbrella NuGet package on the site to enable product tools beyond the CMS.");
@@ -117,6 +130,7 @@ export function buildHealthReport(state: HealthState): HealthReport {
   }
 
   return {
+    server: { version: state.serverVersion },
     addon,
     umbraco: { version: state.umbracoVersion, versionCheck: state.versionCheckMessage ?? "ok" },
     forcedModules: state.forcedModules,

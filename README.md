@@ -126,7 +126,7 @@ For example, to write `.mcp.json` to the solution folder one level up:
 ```
 
 About the written `.mcp.json`:
-- It is only written when the site runs in **Development**, once it has started, and **never overwrites** an existing file. Delete it to have it written again, for example after upgrading the add-on, because the file pins `umbrella-mcp` to the add-on's version.
+- It is only written when the site runs in **Development**, once it has started, and **never overwrites a file you edited**. The file pins `umbrella-mcp` to the add-on's version, so after you upgrade the add-on the site updates that version in a file it wrote and nobody changed. If you edited the file, change the version yourself, or delete the file to have it written again.
 - It contains no secret. It reads `${UMBRELLA_CLIENT_SECRET}` from your environment (Claude Code expands `${VAR}` in `.mcp.json`), so it is safe to commit.
 - It needs an HTTPS address, because the Management API token endpoint rejects plain HTTP. It uses the site's first HTTPS address; if the site only listens on HTTP, nothing is written.
 - For a site on `localhost` it sets `NODE_TLS_REJECT_UNAUTHORIZED=0`, because Node does not trust the ASP.NET Core development certificate. This turns off certificate checks for the MCP server process only, and only when the site is on the local machine.
@@ -172,9 +172,9 @@ Settings → Health Check → **MCP** has three checks:
 
 - **MCP products**: which Umbraco products the add-on detected, their versions, and whether their Management APIs are available.
 - **MCP API user**: every API user the MCP server has connected as, whatever its name or client id: when it last connected, whether it can still sign in, and whether it has the sections for each detected product. The MCP server connects once when your AI tool starts it, so until then the check only says no MCP server has connected yet. A stdio MCP server has no lasting connection, so the check shows the last connection, not whether one is open right now. Connections are stored in the `umbracoKeyValue` table.
-- **MCP client setup**: the MCP client config to copy, filled in with the site's URL and client id.
+- **MCP client setup**: the MCP client config to copy, filled in with the site's URL and client id, and whether the MCP server that last started is the add-on's version.
 
-In your AI tool, the `get-mcp-health` tool shows what the server loaded and why: the add-on's status, the Umbraco version check, each product with its tool count and issues, and notes on what to fix.
+In your AI tool, the `get-mcp-health` tool shows what the server loaded and why: the add-on's status, the Umbraco version check, each product with its tool count and issues, and notes on what to fix, including when the server is not the add-on's version.
 
 ## Troubleshooting
 
@@ -189,6 +189,7 @@ Start with `get-mcp-health` in your AI tool and the **MCP** health checks in the
 | Only `cms--` tools are listed | The add-on is not installed or not reachable, or a product is not installed, not enabled, or not on major version 17 | `get-mcp-health` gives the reason per product. "MCP products" in the backoffice shows what the site detected |
 | A product's tools return permission errors | The API user's groups don't grant that product's section | The "MCP API user" check names the missing section |
 | No `.mcp.json` was written | The site is not running in Development, the file already exists, the site has no HTTPS address, `Umbraco:Mcp:McpJson:Enabled` is `false`, or the `Path` folder doesn't exist | The site log says why when there is no HTTPS address. Or copy the config from "MCP client setup" |
+| "MCP client setup", the dashboard or `get-mcp-health` says the versions differ | Your AI tool's config still pins the `umbrella-mcp` of an earlier add-on | Set `umbrella-mcp@<add-on version>` in the config. A `.mcp.json` the site wrote and nobody edited is updated the next time the site starts in Development |
 | The Umbrella dashboard is empty | The MCP server has not started against this site yet | Start it once from your AI tool, then reload the dashboard. If it stays empty, `get-mcp-health` notes why the tool groups could not be reported |
 | Dashboard changes have no effect | The server reads the settings when it starts, or the environment sets collection filters for that product | Reconnect the MCP server. The dashboard warns when the environment overrides it |
 

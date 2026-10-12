@@ -56,6 +56,14 @@ public class McpToolSettingsControllerTests
     }
 
     [Test]
+    public void Get_returns_the_addon_version_so_the_dashboard_can_spot_an_older_mcp_server()
+    {
+        var body = (McpToolSettingsResponse)((OkObjectResult)Controller(new FakeToolSettingsStore()).GetToolSettings()).Value!;
+
+        Assert.That(body.AddonVersion, Is.EqualTo("17.0.0"));
+    }
+
+    [Test]
     public void Put_stores_read_only_modules_trimmed_and_deduplicated()
     {
         var store = new FakeToolSettingsStore();

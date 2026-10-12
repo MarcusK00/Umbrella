@@ -136,6 +136,72 @@ public class McpJsonWriterTests
             Assert.That(File.ReadAllText(existing), Is.EqualTo("mine"));
         }
 
+        private string WriteFor(string version, McpJsonOptions? options = null)
+        {
+            string path = Path.Combine(_dir, ".mcp.json");
+            File.WriteAllText(path, Build(version, options));
+            return path;
+        }
+
+        private static string Build(string version, McpJsonOptions? options = null) =>
+            McpJsonWriter.BuildJson("https://localhost:44399", ClientId, version, options ?? new McpJsonOptions());
+
+        [TestCase("17.0.0", "17.0.1")]
+        [TestCase("17.0.0-alpha.2", "17.0.0-alpha.10")]
+        [TestCase("17.0.0-alpha.1", "17.0.0")]
+        public void Upgrades_a_file_it_wrote_for_an_older_version(string old, string current)
+        {
+            string path = WriteFor(old);
+
+            bool upgraded = McpJsonWriter.TryUpgrade(path, v => Build(v), current, out string? from);
+
+            Assert.That(upgraded, Is.True);
+            Assert.That(from, Is.EqualTo(old));
+            Assert.That(File.ReadAllText(path), Is.EqualTo(Build(current)));
+        }
+
+        [Test]
+        public void Never_upgrades_an_edited_file()
+        {
+            string path = WriteFor("17.0.0");
+            string edited = File.ReadAllText(path).Replace("umbraco-back-office-mcp", "my-client");
+            File.WriteAllText(path, edited);
+
+            Assert.That(McpJsonWriter.TryUpgrade(path, v => Build(v), "17.0.1", out _), Is.False);
+            Assert.That(File.ReadAllText(path), Is.EqualTo(edited));
+        }
+
+        [TestCase("17.0.1")]
+        [TestCase("17.0.0")]
+        public void Never_downgrades_or_rewrites_the_same_version(string pinned)
+        {
+            string path = WriteFor(pinned);
+
+            Assert.That(McpJsonWriter.TryUpgrade(path, v => Build(v), "17.0.0", out _), Is.False);
+            Assert.That(File.ReadAllText(path), Is.EqualTo(Build(pinned)));
+        }
+
+        [Test]
+        public void Leaves_a_file_with_overridden_args_alone()
+        {
+            var options = new McpJsonOptions { Command = "node", Args = ["../npm/dist/index.js"] };
+            string path = WriteFor("17.0.0", options);
+
+            Assert.That(McpJsonWriter.TryUpgrade(path, v => Build(v, options), "17.0.1", out _), Is.False);
+        }
+
+        [TestCase("not json")]
+        [TestCase("{}")]
+        [TestCase("{\"mcpServers\":{\"umbraco\":{\"args\":\"umbrella-mcp@17.0.0\"}}}")]
+        public void Leaves_an_unrecognised_file_alone(string content)
+        {
+            string path = Path.Combine(_dir, ".mcp.json");
+            File.WriteAllText(path, content);
+
+            Assert.That(McpJsonWriter.TryUpgrade(path, v => Build(v), "17.0.1", out _), Is.False);
+            Assert.That(File.ReadAllText(path), Is.EqualTo(content));
+        }
+
         [Test]
         public void Does_not_create_a_missing_folder()
         {
