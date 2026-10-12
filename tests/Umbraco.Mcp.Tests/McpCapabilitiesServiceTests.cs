@@ -94,17 +94,35 @@ public class McpCapabilitiesServiceTests
         McpCapabilities caps = Service([new FormsDetector(a, r), new AutomateDetector(a, r)], store).GetCapabilities();
 
         Assert.That(caps.Products[0].DisabledCollections, Is.EqualTo(new[] { "prevalue-source" }));
-        Assert.That(caps.Products[1].DisabledCollections, Is.Empty);
+        Assert.That(caps.Products[1].DisabledCollections, Is.Null);
     }
 
     [Test]
-    public void A_throwing_store_gives_empty_lists_not_an_exception()
+    public void No_stored_entry_is_returned_as_null()
+    {
+        McpCapabilities caps = Service([new FormsDetector(new FakeAssemblies(), new FakeApis())]).GetCapabilities();
+
+        Assert.That(caps.Products.Single().DisabledCollections, Is.Null);
+    }
+
+    [Test]
+    public void Stored_empty_list_is_returned_as_empty_not_null()
+    {
+        var store = new FakeToolSettingsStore { Disabled = new() { ["forms"] = [] } };
+
+        McpCapabilities caps = Service([new FormsDetector(new FakeAssemblies(), new FakeApis())], store).GetCapabilities();
+
+        Assert.That(caps.Products.Single().DisabledCollections, Is.Not.Null.And.Empty);
+    }
+
+    [Test]
+    public void Failing_store_returns_null_for_every_product()
     {
         var store = new FakeToolSettingsStore { Throws = new InvalidOperationException("database is down") };
 
         McpCapabilities caps = Service([new FormsDetector(new FakeAssemblies(), new FakeApis())], store).GetCapabilities();
 
-        Assert.That(caps.Products.Single().DisabledCollections, Is.Empty);
+        Assert.That(caps.Products.Single().DisabledCollections, Is.Null);
         Assert.That(caps.Products.Single().ReadOnly, Is.False);
     }
 
