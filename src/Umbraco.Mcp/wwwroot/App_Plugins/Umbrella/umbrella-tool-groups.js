@@ -35,7 +35,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
 
   async #load() {
     try {
-      this._data = await request(this, this.#auth, "GET", "tool-settings");
+      this._data = await request(this.#auth, "GET", "tool-settings");
       // A product without a saved list starts from the groups its module keeps off by default.
       const saved = this._data.disabledCollections ?? {};
       this._disabled = Object.fromEntries(
@@ -77,7 +77,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     // Read-only only removes tools, so it is kept for every product the site detects, reported or not.
     const readOnlyModules = this._data.products.map((p) => p.id).filter((id) => this._readOnly.has(id));
     try {
-      await request(this, this.#auth, "PUT", "tool-settings", { disabledCollections, readOnlyModules });
+      await request(this.#auth, "PUT", "tool-settings", { disabledCollections, readOnlyModules });
       this.#notifications?.peek("positive", {
         data: { headline: "Tool settings saved", message: "Reconnect the MCP server in your AI tool to apply the change." },
       });

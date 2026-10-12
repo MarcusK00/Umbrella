@@ -5,7 +5,7 @@ const API_BASE = "/umbraco/management/api/v1/mcp/";
  * `path` is the part after `/umbraco/management/api/v1/mcp/`, for example "overview".
  * Returns the parsed JSON, or null for 204. Throws with the problem's detail, or "HTTP <status>".
  */
-export async function request(host, auth, method, path, body) {
+export async function request(auth, method, path, body) {
   const config = auth.getOpenApiConfiguration();
   const response = await fetch(`${config.base}${API_BASE}${path}`, {
     method,

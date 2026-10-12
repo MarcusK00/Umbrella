@@ -61,27 +61,36 @@ public sealed class McpOverviewService(
         }
     }
 
+    /// <summary>A catalogue counts as a report only with a version and at least one module.</summary>
+    private static bool HasReport(McpToolCatalogue? catalogue) =>
+        catalogue is not null && !string.IsNullOrEmpty(catalogue.UmbrellaVersion) && catalogue.Modules.Count > 0;
+
+    /// <summary>
+    /// When the last report was made. Every module in one report gets the same time (<c>MergeCatalogue</c>),
+    /// so a module with an older time was not part of the latest start.
+    /// </summary>
+    private static DateTimeOffset LatestReportedAt(McpToolCatalogue catalogue) => catalogue.Modules.Values.Max(m => m.ReportedAt);
+
     private static McpOverviewProduct BuildProduct(McpProductStatus p, McpToolCatalogue? catalogue)
     {
         McpModuleCatalogue? module = null;
-        bool loaded = catalogue?.Modules.TryGetValue(p.Id, out module) == true;
+        bool loaded = HasReport(catalogue)
+            && catalogue!.Modules.TryGetValue(p.Id, out module)
+            && module!.ReportedAt == LatestReportedAt(catalogue);
         int toolCount = loaded ? module!.Collections.Sum(c => c.ToolCount) : 0;
         return new McpOverviewProduct(p.Id, p.DisplayName, p.Installed, p.Enabled, p.Version, p.Issues, loaded, toolCount);
     }
 
     private static McpServerReport? BuildServer(McpToolCatalogue? catalogue, string addonVersion)
     {
-        if (catalogue is null || string.IsNullOrEmpty(catalogue.UmbrellaVersion))
+        if (!HasReport(catalogue))
         {
             return null;
         }
 
-        DateTimeOffset reportedAt = catalogue.Modules.Count > 0
-            ? catalogue.Modules.Values.Max(m => m.ReportedAt)
-            : DateTimeOffset.MinValue;
         return new McpServerReport(
-            catalogue.UmbrellaVersion,
-            reportedAt,
+            catalogue!.UmbrellaVersion!,
+            LatestReportedAt(catalogue),
             string.Equals(catalogue.UmbrellaVersion, addonVersion, StringComparison.Ordinal));
     }
 
@@ -153,16 +162,14 @@ public sealed class McpOverviewService(
         {
             serverFindings.Add(new(McpFinding.Info, McpFindingArea.Server, "Could not read what the MCP server last reported. See the log."));
         }
-        else if (string.IsNullOrEmpty(catalogue.UmbrellaVersion))
+        else if (!HasReport(catalogue))
         {
             serverFindings.Add(new(McpFinding.Info, McpFindingArea.Server,
                 "The MCP server has not reported to this site yet. It reports when your AI tool starts it."));
         }
         else if (!string.Equals(catalogue.UmbrellaVersion, addonVersion, StringComparison.Ordinal))
         {
-            string when = catalogue.Modules.Count > 0
-                ? $" on {catalogue.Modules.Values.Max(m => m.ReportedAt).UtcDateTime.ToString("dd-MM-yyyy HH:mm", CultureInfo.InvariantCulture)} UTC"
-                : string.Empty;
+            string when = $" on {LatestReportedAt(catalogue).UtcDateTime.ToString("dd-MM-yyyy HH:mm", CultureInfo.InvariantCulture)} UTC";
             serverFindings.Add(new(McpFinding.Warning, McpFindingArea.Server,
                 $"The MCP server last started as umbrella-mcp {catalogue.UmbrellaVersion}{when}, but the add-on is {addonVersion}. " +
                 $"The two are released together: set {McpClientConfig.NpmPackage}@{addonVersion} in your AI tool's MCP configuration. " +

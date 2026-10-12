@@ -15,8 +15,8 @@ internal static class TestOverview
         IReadOnlyList<McpOverviewApiUser>? users = null) =>
         new("17.0.0", findings ?? [], products ?? [], server, users ?? [], Array.Empty<McpClientSnippet>(), new McpJsonStatus(false, null));
 
-    public static McpOverviewProduct Product(string name, bool installed = true, string? version = "17.0.0") =>
-        new(name.ToLowerInvariant(), name, installed, installed, version, [], installed, 0);
+    public static McpOverviewProduct Product(string name, bool installed = true, string? version = "17.0.0", string[]? issues = null) =>
+        new(name.ToLowerInvariant(), name, installed, installed, version, issues ?? [], installed, 0);
 
     public static McpOverviewApiUser User(
         string name = "MCP API user",

@@ -128,7 +128,7 @@ This only works because product tool handlers call `getApiClient()` lazily insid
 
 ### Client config (`src/Umbraco.Mcp/Client/`)
 
-- **`McpClientConfig`:** builds the `{ "mcpServers": { "umbraco": … } }` JSON. The "MCP client setup" health check and `McpClientSnippets` use it.
+- **`McpClientConfig`:** builds the `{ "mcpServers": { "umbraco": … } }` JSON. `McpClientSnippets` and `McpJsonFile.BuildJson` use it.
 - **`McpClientSnippets`:** the five snippets on the dashboard's Overview tab (Claude Code, Claude Code command, VS Code with `inputs`, Cursor, Other clients). None contains a secret.
 - **`McpOverviewService`** (`Overview/`): status, findings, products, connected API users and snippets, shared by the Overview tab and the three health checks (`McpHealthCheckRows` renders short rows that point to Settings → Umbrella). Endpoints on `McpOverviewController`, Settings section: `GET /mcp/overview`, `DELETE /mcp/connections/{userKey}`, `POST /mcp/mcp-json` (returns `{ outcome, path, message }`).
 - **`McpJsonFile`:** the `.mcp.json` write/upgrade rules, used by the hosted `McpJsonWriter` at startup and by `POST /mcp/mcp-json`. In Development, once the server has started, it writes `.mcp.json` into the content root (or `Umbraco:Mcp:McpJson:Path`). Rules:

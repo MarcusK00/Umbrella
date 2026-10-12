@@ -64,7 +64,7 @@ public class McpOverviewServiceTests
         IReadOnlyList<McpApiUser>? users = null) =>
         McpOverviewService.BuildFindings(
             caps ?? new McpCapabilities(Addon, AllProducts),
-            catalogue ?? Catalogue(),
+            catalogue ?? Catalogue(Addon, ("cms", 1)),
             users ?? [User(UserState.Active, "Umb.Section.Forms", "Ua.Section.Automate")],
             Sections,
             Addon);
@@ -76,7 +76,7 @@ public class McpOverviewServiceTests
         FakeMcpJsonFile? json = null) =>
         new(
             caps ?? new StubCapabilities(new McpCapabilities(Addon, AllProducts)),
-            settings ?? new FakeToolSettingsStore { Catalogue = Catalogue() },
+            settings ?? new FakeToolSettingsStore { Catalogue = Catalogue(Addon, ("cms", 1)) },
             users ?? new FakeApiUserProvider(User(UserState.Active, "Umb.Section.Forms", "Ua.Section.Automate")),
             Sections.Select(s => (IMcpProductDetector)new StubDetector(s.Key, s.Value)).ToList(),
             json ?? new FakeMcpJsonFile(),
@@ -211,6 +211,39 @@ public class McpOverviewServiceTests
         Assert.That(finding.Severity, Is.EqualTo(McpFinding.Info));
         Assert.That(finding.Area, Is.EqualTo(McpFindingArea.ApiUsers));
         Assert.That(finding.Message, Is.EqualTo("Could not read the API users the MCP server connected as. See the log."));
+    }
+
+    [Test]
+    public async Task Module_missing_from_the_latest_report_is_not_loaded()
+    {
+        var catalogue = new McpToolCatalogue(Addon, new Dictionary<string, McpModuleCatalogue>
+        {
+            ["forms"] = new(Reported.AddHours(-1), false, [new McpCollectionInfo("a", 4)]),
+            ["cms"] = new(Reported, false, [new McpCollectionInfo("a", 7)]),
+        });
+        var service = Service(settings: new FakeToolSettingsStore { Catalogue = catalogue });
+
+        McpOverview overview = await service.GetOverviewAsync(null);
+
+        McpOverviewProduct forms = overview.Products.Single(p => p.Id == "forms");
+        Assert.That(forms.Loaded, Is.False);
+        Assert.That(forms.ToolCount, Is.EqualTo(0));
+        McpOverviewProduct cms = overview.Products.Single(p => p.Id == "cms");
+        Assert.That(cms.Loaded, Is.True);
+        Assert.That(cms.ToolCount, Is.EqualTo(7));
+    }
+
+    [Test]
+    public async Task Version_without_modules_counts_as_no_report()
+    {
+        var service = Service(settings: new FakeToolSettingsStore { Catalogue = Catalogue(Addon) });
+
+        McpOverview overview = await service.GetOverviewAsync(null);
+
+        Assert.That(overview.Server, Is.Null);
+        McpFinding finding = overview.Findings.Single();
+        Assert.That(finding.Severity, Is.EqualTo(McpFinding.Info));
+        Assert.That(finding.Message, Is.EqualTo("The MCP server has not reported to this site yet. It reports when your AI tool starts it."));
     }
 
     [Test]

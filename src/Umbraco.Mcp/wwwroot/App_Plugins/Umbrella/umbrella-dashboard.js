@@ -27,7 +27,8 @@ export class UmbrellaDashboardElement extends UmbLitElement {
           (t) => html`<uui-tab label=${t.label} ?active=${this._tab === t.id} @click=${() => (this._tab = t.id)}></uui-tab>`,
         )}
       </uui-tab-group>
-      ${this._tab === "overview" ? html`<umbrella-overview></umbrella-overview>` : html`<umbrella-tool-groups></umbrella-tool-groups>`}
+      <umbrella-overview ?hidden=${this._tab !== "overview"}></umbrella-overview>
+      <umbrella-tool-groups ?hidden=${this._tab !== "tool-groups"}></umbrella-tool-groups>
     `;
   }
 
@@ -35,6 +36,7 @@ export class UmbrellaDashboardElement extends UmbLitElement {
     UmbTextStyles,
     css`
       :host { display: block; }
+      [hidden] { display: none; }
       uui-tab-group { padding: 0 var(--uui-size-layout-1); border-bottom: 1px solid var(--uui-color-divider-standalone); }
     `,
   ];
