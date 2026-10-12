@@ -5,12 +5,12 @@ import { UMB_NOTIFICATION_CONTEXT } from "@umbraco-cms/backoffice/notification";
 import { UmbTextStyles } from "@umbraco-cms/backoffice/style";
 import { formatDate, request } from "./umbrella-api.js";
 
-/** Settings → Umbrella → Tool groups: switch the MCP server's tool groups (collections) on or off, or limit them to read-only tools, per product. */
+/** Settings → Umbrella → Tool groups: switch the MCP server's tool groups (collections) on or off, and set a tool level (full access, no destructive tools or read-only) per product. */
 export class UmbrellaToolGroupsElement extends UmbLitElement {
   static properties = {
     _data: { state: true },
     _disabled: { state: true },
-    _readOnly: { state: true },
+    _levels: { state: true },
     _error: { state: true },
     _saving: { state: true },
   };
@@ -22,7 +22,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     super();
     this._data = null;
     this._disabled = {};
-    this._readOnly = new Set();
+    this._levels = {};
     this._error = null;
     this._saving = false;
     this.consumeContext(UMB_NOTIFICATION_CONTEXT, (ctx) => (this.#notifications = ctx));
@@ -44,7 +44,11 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
           .map(([id, m]) => [id, new Set((m.collections ?? []).filter((c) => c.disabledByDefault).map((c) => c.name))])
           .concat(Object.entries(saved).map(([id, names]) => [id, new Set(names)])),
       );
-      this._readOnly = new Set(this._data.readOnlyModules ?? []);
+      // Read-only wins when a product is somehow in both lists.
+      const levels = {};
+      for (const id of this._data.noDestructiveModules ?? []) levels[id] = "noDestructive";
+      for (const id of this._data.readOnlyModules ?? []) levels[id] = "readOnly";
+      this._levels = levels;
       this._error = null;
     } catch (error) {
       this._error = error.message;
@@ -58,11 +62,8 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     this._disabled = { ...this._disabled, [moduleId]: set };
   }
 
-  #toggleReadOnly(moduleId, readOnly) {
-    const set = new Set(this._readOnly);
-    if (readOnly) set.add(moduleId);
-    else set.delete(moduleId);
-    this._readOnly = set;
+  #setLevel(moduleId, level) {
+    this._levels = { ...this._levels, [moduleId]: level };
   }
 
   async #save() {
@@ -74,10 +75,13 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
         .filter((p) => modules[p.id])
         .map((p) => [p.id, modules[p.id].collections.map((c) => c.name).filter((n) => this._disabled[p.id]?.has(n))]),
     );
-    // Read-only only removes tools, so it is kept for every product the site detects, reported or not.
-    const readOnlyModules = this._data.products.map((p) => p.id).filter((id) => this._readOnly.has(id));
+    // A level only removes tools, so it is kept for every product the site detects, reported or not.
+    // Each product has one level, so it can never be in both lists.
+    const ids = this._data.products.map((p) => p.id);
+    const readOnlyModules = ids.filter((id) => this._levels[id] === "readOnly");
+    const noDestructiveModules = ids.filter((id) => this._levels[id] === "noDestructive");
     try {
-      await request(this.#auth, "PUT", "tool-settings", { disabledCollections, readOnlyModules });
+      await request(this.#auth, "PUT", "tool-settings", { disabledCollections, readOnlyModules, noDestructiveModules });
       this.#notifications?.peek("positive", {
         data: { headline: "Tool settings saved", message: "Reconnect the MCP server in your AI tool to apply the change." },
       });
@@ -102,25 +106,36 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
       </uui-box>`;
     }
     const off = module.collections.filter((c) => this._disabled[product.id]?.has(c.name)).length;
-    const readOnly = this._readOnly.has(product.id);
+    const level = this._levels[product.id] ?? "full";
+    const suffix = level === "readOnly" ? " · read-only" : level === "noDestructive" ? " · no destructive tools" : "";
+    const olderServer =
+      level === "noDestructive" && !module.collections.some((c) => typeof c.nonDestructiveToolCount === "number");
     return html`<uui-box headline=${product.displayName}>
-      <span slot="header-actions">${off} of ${module.collections.length} groups off${readOnly ? " · read-only" : ""}</span>
+      <span slot="header-actions">${off} of ${module.collections.length} groups off${suffix}</span>
       ${module.siteSettingsIgnored
         ? html`<p class="warning">
             Your MCP server's environment sets collection filters for this product, so the group settings are ignored there.
             Read-only still applies.
           </p>`
         : nothing}
-      <uui-toggle
-        class="read-only"
-        label="Read-only tools only"
-        ?checked=${readOnly}
-        @change=${(e) => this.#toggleReadOnly(product.id, e.target.checked)}
-      ></uui-toggle>
+      <uui-radio-group
+        class="level"
+        .value=${level}
+        @change=${(e) => this.#setLevel(product.id, e.target.value)}
+      >
+        <uui-radio value="full" label="Full access"></uui-radio>
+        <uui-radio value="noDestructive" label="No destructive tools"></uui-radio>
+        <uui-radio value="readOnly" label="Read-only"></uui-radio>
+      </uui-radio-group>
+      ${olderServer
+        ? html`<p class="warning">
+            The MCP server that last started is older and still includes destructive tools. Update umbrella-mcp to apply this level.
+          </p>`
+        : nothing}
       <div class="groups">
         ${module.collections.map(
           (c) => html`<uui-checkbox
-            label="${c.name} (${this.#toolCount(c, readOnly)})"
+            label="${c.name} (${this.#toolCount(c, level)})"
             ?checked=${!this._disabled[product.id]?.has(c.name)}
             @change=${(e) => this.#toggle(product.id, c.name, e.target.checked)}
           ></uui-checkbox>`,
@@ -129,11 +144,11 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     </uui-box>`;
   }
 
-  /** "12", or "4 of 12" when read-only; reports from older MCP servers have no read-only count. */
-  #toolCount(collection, readOnly) {
-    return readOnly && typeof collection.readOnlyToolCount === "number"
-      ? `${collection.readOnlyToolCount} of ${collection.toolCount}`
-      : `${collection.toolCount}`;
+  /** "12", or "4 of 12" under read-only or no destructive tools; reports from older MCP servers lack those counts. */
+  #toolCount(collection, level) {
+    const kept =
+      level === "readOnly" ? collection.readOnlyToolCount : level === "noDestructive" ? collection.nonDestructiveToolCount : null;
+    return typeof kept === "number" ? `${kept} of ${collection.toolCount}` : `${collection.toolCount}`;
   }
 
   render() {
@@ -175,7 +190,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
       uui-box { margin-bottom: var(--uui-size-space-5); }
       .groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: var(--uui-size-space-3); }
       .warning { color: var(--uui-color-warning-standalone); }
-      .read-only { display: block; margin-bottom: var(--uui-size-space-4); }
+      .level { display: flex; flex-direction: column; margin-bottom: var(--uui-size-space-4); }
       .actions { display: flex; justify-content: flex-end; }
     `,
   ];
