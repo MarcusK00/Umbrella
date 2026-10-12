@@ -107,7 +107,7 @@ export class UmbrellaDashboardElement extends UmbLitElement {
     const module = this._data.catalogue.modules[product.id];
     if (!module) {
       return html`<uui-box headline=${product.displayName}>
-        <p>Not reported yet: start the MCP server once.</p>
+        <p>Not reported yet. Start the MCP server once; if it has started, call get-mcp-health in your AI tool to see why this product did not load.</p>
       </uui-box>`;
     }
     const off = module.collections.filter((c) => this._disabled[product.id]?.has(c.name)).length;

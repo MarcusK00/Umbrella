@@ -78,16 +78,21 @@ describe("buildHealthReport", () => {
   });
 
   it("notes collections disabled in the backoffice", () => {
-    const r = buildHealthReport(state({ kind: "no-addon" }, [{ ...cmsLoaded, siteDisabledCollections: ["log-viewer", "webhook"] }]));
+    const r = buildHealthReport(state({ kind: "ok", payload: { addonVersion: "17.0.0", products: [] } }, [{ ...cmsLoaded, siteDisabledCollections: ["log-viewer", "webhook"] }]));
     expect(r.notes).toContain("Umbraco CMS: tool groups disabled in the backoffice: log-viewer, webhook.");
   });
 
   it("notes when the environment overrides the backoffice settings", () => {
-    const r = buildHealthReport(state({ kind: "no-addon" }, [{ ...cmsLoaded, siteDisabledCollections: ["log-viewer"], siteSettingsIgnored: true }]));
+    const r = buildHealthReport(state({ kind: "ok", payload: { addonVersion: "17.0.0", products: [] } }, [{ ...cmsLoaded, siteDisabledCollections: ["log-viewer"], siteSettingsIgnored: true }]));
     expect(r.notes).toContain(
       "Umbraco CMS: the backoffice tool group settings are ignored because the environment sets collection filters for this module.",
     );
     expect(r.notes.join(" ")).not.toMatch(/disabled in the backoffice/);
+  });
+
+  it("says nothing about backoffice settings when the site has no add-on (there is no dashboard)", () => {
+    const r = buildHealthReport(state({ kind: "no-addon" }, [{ ...cmsLoaded, siteSettingsIgnored: true }]));
+    expect(r.notes.join(" ")).not.toMatch(/backoffice tool group/);
   });
 
   it("notes a failed catalogue report", () => {
