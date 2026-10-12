@@ -13,6 +13,8 @@ export interface ProductCapability {
   disabledCollections?: string[] | null;
   /** Only read-only tools, as set in the backoffice. Missing on older add-ons. */
   readOnly?: boolean | null;
+  /** No destructive tools, as set in the backoffice. Missing on older add-ons. */
+  noDestructive?: boolean | null;
 }
 
 export interface CapabilitiesPayload {
@@ -40,6 +42,7 @@ const isProduct = (p: unknown): p is ProductCapability => {
       o.disabledCollections === null ||
       (Array.isArray(o.disabledCollections) && o.disabledCollections.every((c) => typeof c === "string"))) &&
     (o.readOnly === undefined || o.readOnly === null || typeof o.readOnly === "boolean") &&
+    (o.noDestructive === undefined || o.noDestructive === null || typeof o.noDestructive === "boolean") &&
     Array.isArray(o.issues)
   );
 };
@@ -84,4 +87,10 @@ export function siteDisabledCollections(caps: CapabilitiesResult, moduleId: stri
 export function siteReadOnly(caps: CapabilitiesResult, moduleId: string): boolean {
   if (caps.kind !== "ok") return false;
   return caps.payload.products.find((p) => p.id === moduleId)?.readOnly === true;
+}
+
+/** Whether the site removes a module's destructive tools; false without the add-on or on add-ons that predate the field. */
+export function siteNoDestructive(caps: CapabilitiesResult, moduleId: string): boolean {
+  if (caps.kind !== "ok") return false;
+  return caps.payload.products.find((p) => p.id === moduleId)?.noDestructive === true;
 }

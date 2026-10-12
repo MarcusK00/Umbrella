@@ -57,6 +57,87 @@ public class McpToolSettingsControllerTests
     }
 
     [Test]
+    public void Get_returns_no_destructive_modules()
+    {
+        var store = new FakeToolSettingsStore { NoDestructive = ["forms"] };
+
+        var body = (McpToolSettingsResponse)((OkObjectResult)Controller(store).GetToolSettings()).Value!;
+
+        Assert.That(body.NoDestructiveModules, Is.EqualTo(new[] { "forms" }));
+    }
+
+    [Test]
+    public void Put_stores_no_destructive_modules_trimmed_and_deduplicated()
+    {
+        var store = new FakeToolSettingsStore();
+
+        IActionResult result = Controller(store).PutToolSettings(new McpToolSettingsRequest(
+            new Dictionary<string, IReadOnlyList<string>?>(), null, [" forms ", "forms", ""]));
+
+        Assert.That(result, Is.InstanceOf<OkObjectResult>());
+        Assert.That(store.NoDestructive, Is.EqualTo(new[] { "forms" }));
+        Assert.That(((McpToolSettings)((OkObjectResult)result).Value!).NoDestructiveModules, Is.EqualTo(new[] { "forms" }));
+    }
+
+    [Test]
+    public void Put_rejects_a_module_in_both_lists_and_stores_nothing()
+    {
+        var store = new FakeToolSettingsStore
+        {
+            Disabled = new() { ["cms"] = ["a"] },
+            ReadOnly = ["cms"],
+            NoDestructive = ["cms"],
+        };
+
+        IActionResult result = Controller(store).PutToolSettings(new McpToolSettingsRequest(
+            new Dictionary<string, IReadOnlyList<string>?> { ["forms"] = ["x"] }, ["forms"], ["forms"]));
+
+        Assert.That(result, Is.InstanceOf<BadRequestObjectResult>());
+        Assert.That(((ProblemDetails)((BadRequestObjectResult)result).Value!).Detail,
+            Is.EqualTo("A product cannot be both read-only and limited to non-destructive tools: forms."));
+        Assert.That(store.Disabled.Keys, Is.EqualTo(new[] { "cms" }));
+        Assert.That(store.ReadOnly, Is.EqualTo(new[] { "cms" }));
+        Assert.That(store.NoDestructive, Is.EqualTo(new[] { "cms" }));
+    }
+
+    [Test]
+    public void Put_without_no_destructive_modules_clears_them()
+    {
+        var store = new FakeToolSettingsStore { NoDestructive = ["forms"] };
+
+        Controller(store).PutToolSettings(new McpToolSettingsRequest(new Dictionary<string, IReadOnlyList<string>?>()));
+
+        Assert.That(store.NoDestructive, Is.Empty);
+    }
+
+    [Test]
+    public void Put_rejects_an_unknown_no_destructive_module()
+    {
+        var store = new FakeToolSettingsStore { NoDestructive = ["cms"] };
+
+        IActionResult result = Controller(store).PutToolSettings(new McpToolSettingsRequest(
+            new Dictionary<string, IReadOnlyList<string>?>(), null, ["commerce"]));
+
+        Assert.That(result, Is.InstanceOf<BadRequestObjectResult>());
+        Assert.That(((ProblemDetails)((BadRequestObjectResult)result).Value!).Detail, Does.StartWith("noDestructiveModules:"));
+        Assert.That(store.NoDestructive, Is.EqualTo(new[] { "cms" }));
+    }
+
+    [TestCase(4, 4)]
+    [TestCase(-1, 0)]
+    [TestCase(99, 10)]
+    [TestCase(null, null)]
+    public void Post_keeps_non_destructive_counts_between_zero_and_the_tool_count(int? reported, int? stored)
+    {
+        var store = new FakeToolSettingsStore();
+        var report = new McpCatalogueReport("17.0.0", [new McpModuleReport("forms", false, [new McpCollectionInfo("form", 10, null, false, reported)])]);
+
+        Controller(store, User(UserKind.Api)).PostCatalogue(report);
+
+        Assert.That(store.Merged.Single().Report.Modules.Single().Collections.Single().NonDestructiveToolCount, Is.EqualTo(stored));
+    }
+
+    [Test]
     public void Get_returns_the_addon_version_so_the_dashboard_can_spot_an_older_mcp_server()
     {
         var body = (McpToolSettingsResponse)((OkObjectResult)Controller(new FakeToolSettingsStore()).GetToolSettings()).Value!;

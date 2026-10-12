@@ -40,6 +40,25 @@ public class KeyValueMcpToolSettingsStoreTests
     }
 
     [Test]
+    public void No_destructive_modules_round_trip()
+    {
+        var values = new FakeKeyValueService();
+        var store = Store(values);
+
+        store.SetNoDestructiveModules(["forms", "cms"]);
+
+        Assert.That(store.GetNoDestructiveModules(), Is.EqualTo(new[] { "forms", "cms" }));
+        Assert.That(values.Values[KeyValueMcpToolSettingsStore.NoDestructiveKey], Is.EqualTo("[\"forms\",\"cms\"]"));
+        Assert.That(store.GetReadOnlyModules(), Is.Empty);
+    }
+
+    [Test]
+    public void No_destructive_modules_empty_when_nothing_stored()
+    {
+        Assert.That(Store(new FakeKeyValueService()).GetNoDestructiveModules(), Is.Empty);
+    }
+
+    [Test]
     public void Catalogue_round_trips_disabledByDefault()
     {
         var values = new FakeKeyValueService();

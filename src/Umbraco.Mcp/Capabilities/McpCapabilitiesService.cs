@@ -13,13 +13,28 @@ public sealed class McpCapabilitiesService(
     {
         IReadOnlyDictionary<string, IReadOnlyList<string>> disabled = SafeDisabledCollections();
         IReadOnlyList<string> readOnly = SafeReadOnlyModules();
+        IReadOnlyList<string> noDestructive = SafeNoDestructiveModules();
         return new(
             McpAddon.Version,
             detectors.Select(d => SafeDetect(d) with
             {
                 DisabledCollections = disabled.GetValueOrDefault(d.Id),
                 ReadOnly = readOnly.Contains(d.Id, StringComparer.Ordinal),
+                NoDestructive = noDestructive.Contains(d.Id, StringComparer.Ordinal),
             }).ToList());
+    }
+
+    private IReadOnlyList<string> SafeNoDestructiveModules()
+    {
+        try
+        {
+            return toolSettings.GetNoDestructiveModules();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not read the MCP no-destructive settings. No product is limited in the capabilities.");
+            return [];
+        }
     }
 
     private IReadOnlyList<string> SafeReadOnlyModules()

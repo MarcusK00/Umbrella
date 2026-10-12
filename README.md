@@ -141,6 +141,7 @@ About the written `.mcp.json`:
 | `UMBRACO_MCP_MODULES` | Force modules on without detection, for example `forms,automate` |
 | `UMBRACO_TOOL_MODES`, `UMBRACO_INCLUDE_/EXCLUDE_TOOL_COLLECTIONS`, `UMBRACO_INCLUDE_/EXCLUDE_TOOLS` | Toolkit filters. Unprefixed entries apply to CMS; `forms:<value>` targets a module; `forms:*` means no restriction for that module. In the two `*_TOOLS` lists you can also use the visible name, for example `cms--delete-document` or `forms--list-forms`. Collection filters set here for a product override the Umbrella dashboard and the [off-by-default groups](#turning-tool-groups-off) for that product |
 | `UMBRACO_READONLY` | `true` registers only read-only tools, for every module. To do this for one product, use the Umbrella dashboard |
+| `UMBRACO_NO_DESTRUCTIVE` | `true` leaves out the destructive tools, for every module. To do this for one product, use the Umbrella dashboard |
 | `UMBRACO_INCLUDE_SLICES`, `UMBRACO_EXCLUDE_SLICES` | Apply to every module |
 
 Filters match the products' own tool names, before the prefix is added. For example, to keep only the CMS `document` and `media` tool groups and every Forms tool except deleting forms:
@@ -158,7 +159,13 @@ The command `npx -y umbrella-mcp@<version> --list-tools`, run with the same envi
 
 Settings → **Umbrella** → **Tool groups** lists every product the MCP server loaded, with one checkbox per tool group (for example Umbraco Forms → `prevalue-source`). Untick a group and save to stop exposing its tools. Fewer tools means less context for the AI and better tool choice.
 
-Each product also has a **Read-only tools only** toggle. With it on, the product registers only tools marked read-only (the ones that list and fetch), so the AI can look at that product but not change it. The group labels then show how many tools stay, for example `form (6 of 14)`. Group checkboxes still apply on top of it.
+Each product also has a tool level, with three choices:
+
+- **Full access:** every tool, the default.
+- **No destructive tools:** leaves out the tools the product marks as destructive (`destructiveHint`), so the AI can create and edit but not delete. That is the deletes, emptying recycle bins, terminating runs, and a few Engage switches and permission changes. Unpublishing, moving to the recycle bin, and CMS and Forms version rollback are not flagged, so they stay available.
+- **Read-only:** only tools marked read-only (the ones that list and fetch), so the AI can look at that product but not change it.
+
+The group labels show how many tools stay at the chosen level, for example `form (6 of 14)`. Group checkboxes still apply on top of it.
 
 - **Off by default:** some groups start unticked, 18 tools in all:
   - Umbraco CMS `manifest`, `user-data` and `imaging`: backoffice extension manifests, the backoffice's per-user settings store and image resize URLs.
@@ -170,7 +177,9 @@ Each product also has a **Read-only tools only** toggle. With it on, the product
 - **When it applies:** the next time the MCP server starts. Reconnect it in your AI tool after saving.
 - **Before the first start:** the dashboard is empty until the MCP server has connected once, because the server reports its tool groups when it starts.
 - **Environment wins for groups:** if the MCP server's environment sets `UMBRACO_INCLUDE_TOOL_COLLECTIONS` or `UMBRACO_EXCLUDE_TOOL_COLLECTIONS` for a product (including `forms:*`, or an unprefixed entry for CMS), the group settings and the off-by-default groups are ignored for that product and the dashboard shows a warning. So `forms:*` brings the default-off Forms groups back, and so does any other Forms collection filter, such as `forms:folder`. `UMBRACO_INCLUDE_TOOLS` also still includes a tool from a switched-off group.
-- **Read-only always applies:** it only removes tools, so the environment can't turn it off. `UMBRACO_READONLY=true` makes every product read-only whatever the dashboard says.
+- **The level always applies:** it only removes tools, so the environment can't turn it off, and it applies even when environment collection filters make the group settings ignored. `UMBRACO_READONLY=true` makes every product read-only and `UMBRACO_NO_DESTRUCTIVE=true` removes destructive tools from every product, whatever the dashboard says.
+- **If the site can't be read:** when the MCP server can't read the site's settings it can't apply the dashboard level, so set `UMBRACO_NO_DESTRUCTIVE=true` (or `UMBRACO_READONLY=true`) in the AI tool's config to enforce it regardless.
+- **Older servers:** an MCP server older than the add-on ignores the No destructive level; the dashboard warns when the server that last started is older.
 - **Not a security control:** anyone with the API user's credentials can call the Management API directly. Use the API user's groups and sections to limit what it can do.
 
 The settings and the reported tool groups are stored in the `umbracoKeyValue` table, so they survive restarts and are shared by every server of a load-balanced site. Changing them needs access to the Settings section.

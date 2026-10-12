@@ -36,7 +36,7 @@ node -e "
   const forms = s.catalogue.modules.forms;
   if (!forms || !forms.collections.some((c) => c.name === 'prevalue-source')) { console.error('forms not reported'); process.exit(1); }" <<<"$SETTINGS" \
   || fail "catalogue does not list forms/prevalue-source (excerpt: ${SETTINGS:0:300})"
-ORIGINAL=$(node -e "const s = JSON.parse(require('fs').readFileSync(0, 'utf8')); console.log(JSON.stringify({ disabledCollections: s.disabledCollections, readOnlyModules: s.readOnlyModules }));" <<<"$SETTINGS")
+ORIGINAL=$(node -e "const s = JSON.parse(require('fs').readFileSync(0, 'utf8')); console.log(JSON.stringify({ disabledCollections: s.disabledCollections, readOnlyModules: s.readOnlyModules, noDestructiveModules: s.noDestructiveModules || [] }));" <<<"$SETTINGS")
 put_settings() {
   curl -sfk -X PUT -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d "$1" "$API/tool-settings" >/dev/null
 }
@@ -55,6 +55,12 @@ grep -qx "forms--list-forms" <<<"$TOOLS_RO" || fail "read-only forms lost its re
 if grep -qx "forms--delete-form" <<<"$TOOLS_RO"; then fail "read-only forms still lists forms--delete-form"; fi
 grep -qx "cms--delete-document" <<<"$TOOLS_RO" || fail "read-only forms also made CMS read-only"
 echo "   read-only forms kept list-forms and dropped delete-form"
+put_settings '{"disabledCollections":{},"noDestructiveModules":["forms"]}' || fail "PUT no-destructive tool-settings failed"
+TOOLS_ND=$(node dist/index.js --list-tools)
+grep -qx "forms--list-forms" <<<"$TOOLS_ND" || fail "no-destructive forms lost its read tools"
+if grep -qx "forms--delete-form" <<<"$TOOLS_ND"; then fail "no-destructive forms still lists forms--delete-form"; fi
+grep -qx "cms--delete-document" <<<"$TOOLS_ND" || fail "no-destructive forms also affected CMS"
+echo "   no-destructive forms kept list-forms and dropped delete-form"
 put_settings '{"disabledCollections":{}}' || fail "PUT empty tool-settings failed"
 TOOLS_DEF=$(node dist/index.js --list-tools)
 for tool in forms--get-server-info automate--get-server-info forms--get-acceptance-tests-system-info; do

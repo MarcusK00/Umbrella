@@ -6,7 +6,7 @@ const mod = (id: string): McpProductModule => ({
   load: async () => { throw new Error("unused"); },
 });
 
-type FakeTool = { name: string; enabled?: (user: unknown) => boolean; annotations?: { readOnlyHint?: boolean }; isReadOnly?: boolean };
+type FakeTool = { name: string; enabled?: (user: unknown) => boolean; annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean }; isReadOnly?: boolean };
 
 const collection = (name: string, tools: FakeTool[]) => ({
   metadata: { name, displayName: name, description: "" },
@@ -29,7 +29,7 @@ describe("buildCatalogue", () => {
       modules: [{
         id: "forms",
         siteSettingsIgnored: true,
-        collections: [{ name: "form", toolCount: 1, readOnlyToolCount: 0 }, { name: "prevalue-source", toolCount: 1, readOnlyToolCount: 0 }],
+        collections: [{ name: "form", toolCount: 1, readOnlyToolCount: 0, nonDestructiveToolCount: 1 }, { name: "prevalue-source", toolCount: 1, readOnlyToolCount: 0, nonDestructiveToolCount: 1 }],
       }],
     });
   });
@@ -54,7 +54,22 @@ describe("buildCatalogue", () => {
 
     const [module] = buildCatalogue("1", [{ module: mod("forms"), loaded: forms, siteSettingsIgnored: false }], {}).modules;
 
-    expect(module.collections).toEqual([{ name: "form", toolCount: 3, readOnlyToolCount: 2 }]);
+    expect(module.collections).toEqual([{ name: "form", toolCount: 3, readOnlyToolCount: 2, nonDestructiveToolCount: 3 }]);
+  });
+
+  it("reports nonDestructiveToolCount per collection", () => {
+    const forms = loaded([
+      collection("form", [
+        { name: "list-forms" },
+        { name: "delete-form", annotations: { destructiveHint: true } },
+        { name: "update-form", annotations: { destructiveHint: false } },
+        { name: "admin-delete", annotations: { destructiveHint: true }, enabled: () => false },
+      ]),
+    ]);
+
+    const [module] = buildCatalogue("1", [{ module: mod("forms"), loaded: forms, siteSettingsIgnored: false }], {}).modules;
+
+    expect(module.collections[0]).toMatchObject({ toolCount: 3, nonDestructiveToolCount: 2 });
   });
 
   it("leaves out a module whose tools cannot be listed", () => {

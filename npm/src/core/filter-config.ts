@@ -81,7 +81,8 @@ export function envSetsCollectionFilter(env: NodeJS.ProcessEnv, moduleId: string
  * come from the first of: the environment (when it sets collection filters for the module, the site's list and the
  * defaults are ignored), the site's saved list (`[]` included), or the module's default-off collections when the
  * site has no saved list (`null`). Read-only always applies, since it can only remove tools; together with
- * `UMBRACO_READONLY` either one turns it on.
+ * `UMBRACO_READONLY` either one turns it on. The no-destructive level works the same way, with `UMBRACO_NO_DESTRUCTIVE`;
+ * it is returned as `excludeDestructive` because the toolkit filter has no such option.
  */
 export function buildEffectiveFilterInput(
   env: NodeJS.ProcessEnv,
@@ -90,12 +91,18 @@ export function buildEffectiveFilterInput(
   siteDisabled: readonly string[] | null,
   siteReadOnly = false,
   defaults: readonly string[] = [],
-): { config: ServerConfigForCollections; siteSettingsIgnored: boolean; defaultsApplied: string[] } {
+  siteNoDestructive = false,
+): { config: ServerConfigForCollections; siteSettingsIgnored: boolean; defaultsApplied: string[]; excludeDestructive: boolean } {
   const config = buildModuleFilterInput(env, moduleId, isDefaultModule);
   const siteSettingsIgnored = envSetsCollectionFilter(env, moduleId, isDefaultModule);
   const excluded = siteSettingsIgnored ? [] : [...(siteDisabled ?? defaults)];
   if (excluded.length > 0) config.excludeToolCollections = excluded;
   if (siteReadOnly) config.readonly = true;
   const defaultsApplied = !siteSettingsIgnored && siteDisabled === null ? [...defaults] : [];
-  return { config, siteSettingsIgnored, defaultsApplied };
+  return { config, siteSettingsIgnored, defaultsApplied, excludeDestructive: siteNoDestructive || envNoDestructive(env) };
+}
+
+/** `UMBRACO_NO_DESTRUCTIVE=true` removes the tools products flag as destructive, for every module. */
+export function envNoDestructive(env: NodeJS.ProcessEnv): boolean {
+  return env.UMBRACO_NO_DESTRUCTIVE?.trim().toLowerCase() === "true";
 }

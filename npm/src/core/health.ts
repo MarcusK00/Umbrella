@@ -21,6 +21,10 @@ export interface ModuleRuntimeState {
   siteSettingsIgnored?: boolean;
   /** The site limits this module to read-only tools (from capabilities). */
   siteReadOnly?: boolean;
+  /** The site removes this module's destructive tools (from capabilities). */
+  siteNoDestructive?: boolean;
+  /** How many destructive tools were removed from this module at registration. */
+  destructiveRemoved?: number;
 }
 
 export interface HealthState {
@@ -31,6 +35,8 @@ export interface HealthState {
   versionCheckMessage: string | null;
   forcedModules: string[];
   modules: ModuleRuntimeState[];
+  /** UMBRACO_NO_DESTRUCTIVE is set, which removes destructive tools for every module. */
+  noDestructiveFromEnv: boolean;
   /** Absent when the catalogue was not reported (no add-on). */
   catalogueReport?: CatalogueReportResult;
 }
@@ -45,6 +51,8 @@ export interface HealthProduct {
   hasModule: boolean;
   loaded: boolean;
   toolCount: number;
+  /** Destructive tools removed by the no-destructive level; 0 when the level is off or the module did not load. */
+  destructiveRemoved: number;
   issues: string[];
 }
 
@@ -83,10 +91,22 @@ export function buildHealthReport(state: HealthState): HealthReport {
     notes.push("Install the Umbraco.Community.Umbrella NuGet package on the site to enable product tools beyond the CMS.");
   }
 
+  if (caps.kind === "unavailable") {
+    notes.push(
+      "The site's capabilities could not be read, so the backoffice tool levels (read-only, no destructive tools) and tool group settings were not applied. " +
+      "Set UMBRACO_NO_DESTRUCTIVE=true or UMBRACO_READONLY=true in the MCP server's environment to enforce a level without the site.",
+    );
+  }
+
+  if (state.noDestructiveFromEnv) {
+    notes.push("UMBRACO_NO_DESTRUCTIVE is set, so destructive tools are removed for every product.");
+  }
+
   const products: HealthProduct[] = state.modules.map((
     {
       decision, loaded, toolCount, issues,
       siteDisabledCollections = [], defaultDisabledCollections = [], siteSettingsIgnored = false, siteReadOnly = false,
+      siteNoDestructive = false, destructiveRemoved = 0,
     },
   ) => {
     const name = decision.module.displayName;
@@ -105,6 +125,9 @@ export function buildHealthReport(state: HealthState): HealthReport {
     if (hasDashboard && siteReadOnly) {
       notes.push(`${name}: only read-only tools, as set in the backoffice.`);
     }
+    if (hasDashboard && loaded && siteNoDestructive) {
+      notes.push(`${name}: no destructive tools (${destructiveRemoved} removed), as set in the backoffice.`);
+    }
     const p = detected.find((d) => d.id === decision.module.id) ?? null;
     if (caps.kind === "ok" && !decision.module.required && (!p || !p.installed)) {
       notes.push(`There is a module for ${decision.module.displayName}, but it is not installed on this site.`);
@@ -119,13 +142,14 @@ export function buildHealthReport(state: HealthState): HealthReport {
       hasModule: true,
       loaded,
       toolCount,
+      destructiveRemoved: loaded ? destructiveRemoved : 0,
       issues: [...(p?.issues ?? []), ...issues, ...(decision.load ? [] : [decision.reason])],
     };
   });
 
   for (const p of detected) {
     if (products.some((x) => x.id === p.id)) continue;
-    products.push({ ...p, description: null, hasModule: false, loaded: false, toolCount: 0 });
+    products.push({ ...p, description: null, hasModule: false, loaded: false, toolCount: 0, destructiveRemoved: 0 });
     if (p.installed) notes.push(`${p.displayName} is installed, but this MCP has no ${p.displayName} module yet.`);
   }
 

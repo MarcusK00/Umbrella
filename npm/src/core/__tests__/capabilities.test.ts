@@ -1,4 +1,4 @@
-import { fetchCapabilities, interpretCapabilitiesResponse, siteDisabledCollections, siteReadOnly } from "../capabilities.js";
+import { fetchCapabilities, interpretCapabilitiesResponse, siteDisabledCollections, siteNoDestructive, siteReadOnly } from "../capabilities.js";
 
 const payload = {
   addonVersion: "17.0.0",
@@ -31,6 +31,7 @@ describe("interpretCapabilitiesResponse", () => {
     ["product missing id", { addonVersion: "1", products: [{ installed: true }] }],
     ["disabledCollections not a string array", { addonVersion: "1", products: [{ ...payload.products[0], disabledCollections: [1] }] }],
     ["readOnly not a boolean", { addonVersion: "1", products: [{ ...payload.products[0], readOnly: "true" }] }],
+    ["noDestructive not a boolean", { addonVersion: "1", products: [{ ...payload.products[0], noDestructive: "true" }] }],
   ])("treats a malformed 200 (%s) as unavailable", (_label, data) => {
     const r = interpretCapabilitiesResponse({ status: 200, data });
     expect(r.kind).toBe("unavailable");
@@ -98,5 +99,24 @@ describe("siteReadOnly", () => {
     expect(siteReadOnly(nulled, "forms")).toBe(false);
     expect(siteReadOnly({ kind: "no-addon" }, "forms")).toBe(false);
     expect(siteReadOnly({ kind: "unavailable", reason: "x" }, "forms")).toBe(false);
+  });
+});
+
+describe("siteNoDestructive", () => {
+  const withLevel = (noDestructive: unknown) =>
+    interpretCapabilitiesResponse({ status: 200, data: { ...payload, products: [{ ...payload.products[1], noDestructive }] } });
+
+  it("reads the product", () => {
+    expect(siteNoDestructive(withLevel(true), "forms")).toBe(true);
+    expect(siteNoDestructive(withLevel(true), "cms")).toBe(false);
+    expect(siteNoDestructive(withLevel(false), "forms")).toBe(false);
+  });
+
+  it("noDestructive missing or null is false", () => {
+    expect(siteNoDestructive(interpretCapabilitiesResponse({ status: 200, data: payload }), "forms")).toBe(false);
+    const nulled = withLevel(null);
+    expect(nulled.kind).toBe("ok");
+    expect(siteNoDestructive(nulled, "forms")).toBe(false);
+    expect(siteNoDestructive({ kind: "no-addon" }, "forms")).toBe(false);
   });
 });

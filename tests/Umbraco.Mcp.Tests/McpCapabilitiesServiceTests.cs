@@ -140,6 +140,30 @@ public class McpCapabilitiesServiceTests
     }
 
     [Test]
+    public void No_destructive_comes_from_the_store()
+    {
+        var a = new FakeAssemblies();
+        var r = new FakeApis();
+        var store = new FakeToolSettingsStore { NoDestructive = ["forms"] };
+
+        McpCapabilities caps = Service([new FormsDetector(a, r), new AutomateDetector(a, r)], store).GetCapabilities();
+
+        Assert.That(caps.Products[0].NoDestructive, Is.True);
+        Assert.That(caps.Products[1].NoDestructive, Is.False);
+        Assert.That(JsonSerializer.Serialize(caps, new JsonSerializerOptions(JsonSerializerDefaults.Web)), Does.Contain("\"noDestructive\":true"));
+    }
+
+    [Test]
+    public void No_destructive_store_failure_means_false()
+    {
+        var store = new FakeToolSettingsStore { Throws = new InvalidOperationException("db down") };
+
+        McpCapabilities caps = Service([new FormsDetector(new FakeAssemblies(), new FakeApis())], store).GetCapabilities();
+
+        Assert.That(caps.Products.Single().NoDestructive, Is.False);
+    }
+
+    [Test]
     public void Disabled_collections_and_read_only_serialise_as_camel_case()
     {
         var store = new FakeToolSettingsStore { Disabled = new() { ["forms"] = ["prevalue-source"] }, ReadOnly = ["forms"] };

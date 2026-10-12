@@ -1,4 +1,5 @@
 import { CAPTURE_RAW_HTTP_RESPONSE, UmbracoManagementClient, type HttpResponse } from "@umbraco-cms/mcp-server-sdk";
+import { isDestructive } from "./destructive.js";
 import type { LoadedModule, McpProductModule } from "./module-contract.js";
 
 export const CATALOGUE_PATH = "/umbraco/management/api/v1/mcp/catalogue";
@@ -9,9 +10,10 @@ export interface CatalogueModule {
   siteSettingsIgnored: boolean;
   /**
    * `readOnlyToolCount`: how many of the usable tools are left when the module is read-only.
+   * `nonDestructiveToolCount`: how many are left when destructive tools are removed.
    * `disabledByDefault`: present (true) only on the module's default-off collections.
    */
-  collections: { name: string; toolCount: number; readOnlyToolCount: number; disabledByDefault?: true }[];
+  collections: { name: string; toolCount: number; readOnlyToolCount: number; nonDestructiveToolCount: number; disabledByDefault?: true }[];
 }
 
 export interface CataloguePayload {
@@ -43,6 +45,7 @@ export function buildCatalogue(
             toolCount: usable.length,
             // The same test as the toolkit's read-only filter (shouldIncludeTool).
             readOnlyToolCount: usable.filter((t) => t.annotations?.readOnlyHint || t.isReadOnly).length,
+            nonDestructiveToolCount: usable.filter((t) => !isDestructive(t)).length,
             ...(defaults.has(c.metadata.name) && { disabledByDefault: true as const }),
           };
         }),
