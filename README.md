@@ -108,7 +108,7 @@ This config contains the secret itself, so keep it out of source control. `UMBRA
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `Umbraco:Mcp:ClientId` | `umbraco-back-office-mcp` | The client id put in the written `.mcp.json` and in the "MCP client setup" config. The "MCP API user" check does not use it: it reports on whichever API user the MCP server connected as |
+| `Umbraco:Mcp:ClientId` | `umbraco-back-office-mcp` | The client id put in the written `.mcp.json` and in the config snippets on Settings → Umbrella → Overview. The "MCP API user" check does not use it: it reports on whichever API user the MCP server connected as |
 | `Umbraco:Mcp:McpJson:Enabled` | `true` | Set to `false` to never write `.mcp.json` |
 | `Umbraco:Mcp:McpJson:Path` | the site's content root | Folder to write `.mcp.json` to, relative to the content root (or absolute). Use `..` if you open the solution folder in your AI tool. The folder must exist: it is never created |
 | `Umbraco:Mcp:McpJson:Command`, `Umbraco:Mcp:McpJson:Args` | `npx`, `["-y", "umbrella-mcp@<version>"]` | Override how the server is started, for example to run a local build |
