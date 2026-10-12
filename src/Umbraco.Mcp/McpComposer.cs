@@ -7,6 +7,7 @@ using Umbraco.Mcp.Client;
 using Umbraco.Mcp.Connections;
 using Umbraco.Mcp.Detection;
 using Umbraco.Mcp.Detection.Detectors;
+using Umbraco.Mcp.Overview;
 using Umbraco.Mcp.ToolSettings;
 
 namespace Umbraco.Mcp;
@@ -28,6 +29,7 @@ public sealed class McpComposer : IComposer
         builder.Services.AddSingleton<IMcpConnectionStore, KeyValueMcpConnectionStore>();
         builder.Services.AddSingleton<IMcpToolSettingsStore, KeyValueMcpToolSettingsStore>();
         builder.Services.AddScoped<IMcpApiUserProvider, ConnectedMcpApiUserProvider>();
+        builder.Services.AddScoped<IMcpOverviewService, McpOverviewService>();
         builder.Services.AddSingleton<IMcpJsonFile, McpJsonFile>();
         builder.Services.AddHostedService<McpJsonWriter>();
     }
