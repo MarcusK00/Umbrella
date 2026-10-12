@@ -1,7 +1,7 @@
 # Merge Workflow — Design Spec
 
 - **Date:** 12-10-2026
-- **Status:** Draft
+- **Status:** Implemented
 - **Author:** mkr@umbraco.dk (with Claude)
 
 ## 1. Intent

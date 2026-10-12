@@ -131,5 +131,6 @@ The repository has the add-on in `src/Umbraco.Mcp`, the server in `npm/`, and a 
 - The demo site's `.mcp.json` runs the local build (`node ../npm/dist/index.js`) and loads Engage from the local tarball, so open `demo-site/` in your AI tool and set `UMBRELLA_CLIENT_SECRET`.
 - `scripts/e2e.sh`: end-to-end check of the local build against the running demo site.
 - `scripts/pack-check.sh`: packs `umbrella-mcp` and installs it with `npx` in an empty folder, the way users get it, then checks it against the running demo site.
+- Before merging: [docs/merging.md](docs/merging.md) (CI checks, guards, PR checklist)
 - Releasing: [docs/releasing.md](docs/releasing.md)
 - Adding a product: [docs/adding-a-product.md](docs/adding-a-product.md)
