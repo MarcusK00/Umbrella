@@ -24,8 +24,8 @@ It must also depend on the same `@umbraco-cms/mcp-server-sdk` version as `npm/pa
 
 Then add it to `npm/package.json`:
 
-- **A published release has both:** add it to `dependencies` with an exact registry version, as CMS, Forms and Automate are. The product ships in the next `umbrella-mcp` release.
-- **Not published yet:** pack it locally with `npm pack --pack-destination <this repo>/npm/vendor`, add it to `devDependencies` as `file:vendor/<tarball>.tgz`, and add the package name to `external` in `npm/tsup.config.ts`. It then loads in local builds, while the published `umbrella-mcp` reports in `get-mcp-health` that the product's tools are not available. This is how Engage works today. Move it to `dependencies` once the release is published, and remove it from `external`.
+- **A published release has both:** add it to `dependencies` with an exact registry version, as CMS, Forms, Automate and Engage are. The product ships in the next `umbrella-mcp` release.
+- **Not published yet:** pack it locally with `npm pack --pack-destination <this repo>/npm/vendor`, add it to `devDependencies` as `file:vendor/<tarball>.tgz`, and add the package name to `external` in `npm/tsup.config.ts`. It then loads in local builds, while the published `umbrella-mcp` reports in `get-mcp-health` that the product's tools are not available. CI cannot install the tarball: in `.github/workflows/ci.yml`, delete the devDependency before installing (with `npm install` instead of `npm ci`) and list the package in `CI_ABSENT_PACKAGES` so the contract test skips it. Move it to `dependencies` once the release is published, and undo all of that.
 
 After `npm install`, `npm ls @umbraco-cms/mcp-server-sdk` must show a single `1.0.0-beta.45`, deduped.
 
@@ -99,7 +99,7 @@ The add-on must not take a package dependency on the product: detection is by na
 
 - Add the product's NuGet package to `demo-site/Directory.Packages.props` (`PackageVersion`) and `demo-site/DemoSite.csproj` (`PackageReference`), plus any configuration it needs in `demo-site/appsettings.Development.json`.
 - Add the product to `scripts/e2e.sh`: its id to the capabilities loop and the `get-mcp-health` loaded check, and its prefix to the tool list loop.
-- Add its prefix to `scripts/pack-check.sh` once it ships from the registry. While it is a local tarball, assert that its tools are absent there, as for `engage--`.
+- Add its prefix to `scripts/pack-check.sh` once it ships from the registry. While it is a local tarball, assert there that its tools are absent instead.
 
 ## 5. Verify
 

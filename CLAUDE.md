@@ -35,7 +35,7 @@ dotnet test tests/Umbraco.Mcp.Tests/Umbraco.Mcp.Tests.csproj --filter "FullyQual
 ### npm server (`cd npm`)
 
 ```bash
-npm install            # needs the Engage tarball in npm/vendor/ (a devDependency, see below)
+npm install
 npm run compile        # tsc --noEmit (strict)
 npm test               # Jest 30 + ts-jest, ESM, runInBand
 npm test -- tool-registrar                    # one test file (path pattern)
@@ -109,13 +109,9 @@ This only works because product tool handlers call `getApiClient()` lazily insid
 
 - **CMS:** `@umbraco-cms/mcp-dev` 17.6.10 comes from the registry. `cms.ts` uses `UmbracoManagementClient.getClient()` as its factory.
 - **Forms and Automate:** `@umbraco-forms/mcp-dev` 17.6.1-beta.4 and `@umbraco-automate/mcp-dev` 17.4.0-beta.2 come from the registry (`lts-17-beta` tag). Forms 17.6.1-beta.3 and Automate 17.4.0-beta.1 were the first v17 releases whose `./collections` exports `createApiClient` and that depend on toolkit beta.45; earlier v17 releases do not work here. Forms beta.4 adds refusing duplicate explicit field aliases, Automate beta.2 refusing settings keys a step or trigger type doesn't declare.
-- **Engage:** `@umbraco-engage/mcp-dev` is a `file:vendor/*.tgz` tarball in **`devDependencies`** (gitignored, so `npm install` fails without it), because the published `17.0.0-beta.2` lacks the `createApiClient` export.
-  - **Not shipped:** it is `external` in `tsup.config.ts`, so local builds load it from `node_modules` while the published package doesn't have it. `checkPackageInstalled` (`sdk-instance.ts`) then turns the missing package into a `get-mcp-health` issue instead of a load failure.
-  - **Origin:** it is packed from the local branch `v17/feature/export-create-api-client` in `~/Desktop/Umbraco/MCPS/Umbraco-Engage-MCP-Dev` (branched from `origin/dev`).
-  - **Changes:** that branch adds `export { getUmbracoEngageManagementAPI as createApiClient }` to `src/collections.ts` and bumps the toolkit to beta.45.
-  - **Local only:** this change is uncommitted in that checkout and never pushed. Re-pack with `npm install && npm run build && npm pack --pack-destination <this repo>/npm/vendor`.
-  - **Lockfile:** every re-pack changes the tarball's hash, so `npm install` here then fails with `EINTEGRITY`. Replace the `integrity` of `node_modules/@umbraco-engage/mcp-dev` in `npm/package-lock.json` with the new hash (`docs/development.md`) and commit only that line. CI deletes the devDependency before installing, so the hash only matters locally. Once a v17 Engage release with the export is published, move it to `dependencies` from the registry like Forms and Automate, and remove it from `external`.
-- **Types:** the tarballs ship no types for `./collections`, so `npm/src/types/product-modules.d.ts` declares them.
+- **Engage:** `@umbraco-engage/mcp-dev` 17.0.0-beta.3 comes from the registry (`beta` tag). It is the first v17 release whose `./collections` exports `createApiClient` and that depends on toolkit beta.45; until then Umbrella used a locally packed tarball in `devDependencies`, kept `external` in `tsup.config.ts` and dropped in CI.
+- **Local-only products:** for a product with no usable published release, `docs/adding-a-product.md` describes the tarball route. `checkPackageInstalled` (`sdk-instance.ts`) turns its missing package in the published server into a `get-mcp-health` issue, and `CI_ABSENT_PACKAGES` (`skipped-modules.ts`) lets the contract test skip it in CI. Nothing uses either today.
+- **Types:** the product packages ship no types for `./collections`, so `npm/src/types/product-modules.d.ts` declares them.
 
 ### Tool names, filters and routing
 
@@ -160,7 +156,7 @@ No changes in `npm/src/core/`. The contract test then covers the new module auto
   - .NET tests are NUnit 3 with hand-written fakes (`tests/Umbraco.Mcp.Tests/Fakes.cs`) at the `ILoadedAssemblyProvider` / `IRegisteredApiProvider` seams.
   - npm tests use no HTTP mocking. Network edges are injected as functions (for example `fetchCapabilities(request)`), and pure logic is tested directly.
 - **Secrets:**
-  - `npm/.env` (real client secret), `appsettings.local.json`, `npm/vendor/*.tgz`, `demo-site/.mcp.json` and `demo-site/umbraco/` (SQLite data, logs, media) are gitignored.
+  - `npm/.env` (real client secret), `appsettings.local.json`, `npm/vendor/*.tgz` (local product tarballs), `demo-site/.mcp.json` and `demo-site/umbraco/` (SQLite data, logs, media) are gitignored.
   - `npm/.env.example` holds placeholders only.
   - On boot the demo site may write a generated `Imaging:HMACSecretKey` into `demo-site/appsettings.json`. Don't commit it: the committed value is `""`. Stage files explicitly rather than with `git add -A`.
 - **Docs:** dates use DD-MM-YYYY. User docs (`README.md`, `npm/README.md`, `src/Umbraco.Mcp/README.md`) describe the released packages; keep the version in their config examples equal to the package version.

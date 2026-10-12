@@ -9,10 +9,10 @@
 | Check | Runs | Does not cover |
 |---|---|---|
 | `dotnet` | `dotnet test Umbraco.Mcp.slnx`, which also builds the demo site | Running the site |
-| `npm` | Install, single toolkit copy (`@umbraco-cms/mcp-server-sdk` `1.0.0-beta.45`, one copy), `npm run compile`, `npm test`, `npm run build` | Engage: the tarball is local-only, so CI installs without it and the contract test skips Engage (only packages listed in `CI_ABSENT_PACKAGES`, only when `CI=true`) |
+| `npm` | `npm ci`, single toolkit copy (`@umbraco-cms/mcp-server-sdk` `1.0.0-beta.45`, one copy), `npm run compile`, `npm test`, `npm run build` | Installing `umbrella-mcp` as a dependency, where npm ignores `overrides` (that is `pack-check.sh`) |
 | `guards` | `scripts/check-guards.test.sh`, `scripts/check-guards.sh`, gitleaks secret scan | — |
 
-`e2e.sh`, `pack-check.sh` and the Engage tests need your machine, so they are items in the PR checklist (`.github/pull_request_template.md`).
+`e2e.sh` and `pack-check.sh` need your machine and the running demo site, so they are items in the PR checklist (`.github/pull_request_template.md`).
 
 ### Guards
 
@@ -30,7 +30,7 @@
 
 ```bash
 dotnet test Umbraco.Mcp.slnx
-cd npm && npm run compile && npm test && npm run build   # with the Engage tarball installed
+cd npm && npm run compile && npm test && npm run build
 bash scripts/check-guards.sh
 ```
 

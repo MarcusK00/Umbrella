@@ -35,7 +35,7 @@ export function checkSingleSdk(packageName: string): string | null {
 
 /**
  * Returns an issue message when a product package is not installed with the server (for example a product that
- * is a devDependency until its package exports `createApiClient`), else null.
+ * is a local-tarball devDependency until a release exporting `createApiClient` is published), else null.
  */
 export function checkPackageInstalled(
   packageName: string,

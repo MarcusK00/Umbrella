@@ -28,11 +28,10 @@ echo "2. Install with npx in an empty folder"
 mkdir "$WORK/consumer"
 cd "$WORK/consumer"
 TOOLS=$(npx -y --package="$TARBALL" umbrella-mcp --list-tools)
-for prefix in "cms--" "forms--" "automate--"; do
+for prefix in "cms--" "forms--" "automate--" "engage--"; do
   # A missing prefix usually means the product was skipped for running on its own toolkit copy.
   grep -q "^$prefix" <<<"$TOOLS" || fail "no $prefix tools (run get-mcp-health against the installed package)"
 done
-if grep -q "^engage--" <<<"$TOOLS"; then fail "engage-- tools loaded, but Engage is not shipped yet"; fi
 grep -qx "get-mcp-health" <<<"$TOOLS" || fail "get-mcp-health missing"
 echo "   $(wc -l <<<"$TOOLS" | tr -d ' ') tools"
 

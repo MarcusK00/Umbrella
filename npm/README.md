@@ -1,6 +1,6 @@
 # umbrella-mcp
 
-One MCP server for your Umbraco 17 site. It loads the Umbraco CMS tools, plus Umbraco Forms and Umbraco Automate tools when the site has those products installed. Tools are prefixed `cms--`, `forms--` and `automate--`, and `get-mcp-health` explains what loaded and why.
+One MCP server for your Umbraco 17 site. It loads the Umbraco CMS tools, plus Umbraco Forms, Umbraco Automate and Umbraco Engage tools when the site has those products installed. Tools are prefixed `cms--`, `forms--`, `automate--` and `engage--`, and `get-mcp-health` explains what loaded and why.
 
 ## Setup
 

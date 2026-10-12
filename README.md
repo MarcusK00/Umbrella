@@ -5,7 +5,7 @@ One MCP server for your Umbraco 17 site. Umbrella detects which Umbraco products
 | Package | Where it runs | What it does |
 |---|---|---|
 | [`Umbraco.Community.Umbrella`](https://www.nuget.org/packages/Umbraco.Community.Umbrella) (NuGet) | In your Umbraco site | Detects installed products, serves `GET /umbraco/management/api/v1/mcp/capabilities`, adds **MCP** health checks and the **Umbrella** dashboard, and writes a ready-to-use `.mcp.json` in Development |
-| [`umbrella-mcp`](https://www.npmjs.com/package/umbrella-mcp) (npm) | On your machine, started by your AI tool | Stdio MCP server: CMS tools always, Forms and Automate tools when the site has them. Tools are prefixed `cms--`, `forms--`, `automate--`; `get-mcp-health` explains what loaded and why |
+| [`umbrella-mcp`](https://www.npmjs.com/package/umbrella-mcp) (npm) | On your machine, started by your AI tool | Stdio MCP server: CMS tools always, Forms, Automate and Engage tools when the site has them. Tools are prefixed `cms--`, `forms--`, `automate--`, `engage--`; `get-mcp-health` explains what loaded and why |
 
 You only install the NuGet package. Your AI tool starts `umbrella-mcp` with `npx`, which downloads it the first time.
 
@@ -56,7 +56,7 @@ You need Umbraco 17, and Node.js 22 or later on the machine that runs your AI to
    dotnet add package Umbraco.Community.Umbrella
    ```
 
-2. **Create an API user** in the backoffice (Users → Create → API user) and add client credentials with the client id `umbraco-back-office-mcp` and a secret of your choice. Keep a copy of the secret: Umbraco stores only its hash. Give the user's groups access to the sections of the products you want the AI to use (Content, Media, Settings, Forms, Automate, …). If you choose a different client id, set `Umbraco:Mcp:ClientId` to it (see [Configuration](#configuration)).
+2. **Create an API user** in the backoffice (Users → Create → API user) and add client credentials with the client id `umbraco-back-office-mcp` and a secret of your choice. Keep a copy of the secret: Umbraco stores only its hash. Give the user's groups access to the sections of the products you want the AI to use (Content, Media, Settings, Forms, Automate, Engage, …). If you choose a different client id, set `Umbraco:Mcp:ClientId` to it (see [Configuration](#configuration)).
 
 3. **Set the secret** as an environment variable on your machine.
 
@@ -200,15 +200,15 @@ Start with `get-mcp-health` in your AI tool and the **MCP** health checks in the
 |---|---|
 | Umbraco CMS | 17.x (.NET 10) |
 | Node.js | 22 or later |
-| Umbraco Forms, Umbraco Automate | 17.x |
+| Umbraco Forms, Umbraco Automate, Umbraco Engage | 17.x |
 | `@umbraco-cms/mcp-server-sdk` | 1.0.0-beta.45 (one copy shared by all products) |
 | `@umbraco-cms/mcp-dev` | 17.6.10 |
 | `@umbraco-forms/mcp-dev` | 17.6.1-beta.4 |
 | `@umbraco-automate/mcp-dev` | 17.4.0-beta.2 |
+| `@umbraco-engage/mcp-dev` | 17.0.0-beta.3 |
 
 ## Known limitations
 
-- **Umbraco Engage tools are not included yet.** The add-on detects Engage, and `get-mcp-health` reports that its tools are not available, until a v17 release of `@umbraco-engage/mcp-dev` exports `createApiClient`.
 - Tool names are prefixed (`cms--get-document`), so they differ from the standalone CMS MCP's names.
 - `@umbraco-cms/mcp-dev/collections` does not export the CMS server's runtime setup (`setUmbracoVersion`, `setAllowFilePathUploads`). Version-gated CMS tools (for example `create-and-publish-document`, `update-and-publish-document`, `sort-document-children`, `sort-document-root-children`) are not registered, document/data type schema tools use their fallback path, and media tools do not accept local file paths. Fixing this needs the CMS package to export a setup hook from `./collections`.
 - Only `--list-tools` is supported as a CLI flag; `--describe-tool` is not implemented.
@@ -224,7 +224,7 @@ dotnet test Umbraco.Mcp.slnx
 cd npm && npm install && npm test && npm run build
 ```
 
-`npm install` needs the Engage tarball in `npm/vendor/`. Setup from scratch, the demo site, and the end-to-end checks: [docs/development.md](docs/development.md).
+Setup from scratch, the demo site, and the end-to-end checks: [docs/development.md](docs/development.md).
 
 - How it works inside: [docs/architecture.md](docs/architecture.md)
 - Before merging: [docs/merging.md](docs/merging.md) (CI checks, guards, PR checklist)
