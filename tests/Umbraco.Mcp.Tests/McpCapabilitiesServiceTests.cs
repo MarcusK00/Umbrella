@@ -1,3 +1,5 @@
+using System.Text.Json;
+using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
 using Umbraco.Mcp.Capabilities;
 using Umbraco.Mcp.Detection;
@@ -16,12 +18,15 @@ public class McpCapabilitiesServiceTests
         public McpProductStatus Detect() => throw new InvalidOperationException("boom");
     }
 
+    private static McpCapabilitiesService Service(IEnumerable<IMcpProductDetector> detectors, FakeToolSettingsStore? store = null) =>
+        new(detectors, store ?? new FakeToolSettingsStore(), NullLogger<McpCapabilitiesService>.Instance);
+
     [Test]
     public void Returns_one_status_per_detector_in_order_with_addon_version()
     {
         var assemblies = new FakeAssemblies(("Umbraco.Forms.Core", typeof(Assert).Assembly));
         var apis = new FakeApis("forms-management");
-        var service = new McpCapabilitiesService(new IMcpProductDetector[]
+        var service = Service(new IMcpProductDetector[]
         {
             new FormsDetector(assemblies, apis),
             new AutomateDetector(assemblies, apis),
@@ -38,7 +43,7 @@ public class McpCapabilitiesServiceTests
     [Test]
     public void A_throwing_detector_becomes_an_issue_not_an_exception()
     {
-        var service = new McpCapabilitiesService(new IMcpProductDetector[] { new ThrowingDetector() });
+        var service = Service(new IMcpProductDetector[] { new ThrowingDetector() });
 
         McpProductStatus s = service.GetCapabilities().Products.Single();
 
@@ -77,5 +82,39 @@ public class McpCapabilitiesServiceTests
         var r = new FakeApis();
         Assert.That(new FormsDetector(a, r).Id, Is.EqualTo("forms"));
         Assert.That(new AutomateDetector(a, r).Id, Is.EqualTo("automate"));
+    }
+
+    [Test]
+    public void Each_product_carries_its_disabled_collections()
+    {
+        var a = new FakeAssemblies();
+        var r = new FakeApis();
+        var store = new FakeToolSettingsStore { Disabled = new() { ["forms"] = ["prevalue-source"] } };
+
+        McpCapabilities caps = Service([new FormsDetector(a, r), new AutomateDetector(a, r)], store).GetCapabilities();
+
+        Assert.That(caps.Products[0].DisabledCollections, Is.EqualTo(new[] { "prevalue-source" }));
+        Assert.That(caps.Products[1].DisabledCollections, Is.Empty);
+    }
+
+    [Test]
+    public void A_throwing_store_gives_empty_lists_not_an_exception()
+    {
+        var store = new FakeToolSettingsStore { Throws = new InvalidOperationException("database is down") };
+
+        McpCapabilities caps = Service([new FormsDetector(new FakeAssemblies(), new FakeApis())], store).GetCapabilities();
+
+        Assert.That(caps.Products.Single().DisabledCollections, Is.Empty);
+    }
+
+    [Test]
+    public void Disabled_collections_serialise_as_camel_case()
+    {
+        var store = new FakeToolSettingsStore { Disabled = new() { ["forms"] = ["prevalue-source"] } };
+        McpCapabilities caps = Service([new FormsDetector(new FakeAssemblies(), new FakeApis())], store).GetCapabilities();
+
+        string json = JsonSerializer.Serialize(caps, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        Assert.That(json, Does.Contain("\"disabledCollections\":[\"prevalue-source\"]"));
     }
 }

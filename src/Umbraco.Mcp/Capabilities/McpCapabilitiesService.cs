@@ -1,11 +1,34 @@
+using Microsoft.Extensions.Logging;
 using Umbraco.Mcp.Detection;
+using Umbraco.Mcp.ToolSettings;
 
 namespace Umbraco.Mcp.Capabilities;
 
-public sealed class McpCapabilitiesService(IEnumerable<IMcpProductDetector> detectors) : IMcpCapabilitiesService
+public sealed class McpCapabilitiesService(
+    IEnumerable<IMcpProductDetector> detectors,
+    IMcpToolSettingsStore toolSettings,
+    ILogger<McpCapabilitiesService> logger) : IMcpCapabilitiesService
 {
-    public McpCapabilities GetCapabilities() =>
-        new(McpAddon.Version, detectors.Select(SafeDetect).ToList());
+    public McpCapabilities GetCapabilities()
+    {
+        IReadOnlyDictionary<string, IReadOnlyList<string>> disabled = SafeDisabledCollections();
+        return new(
+            McpAddon.Version,
+            detectors.Select(d => SafeDetect(d) with { DisabledCollections = disabled.GetValueOrDefault(d.Id) ?? [] }).ToList());
+    }
+
+    private IReadOnlyDictionary<string, IReadOnlyList<string>> SafeDisabledCollections()
+    {
+        try
+        {
+            return toolSettings.GetDisabledCollections();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not read the MCP tool settings. No tool groups are disabled in the capabilities.");
+            return new Dictionary<string, IReadOnlyList<string>>();
+        }
+    }
 
     private static McpProductStatus SafeDetect(IMcpProductDetector detector)
     {

@@ -6,4 +6,8 @@ public sealed record McpProductStatus(
     bool Installed,
     bool Enabled,
     string? Version,
-    IReadOnlyList<string> Issues);
+    IReadOnlyList<string> Issues)
+{
+    /// <summary>Tool groups switched off in the backoffice. The npm server excludes them unless its environment overrides it.</summary>
+    public IReadOnlyList<string> DisabledCollections { get; init; } = [];
+}
