@@ -2,7 +2,7 @@
 # Tests for scripts/check-guards.sh: builds a small fixture git repo per case in a temp dir and checks the guard's verdict.
 set -euo pipefail
 GUARD="$(cd "$(dirname "$0")" && pwd)/check-guards.sh"
-IDS="hmac-key no-local-deps no-tracked-secrets readme-versions npm-private"
+IDS="hmac-key no-local-deps no-tracked-secrets readme-versions"
 FIXTURE=""
 FAILED=0
 
@@ -25,7 +25,7 @@ make_fixture() {
   git init -q "$FIXTURE"
   git -C "$FIXTURE" config core.autocrlf false
   write demo-site/appsettings.json '{"Umbraco":{"CMS":{"Imaging":{"HMACSecretKey":""}}}}'
-  write npm/package.json "$PKG_PREFIX,\"private\":true,$PKG_DEPS}"
+  write npm/package.json "$PKG_PREFIX,$PKG_DEPS}"
   write README.md '"args": ["-y", "umbrella-mcp@1.2.3"],'
   write npm/README.md '"args": ["-y", "umbrella-mcp@1.2.3"],'
   write npm/.env.example 'UMBRACO_CLIENT_SECRET=your-secret'
@@ -71,11 +71,11 @@ write demo-site/appsettings.json '{"Umbraco":{"CMS":{}}}'
 run_case "hmac section missing" 0
 
 make_fixture
-write npm/package.json "$PKG_PREFIX,\"private\":true,\"dependencies\":{\"zod\":\"^4.0.0\",\"y\":\"file:../y\"}}"
+write npm/package.json "$PKG_PREFIX,\"dependencies\":{\"zod\":\"^4.0.0\",\"y\":\"file:../y\"}}"
 run_case "file dependency" 1 no-local-deps
 
 make_fixture
-write npm/package.json "$PKG_PREFIX,\"private\":true,\"dependencies\":{\"zod\":\"^4.0.0\",\"y\":\"github:a/b\"}}"
+write npm/package.json "$PKG_PREFIX,\"dependencies\":{\"zod\":\"^4.0.0\",\"y\":\"github:a/b\"}}"
 run_case "github dependency" 1 no-local-deps
 
 make_fixture
@@ -114,10 +114,6 @@ make_fixture
 printf 'npx -y umbrella-mcp@1.2.3\r\nmore text\r\n' > "$FIXTURE/README.md"
 git -C "$FIXTURE" add README.md
 run_case "crlf readme" 0
-
-make_fixture
-write npm/package.json "$PKG_PREFIX,$PKG_DEPS}"
-run_case "not private" 1 npm-private
 
 make_fixture
 write demo-site/appsettings.json '{"Umbraco":{"CMS":{"Imaging":{"HMACSecretKey":"abc"}}}}'
