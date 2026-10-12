@@ -34,6 +34,6 @@
 ## Before the first release
 
 - Remove `"private": true` from `npm/package.json`.
-- Delete the `npm-private` check from `scripts/check-guards.sh` and its "not private" and "two failures" cases from `scripts/check-guards.test.sh`.
+- Delete the `npm-private` check from `scripts/check-guards.sh` and its "not private" case from `scripts/check-guards.test.sh`.
 - Add a license (`<PackageLicenseExpression>` in the csproj, `license` in `package.json`, and a `LICENSE` file). The product MCP packages this depends on are MIT.
 - Check that the names are still free: `umbrella-mcp` on npm and `Umbraco.Community.Umbrella` on NuGet were unclaimed on 11-10-2026.
