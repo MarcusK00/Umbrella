@@ -63,6 +63,7 @@ export const engageModule: McpProductModule = {
 
 - **`description`:** one sentence starting with `<displayName>: `. The contract test checks this.
 - **`useWhen`:** short, concrete phrases for the requests this product handles. They become the routing instructions, which must stay under 2,000 characters for all modules together. If a word overlaps another product ("workflow", "analytics", "segments"), say in the phrase which meaning belongs here, as Engage does with "not form submission analytics".
+- **`defaultDisabledCollections`** (optional): groups that stay off until the site saves a list or the environment sets a collection filter, for example a duplicate of a CMS tool or a test aid. Forms and Automate use it for their `umbraco-server` groups. The contract test checks that each name exists in the package.
 - **`load()`:** keep the dynamic `import()`, so the package is only loaded when the site has the product.
 
 Then:

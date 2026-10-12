@@ -17,7 +17,7 @@ public sealed class McpCapabilitiesService(
             McpAddon.Version,
             detectors.Select(d => SafeDetect(d) with
             {
-                DisabledCollections = disabled.GetValueOrDefault(d.Id) ?? [],
+                DisabledCollections = disabled.GetValueOrDefault(d.Id),
                 ReadOnly = readOnly.Contains(d.Id, StringComparer.Ordinal),
             }).ToList());
     }

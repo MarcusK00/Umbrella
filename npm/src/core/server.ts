@@ -132,12 +132,14 @@ export async function startServer(options: {
   for (const { state, loaded } of ready) {
     const { module } = state.decision;
     try {
-      state.siteDisabledCollections = siteDisabledCollections(capabilities, module.id);
+      const siteDisabled = siteDisabledCollections(capabilities, module.id);
+      state.siteDisabledCollections = siteDisabled ?? undefined;
       state.siteReadOnly = siteReadOnly(capabilities, module.id);
-      const { config, siteSettingsIgnored } = buildEffectiveFilterInput(
-        env, module.id, module.required === true, state.siteDisabledCollections, state.siteReadOnly,
+      const { config, siteSettingsIgnored, defaultsApplied } = buildEffectiveFilterInput(
+        env, module.id, module.required === true, siteDisabled, state.siteReadOnly, module.defaultDisabledCollections,
       );
       state.siteSettingsIgnored = siteSettingsIgnored;
+      state.defaultDisabledCollections = defaultsApplied;
       const filter = createCollectionConfigLoader({
         modeRegistry: loaded.allModes,
         allModeNames: loaded.allModeNames,

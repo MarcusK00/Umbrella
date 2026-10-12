@@ -54,9 +54,18 @@ TOOLS_RO=$(node dist/index.js --list-tools)
 grep -qx "forms--list-forms" <<<"$TOOLS_RO" || fail "read-only forms lost its read-only tools"
 if grep -qx "forms--delete-form" <<<"$TOOLS_RO"; then fail "read-only forms still lists forms--delete-form"; fi
 grep -qx "cms--delete-document" <<<"$TOOLS_RO" || fail "read-only forms also made CMS read-only"
+echo "   read-only forms kept list-forms and dropped delete-form"
+put_settings '{"disabledCollections":{}}' || fail "PUT empty tool-settings failed"
+TOOLS_DEF=$(node dist/index.js --list-tools)
+for tool in forms--get-server-info automate--get-server-info forms--get-acceptance-tests-system-info; do
+  if grep -qx "$tool" <<<"$TOOLS_DEF"; then fail "$tool listed although its group is off by default"; fi
+done
+put_settings '{"disabledCollections":{"forms":[]}}' || fail "PUT forms tool-settings failed"
+TOOLS_SAVED=$(node dist/index.js --list-tools)
+grep -qx "forms--get-server-info" <<<"$TOOLS_SAVED" || fail "a saved empty Forms list did not switch its default-off groups on"
 put_settings "$ORIGINAL" || fail "could not restore tool settings"
 trap - EXIT
-echo "   read-only forms kept list-forms and dropped delete-form"
+echo "   default-off groups are off until the site saves a list"
 
 echo "4. Smoke calls"
 call() {

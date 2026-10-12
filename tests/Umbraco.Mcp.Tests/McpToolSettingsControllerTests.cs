@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Reflection;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -96,6 +97,30 @@ public class McpToolSettingsControllerTests
         Assert.That(result, Is.InstanceOf<BadRequestObjectResult>());
         Assert.That(store.Disabled, Is.Empty);
         Assert.That(store.ReadOnly, Is.EqualTo(new[] { "cms" }));
+    }
+
+    [Test]
+    public void PostCatalogue_keeps_disabledByDefault()
+    {
+        var store = new FakeToolSettingsStore();
+        var report = new McpCatalogueReport("17.0.0", [new McpModuleReport("forms", false, [new McpCollectionInfo("umbraco-server", 1, 1, true)])]);
+
+        Controller(store, User(UserKind.Api)).PostCatalogue(report);
+
+        Assert.That(store.Merged.Single().Report.Modules.Single().Collections.Single().DisabledByDefault, Is.True);
+    }
+
+    [Test]
+    public void Report_without_disabledByDefault_stores_false()
+    {
+        var store = new FakeToolSettingsStore();
+        var report = JsonSerializer.Deserialize<McpCatalogueReport>(
+            """{"umbrellaVersion":"17.0.0","modules":[{"id":"forms","siteSettingsIgnored":false,"collections":[{"name":"form","toolCount":10}]}]}""",
+            new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+
+        Controller(store, User(UserKind.Api)).PostCatalogue(report);
+
+        Assert.That(store.Merged.Single().Report.Modules.Single().Collections.Single().DisabledByDefault, Is.False);
     }
 
     [TestCase(4, 4)]
