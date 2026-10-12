@@ -1,6 +1,6 @@
 {
   "name": "umbrella-mcp",
-  "version": "17.0.0-alpha.1",
+  "version": "17.0.0-alpha.2",
   "description": "One MCP server for your Umbraco 17 site: loads the tools for the Umbraco products the site has installed.",
   "keywords": [
     "umbraco",

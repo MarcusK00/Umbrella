@@ -1,28 +1,95 @@
-# Umbrella
+# ☂️ Umbrella
 
-One MCP server for your Umbraco 17 site. This package goes in the site: it detects which Umbraco products are installed, so the [`umbrella-mcp`](https://www.npmjs.com/package/umbrella-mcp) server that your AI tool starts loads only their tools.
+**Let your AI tool work with your Umbraco 17 site: content, forms, automations and personalisation, through one MCP server.**
 
-## Get started
+Install this package in your site, and Claude Code, VS Code, Cursor or Claude Desktop get tools for exactly the Umbraco products your site has. No product installed, no tools for it, so the AI isn't buried in tools it can't use.
 
-1. Install this package in your site and restart it.
-2. In the backoffice, create an API user with client credentials: client id `umbraco-back-office-mcp` and a secret of your choice. Keep a copy of the secret, and give the user's groups the sections of the products the AI should use.
-3. Set the secret on the machine that runs your AI tool, then restart the AI tool:
-   - macOS / Linux: `export UMBRELLA_CLIENT_SECRET="<the client secret>"`
-   - Windows (PowerShell): `setx UMBRELLA_CLIENT_SECRET "<the client secret>"`
-4. Run the site in Development and open its folder in Claude Code or VS Code. The add-on has written a `.mcp.json` there that starts `umbrella-mcp` with `npx`. Approve the `umbraco` server when asked.
-5. Ask the AI to call `get-mcp-health` to see which products' tools loaded.
+> "Create a contact form with name, email and message fields."
+> "Add a news article under the News page and save it as a draft."
+> "Which personas do we have in Engage?"
 
-For other AI tools, or a site that isn't running locally, copy the config from Settings → Health Check → MCP → "MCP client setup".
+## ✨ What you get
 
-## What it adds
+- **One server for every product.** Umbraco CMS tools always, plus Umbraco Forms, Automate and Engage tools when the site has them installed.
+- **Zero-config locally.** Run the site in Development and it writes a ready-to-use `.mcp.json` for Claude Code and VS Code, with no secret in it.
+- **You stay in control.** The **Umbrella** dashboard (Settings section) switches tool groups off, or limits a product to read-only tools.
+- **Easy to check.** Backoffice health checks show which products were found and which API user the AI signed in as. In the AI tool, `get-mcp-health` explains what loaded and why.
 
-- `GET /umbraco/management/api/v1/mcp/capabilities`: the installed products, for the MCP server.
-- Settings → **Umbrella**: switch the MCP server's tool groups off, or limit a product to read-only tools. Changes apply the next time the MCP server starts. Three duplicate or test-only groups (Forms `umbraco-server` and `acceptance-tests`, Automate `umbraco-server`) are off until you save a product's list.
-- Health checks in the **MCP** group: detected products, the API user the MCP server connected as, and the client config.
-- In Development only, a `.mcp.json` next to the site (no secret in it). A file you edited is never overwritten; one the site wrote is updated when you upgrade the add-on. Turn it off with `Umbraco:Mcp:McpJson:Enabled: false`.
+## 🚀 Get started in 5 steps
 
-The add-on has no dependency on any product package: it detects products by name.
+You need Umbraco 17, and Node.js 22 or later on the machine running your AI tool.
 
-Supported products: Umbraco CMS, Umbraco Forms, Umbraco Automate, Umbraco Engage. Requires Umbraco 17, and Node.js 22+ on the machine running the AI tool.
+**1. Install the package** and restart the site:
 
-Documentation, configuration and troubleshooting: https://github.com/MarcusK00/Umbraco.Community.Umbrella#readme
+```bash
+dotnet add package Umbraco.Community.Umbrella
+```
+
+**2. Create an API user** in the backoffice (Users → Create → API user). Add client credentials with:
+- client id: `umbraco-back-office-mcp`
+- a secret of your choice. Copy it now: Umbraco only keeps a hash.
+
+Give the user's groups the sections the AI should work in (Content, Media, Settings, Forms, …).
+
+**3. Store the secret** on your machine:
+
+```bash
+# macOS / Linux
+export UMBRELLA_CLIENT_SECRET="<the client secret>"
+```
+
+```powershell
+# Windows (PowerShell)
+setx UMBRELLA_CLIENT_SECRET "<the client secret>"
+```
+
+Then restart your AI tool, so it picks the variable up.
+
+**4. Open the site's folder** in Claude Code or VS Code while the site runs in Development. Approve the `umbraco` server when asked.
+
+**5. Say hello.** Ask the AI to *"call get-mcp-health"*. It lists each product and how many tools it loaded.
+
+### Using another AI tool, or a site that isn't local?
+
+Copy the config from **Settings → Health Check → MCP → "MCP client setup"**. It looks like this, with your site's address filled in:
+
+```json
+{
+  "mcpServers": {
+    "umbraco": {
+      "command": "npx",
+      "args": ["-y", "umbrella-mcp@17.0.0-alpha.2"],
+      "env": {
+        "UMBRACO_BASE_URL": "https://your-site",
+        "UMBRACO_CLIENT_ID": "umbraco-back-office-mcp",
+        "UMBRACO_CLIENT_SECRET": "<your client secret>"
+      }
+    }
+  }
+}
+```
+
+The address must be `https://`. This config contains the secret, so keep it out of source control.
+
+## 🧩 How it fits together
+
+| Part | Where it runs | Job |
+|---|---|---|
+| `Umbraco.Community.Umbrella` (this package) | In your site | Detects the installed products and adds the dashboard and health checks |
+| [`umbrella-mcp`](https://www.npmjs.com/package/umbrella-mcp) | On your machine | The MCP server. Your AI tool starts it with `npx`, so there is nothing to install |
+
+Both are released together with the same version number. The package doesn't depend on any product package: it detects them by name.
+
+## 📋 Requirements
+
+| | |
+|---|---|
+| Umbraco | 17 |
+| Products | Umbraco CMS, Forms, Automate, Engage |
+| AI tool machine | Node.js 22+ |
+
+## 📚 More
+
+Configuration, turning tool groups off, troubleshooting and known limitations: **[full documentation on GitHub](https://github.com/MarcusK00/Umbraco.Community.Umbrella#readme)**.
+
+Umbrella is a community project, not an official Umbraco HQ package. MIT licensed.
