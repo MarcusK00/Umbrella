@@ -1,7 +1,7 @@
 # Umbraco MCP Umbrella — Design Spec
 
 - **Date:** 11-10-2026
-- **Status:** Approved design, pending spec review
+- **Status:** Implemented. This is the design as decided on 11-10-2026; for the code as it is now, see `docs/architecture.md`
 - **Author:** mkr@umbraco.dk (with Claude)
 - **Names:** NuGet `Umbraco.Community.Umbrella`, npm `umbrella-mcp` (see §12). The sections below still use the earlier working names `Umbraco.Mcp` and `@umbraco/mcp`; the source project keeps the name `src/Umbraco.Mcp`.
 

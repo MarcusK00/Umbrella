@@ -6,13 +6,15 @@
 
 ## Checklist
 
-1. **Version.** Set the same version in `src/Umbraco.Mcp/Umbraco.Mcp.csproj` (`<Version>`) and `npm/package.json` (`version`), and update the version in the config examples in `README.md` and `npm/README.md`. `NpmPackageContractTests` fails if the two packages differ in name or version.
+1. **Version.** Set the same version in `src/Umbraco.Mcp/Umbraco.Mcp.csproj` (`<Version>`) and `npm/package.json` (`version`), and update the version in the config examples in `README.md` and `npm/README.md`. `NpmPackageContractTests` fails if the two packages differ in name or version, and the `readme-versions` guard fails if a README still names another version. Also check that the Compatibility table in `README.md` matches the product package versions in `npm/package.json`.
 2. **No local dependencies.** `npm/package.json` `dependencies` must only reference registry versions. A `file:` dependency cannot be installed by users. Products that only exist locally (today: Engage) stay in `devDependencies` and `external` in `tsup.config.ts`.
-3. **Tests.**
+3. **Tests and guards.** With the Engage tarball installed:
    ```bash
    dotnet test Umbraco.Mcp.slnx
    cd npm && npm run compile && npm test
+   bash scripts/check-guards.sh
    ```
+   On the first release, the `npm-private` guard fails until you delete it (see below).
 4. **Install check.** With the demo site running:
    ```bash
    scripts/e2e.sh
@@ -29,7 +31,7 @@
    dotnet nuget push artifacts/Umbraco.Community.Umbrella.<version>.nupkg --source https://api.nuget.org/v3/index.json --api-key <key>
    ```
    The `umbraco-marketplace` tag lists the package on the Umbraco Marketplace.
-7. **Check** that `npx -y umbrella-mcp@<version> --list-tools` works against a site with the new add-on.
+7. **Check** that `npx -y umbrella-mcp@<version> --list-tools` works against a site with the new add-on, with `UMBRACO_BASE_URL`, `UMBRACO_CLIENT_ID` and `UMBRACO_CLIENT_SECRET` set. In that site, Settings → Health Check → MCP → "MCP client setup" should show the same version.
 
 ## Before the first release
 
