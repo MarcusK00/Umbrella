@@ -89,7 +89,7 @@ Settings → **Umbrella** → **Overview** has config to copy for Claude Code (`
   "mcpServers": {
     "umbraco": {
       "command": "npx",
-      "args": ["-y", "umbrella-mcp@17.0.0-alpha.3"],
+      "args": ["-y", "umbrella-mcp@17.0.0-alpha.4"],
       "env": {
         "UMBRACO_BASE_URL": "https://your-site",
         "UMBRACO_CLIENT_ID": "umbraco-back-office-mcp",
@@ -220,7 +220,7 @@ Start with `get-mcp-health` in your AI tool and the **MCP** health checks in the
 | Umbraco CMS | 17.x (.NET 10) |
 | Node.js | 22 or later |
 | Umbraco Forms, Umbraco Automate, Umbraco Engage | 17.x |
-| `@umbraco-cms/mcp-server-sdk` | 1.0.0-beta.45 (one copy shared by all products) |
+| `@umbraco-cms/mcp-server-sdk` | 1.0.0-beta.46 (one copy shared by all products) |
 | `@umbraco-cms/mcp-dev` | 17.6.10 |
 | `@umbraco-forms/mcp-dev` | 17.6.1-beta.4 |
 | `@umbraco-automate/mcp-dev` | 17.4.0-beta.2 |

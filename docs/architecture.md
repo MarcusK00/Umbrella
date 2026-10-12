@@ -146,7 +146,7 @@ This only works because product handlers call `getApiClient()` lazily, inside th
 
 ### Exactly one toolkit copy
 
-The shared provider only exists once if every product uses the same toolkit copy. `npm/package.json` pins `@umbraco-cms/mcp-server-sdk` to `1.0.0-beta.45` and forces it on every product with `overrides`. npm only applies `overrides` in the root project, though, and under `npx` `umbrella-mcp` is a dependency. For users, single-copy relies on every product package depending on a compatible toolkit version. `scripts/pack-check.sh` installs the packed package that way to catch a mismatch, and at runtime `checkSingleSdk` skips a product that has its own nested copy rather than letting it break the provider.
+The shared provider only exists once if every product uses the same toolkit copy. `npm/package.json` pins `@umbraco-cms/mcp-server-sdk` to `1.0.0-beta.46` and forces it on every product with `overrides`. npm only applies `overrides` in the root project, though, and under `npx` `umbrella-mcp` is a dependency. For users, single-copy relies on every product package depending on a compatible toolkit version. `scripts/pack-check.sh` installs the packed package that way to catch a mismatch, and at runtime `checkSingleSdk` skips a product that has its own nested copy rather than letting it break the provider.
 
 ### Tool names, descriptions and routing
 
