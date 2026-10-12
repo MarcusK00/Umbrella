@@ -42,7 +42,7 @@ If you don't have it, install the way CI does, and don't commit the change to `p
 cd npm
 npm pkg delete devDependencies.@umbraco-engage/mcp-dev
 npm install
-CI=true npm test        # CI=true lets the contract test skip Engage; without it, the Engage load tests fail
+CI=true CI_ABSENT_PACKAGES=@umbraco-engage/mcp-dev npm test   # lets the contract test skip Engage, as in ci.yml; without both, the Engage load tests fail
 git checkout -- package.json package-lock.json
 ```
 
