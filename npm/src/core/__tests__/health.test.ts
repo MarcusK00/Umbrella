@@ -91,8 +91,16 @@ describe("buildHealthReport", () => {
   });
 
   it("says nothing about backoffice settings when the site has no add-on (there is no dashboard)", () => {
-    const r = buildHealthReport(state({ kind: "no-addon" }, [{ ...cmsLoaded, siteSettingsIgnored: true }]));
-    expect(r.notes.join(" ")).not.toMatch(/backoffice tool group/);
+    const r = buildHealthReport(state({ kind: "no-addon" }, [{ ...cmsLoaded, siteSettingsIgnored: true, siteReadOnly: true }]));
+    expect(r.notes.join(" ")).not.toMatch(/backoffice/);
+  });
+
+  it("notes a product set to read-only in the backoffice, also when the environment overrides its groups", () => {
+    const caps = { kind: "ok" as const, payload: { addonVersion: "17.0.0", products: [] } };
+    const note = "Umbraco CMS: only read-only tools, as set in the backoffice.";
+    expect(buildHealthReport(state(caps, [{ ...cmsLoaded, siteReadOnly: true }])).notes).toContain(note);
+    expect(buildHealthReport(state(caps, [{ ...cmsLoaded, siteReadOnly: true, siteSettingsIgnored: true }])).notes).toContain(note);
+    expect(buildHealthReport(state(caps, [cmsLoaded])).notes.join(" ")).not.toMatch(/read-only/);
   });
 
   it("notes a failed catalogue report", () => {

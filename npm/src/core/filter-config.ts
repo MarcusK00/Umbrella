@@ -77,17 +77,21 @@ export function envSetsCollectionFilter(env: NodeJS.ProcessEnv, moduleId: string
 }
 
 /**
- * The module's filter input with the collections disabled in the backoffice added as exclusions.
- * The environment wins: when it sets collection filters for the module, the site's list is ignored.
+ * The module's filter input with the backoffice settings applied.
+ * Disabled collections become exclusions, but the environment wins: when it sets collection filters for the
+ * module, the site's list is ignored. Read-only always applies, since it can only remove tools; together with
+ * `UMBRACO_READONLY` either one turns it on.
  */
 export function buildEffectiveFilterInput(
   env: NodeJS.ProcessEnv,
   moduleId: string,
   isDefaultModule: boolean,
   siteDisabled: readonly string[],
+  siteReadOnly = false,
 ): { config: ServerConfigForCollections; siteSettingsIgnored: boolean } {
   const config = buildModuleFilterInput(env, moduleId, isDefaultModule);
   const siteSettingsIgnored = envSetsCollectionFilter(env, moduleId, isDefaultModule);
   if (!siteSettingsIgnored && siteDisabled.length > 0) config.excludeToolCollections = [...siteDisabled];
+  if (siteReadOnly) config.readonly = true;
   return { config, siteSettingsIgnored };
 }
