@@ -62,8 +62,13 @@ export class UmbrellaDashboardElement extends UmbLitElement {
   async #load() {
     try {
       this._data = await this.#request("GET");
+      // A product without a saved list starts from the groups its module keeps off by default.
+      const saved = this._data.disabledCollections ?? {};
       this._disabled = Object.fromEntries(
-        Object.entries(this._data.disabledCollections ?? {}).map(([id, names]) => [id, new Set(names)]),
+        Object.entries(this._data.catalogue?.modules ?? {})
+          .filter(([id]) => !(id in saved))
+          .map(([id, m]) => [id, new Set((m.collections ?? []).filter((c) => c.disabledByDefault).map((c) => c.name))])
+          .concat(Object.entries(saved).map(([id, names]) => [id, new Set(names)])),
       );
       this._readOnly = new Set(this._data.readOnlyModules ?? []);
       this._error = null;
