@@ -16,6 +16,8 @@ export const cmsModule: McpProductModule = {
     "dictionary items, languages, domains, redirects and CMS webhooks",
     "health checks, logs, search indexes and server information",
   ],
+  // Backoffice plumbing: extension manifests, the per-user UI key-value store, image resize URLs.
+  defaultDisabledCollections: ["manifest", "user-data", "imaging"],
   load: async (): Promise<LoadedModule> => {
     const m = await import("@umbraco-cms/mcp-dev/collections");
     return {

@@ -20,6 +20,7 @@ public sealed class ConnectedMcpApiUserProvider(IMcpConnectionStore connections,
 
             IEnumerable<string> clientIds = await users.GetClientIdsAsync(user.Key);
             result.Add(new McpApiUser(
+                user.Key,
                 user.Name ?? user.Username,
                 user.UserState,
                 ToSectionNames(user.AllowedSections),
