@@ -222,8 +222,8 @@ Start with `get-mcp-health` in your AI tool and the **MCP** health checks in the
 | Umbraco Forms, Umbraco Automate, Umbraco Engage | 17.x |
 | `@umbraco-cms/mcp-server-sdk` | 1.0.0-beta.46 (one copy shared by all products) |
 | `@umbraco-cms/mcp-dev` | 17.6.10 |
-| `@umbraco-forms/mcp-dev` | 17.6.1-beta.4 |
-| `@umbraco-automate/mcp-dev` | 17.4.0-beta.2 |
+| `@umbraco-forms/mcp-dev` | 17.6.1-beta.5 |
+| `@umbraco-automate/mcp-dev` | 17.4.0-beta.3 |
 | `@umbraco-engage/mcp-dev` | 17.0.0-beta.3 |
 
 ## Known limitations
