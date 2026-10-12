@@ -34,6 +34,14 @@ describe("buildCatalogue", () => {
     });
   });
 
+  it("flags default-off collections", () => {
+    const forms = loaded([collection("umbraco-server", [{ name: "get-server-info" }]), collection("form", [{ name: "list-forms" }])]);
+    const module = { ...mod("forms"), defaultDisabledCollections: ["umbraco-server"] };
+    const [server, form] = buildCatalogue("17.0.0", [{ module, loaded: forms, siteSettingsIgnored: false }], {}).modules[0].collections;
+    expect(server).toMatchObject({ name: "umbraco-server", disabledByDefault: true });
+    expect(form).not.toHaveProperty("disabledByDefault");
+  });
+
   it("counts the usable tools that a read-only filter keeps", () => {
     const forms = loaded([
       collection("form", [
