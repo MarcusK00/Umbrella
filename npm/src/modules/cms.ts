@@ -9,7 +9,7 @@ export const cmsModule: McpProductModule = {
   required: true,
   description: "Umbraco CMS: the site's content, structure, media, members and settings.",
   useWhen: [
-    "content/documents, publishing, blueprints and the recycle bin",
+    "content/documents, publishing, blueprints and the content and media recycle bins",
     "document types, data types, templates, partial views, stylesheets and scripts",
     "media and media types",
     "members, users and user groups",

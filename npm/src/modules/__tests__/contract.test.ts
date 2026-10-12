@@ -58,6 +58,18 @@ describe("module set", () => {
     expect(new Set(modules.map((m) => m.id)).size).toBe(modules.length);
   });
 
+  // CMS and Forms both have a recycle bin (and an empty-recycle-bin tool), so each must name its own.
+  it("names whose recycle bin each product handles", () => {
+    const useWhen = (id: string) => modules.find((m) => m.id === id)!.useWhen.join("; ");
+    expect(useWhen("cms")).toContain("content and media recycle bins");
+    expect(useWhen("forms")).toContain("the Forms recycle bin");
+  });
+
+  it("routes form submission analytics to Forms, which Engage points away from", () => {
+    const forms = modules.find((m) => m.id === "forms")!.useWhen.join("; ");
+    expect(forms).toMatch(/analys/);
+  });
+
   it("keeps the routing instructions for all modules under 2,000 characters", () => {
     expect(buildRoutingInstructions(modules).length).toBeLessThan(2000);
   });
