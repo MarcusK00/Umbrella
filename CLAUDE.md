@@ -99,7 +99,7 @@ This only works because product tool handlers call `getApiClient()` lazily insid
 
 ### Exactly one toolkit copy
 
-- **Version pin:** `npm/package.json` pins `@umbraco-cms/mcp-server-sdk` to exactly `1.0.0-beta.45`.
+- **Version pin:** `npm/package.json` pins `@umbraco-cms/mcp-server-sdk` to exactly `1.0.0-beta.46`.
 - **Overrides:** `"overrides": { "@umbraco-cms/mcp-server-sdk": "$@umbraco-cms/mcp-server-sdk" }` forces every product package onto that version.
 - **Verify:** after any install, `npm ls @umbraco-cms/mcp-server-sdk` must show only that version, deduped.
 - **Users don't get `overrides`:** npm only applies them in the root project, and under `npx` `umbrella-mcp` is a dependency. For users, single-copy relies on every product package depending on a compatible toolkit version. `scripts/pack-check.sh` installs the packed package that way and fails if a product's tools are missing.
@@ -108,8 +108,8 @@ This only works because product tool handlers call `getApiClient()` lazily insid
 ### Product packages
 
 - **CMS:** `@umbraco-cms/mcp-dev` 17.6.10 comes from the registry. `cms.ts` uses `UmbracoManagementClient.getClient()` as its factory.
-- **Forms and Automate:** `@umbraco-forms/mcp-dev` 17.6.1-beta.4 and `@umbraco-automate/mcp-dev` 17.4.0-beta.2 come from the registry (`lts-17-beta` tag). Forms 17.6.1-beta.3 and Automate 17.4.0-beta.1 were the first v17 releases whose `./collections` exports `createApiClient` and that depend on toolkit beta.45; earlier v17 releases do not work here. Forms beta.4 adds refusing duplicate explicit field aliases, Automate beta.2 refusing settings keys a step or trigger type doesn't declare.
-- **Engage:** `@umbraco-engage/mcp-dev` 17.0.0-beta.3 comes from the registry (`beta` tag). It is the first v17 release whose `./collections` exports `createApiClient` and that depends on toolkit beta.45; until then Umbrella used a locally packed tarball in `devDependencies`, kept `external` in `tsup.config.ts` and dropped in CI.
+- **Forms and Automate:** `@umbraco-forms/mcp-dev` 17.6.1-beta.5 and `@umbraco-automate/mcp-dev` 17.4.0-beta.3 come from the registry (`lts-17-beta` tag). Forms 17.6.1-beta.3 and Automate 17.4.0-beta.1 were the first v17 releases whose `./collections` exports `createApiClient` and that depend on toolkit beta.45; earlier v17 releases do not work here. Forms beta.4 adds refusing duplicate explicit field aliases, Automate beta.2 refusing settings keys a step or trigger type doesn't declare. Forms beta.5 and Automate beta.3 move to toolkit beta.46.
+- **Engage:** `@umbraco-engage/mcp-dev` 17.0.0-beta.4 comes from the registry (`beta` tag). 17.0.0-beta.3 was the first v17 release whose `./collections` exports `createApiClient` and that depends on toolkit beta.45; until then Umbrella used a locally packed tarball in `devDependencies`, kept `external` in `tsup.config.ts` and dropped in CI. Engage beta.4 moves to toolkit beta.46.
 - **Local-only products:** for a product with no usable published release, `docs/adding-a-product.md` describes the tarball route. `checkPackageInstalled` (`sdk-instance.ts`) turns its missing package in the published server into a `get-mcp-health` issue, and `CI_ABSENT_PACKAGES` (`skipped-modules.ts`) lets the contract test skip it in CI. Nothing uses either today.
 - **Types:** the product packages ship no types for `./collections`, so `npm/src/types/product-modules.d.ts` declares them.
 

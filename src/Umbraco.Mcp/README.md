@@ -58,7 +58,7 @@ Copy the config for your client from **Settings → Umbrella → Overview** ("Co
   "mcpServers": {
     "umbraco": {
       "command": "npx",
-      "args": ["-y", "umbrella-mcp@17.0.0-alpha.3"],
+      "args": ["-y", "umbrella-mcp@17.0.0-alpha.4"],
       "env": {
         "UMBRACO_BASE_URL": "https://your-site",
         "UMBRACO_CLIENT_ID": "umbraco-back-office-mcp",
