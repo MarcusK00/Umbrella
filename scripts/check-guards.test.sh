@@ -121,8 +121,8 @@ run_case "not private" 1 npm-private
 
 make_fixture
 write demo-site/appsettings.json '{"Umbraco":{"CMS":{"Imaging":{"HMACSecretKey":"abc"}}}}'
-write npm/package.json "$PKG_PREFIX,$PKG_DEPS}"
-run_case "two failures" 1 hmac-key npm-private
+write npm/README.md '"args": ["-y", "umbrella-mcp@1.2.2"],'
+run_case "two failures" 1 hmac-key readme-versions
 
 make_fixture
 RUN_FROM="$FIXTURE/npm" run_case "from subfolder" 0
