@@ -90,12 +90,12 @@ describe("envSetsCollectionFilter", () => {
 describe("buildEffectiveFilterInput", () => {
   it("turns the site list into excludeToolCollections when env is silent", () => {
     const r = buildEffectiveFilterInput({ UMBRACO_EXCLUDE_TOOLS: "forms:delete-form" }, "forms", false, ["prevalue-source"]);
-    expect(r).toEqual({ config: { excludeTools: ["delete-form"], excludeToolCollections: ["prevalue-source"] }, siteSettingsIgnored: false });
+    expect(r).toEqual({ config: { excludeTools: ["delete-form"], excludeToolCollections: ["prevalue-source"] }, siteSettingsIgnored: false, defaultsApplied: [] });
   });
 
   it("ignores the site list when env sets collection filters for the module", () => {
     const r = buildEffectiveFilterInput({ UMBRACO_EXCLUDE_TOOL_COLLECTIONS: "forms:record" }, "forms", false, ["prevalue-source"]);
-    expect(r).toEqual({ config: { excludeToolCollections: ["record"] }, siteSettingsIgnored: true });
+    expect(r).toEqual({ config: { excludeToolCollections: ["record"] }, siteSettingsIgnored: true, defaultsApplied: [] });
   });
 
   it("flags ignored even when the site disabled nothing, so the dashboard can warn", () => {
@@ -103,7 +103,7 @@ describe("buildEffectiveFilterInput", () => {
   });
 
   it("leaves the config unchanged when the site disabled nothing", () => {
-    expect(buildEffectiveFilterInput({}, "cms", true, [])).toEqual({ config: {}, siteSettingsIgnored: false });
+    expect(buildEffectiveFilterInput({}, "cms", true, [])).toEqual({ config: {}, siteSettingsIgnored: false, defaultsApplied: [] });
   });
 
   const include = (config: ReturnType<typeof buildEffectiveFilterInput>["config"], name: string, collectionName: string) =>
@@ -136,7 +136,7 @@ describe("buildEffectiveFilterInput", () => {
 
   it("keeps the site's read-only when env collection filters override the site's groups", () => {
     const r = buildEffectiveFilterInput({ UMBRACO_EXCLUDE_TOOL_COLLECTIONS: "forms:record" }, "forms", false, ["prevalue-source"], true);
-    expect(r).toEqual({ config: { excludeToolCollections: ["record"], readonly: true }, siteSettingsIgnored: true });
+    expect(r).toEqual({ config: { excludeToolCollections: ["record"], readonly: true }, siteSettingsIgnored: true, defaultsApplied: [] });
   });
 
   it("keeps UMBRACO_READONLY=true when the site did not set read-only", () => {
@@ -151,5 +151,52 @@ describe("buildEffectiveFilterInput", () => {
     expect(check({ readOnlyHint: true })).toBe(true);
     expect(check({ readOnlyHint: false })).toBe(false);
     expect(check({})).toBe(false);
+  });
+});
+
+describe("buildEffectiveFilterInput defaults", () => {
+  const defaults = ["umbraco-server"];
+
+  it("null applies defaults", () => {
+    const r = buildEffectiveFilterInput({}, "forms", false, null, false, defaults);
+    expect(r.config.excludeToolCollections).toEqual(["umbraco-server"]);
+    expect(r.defaultsApplied).toEqual(["umbraco-server"]);
+  });
+
+  it("saved empty list beats defaults", () => {
+    const r = buildEffectiveFilterInput({}, "forms", false, [], false, defaults);
+    expect(r.config.excludeToolCollections).toBeUndefined();
+    expect(r.defaultsApplied).toEqual([]);
+  });
+
+  it("saved list beats defaults", () => {
+    const r = buildEffectiveFilterInput({}, "forms", false, ["folder"], false, defaults);
+    expect(r.config.excludeToolCollections).toEqual(["folder"]);
+    expect(r.defaultsApplied).toEqual([]);
+  });
+
+  it("env collection filter beats defaults", () => {
+    const r = buildEffectiveFilterInput({ UMBRACO_EXCLUDE_TOOL_COLLECTIONS: "forms:folder" }, "forms", false, null, false, defaults);
+    expect(r.config.excludeToolCollections).toEqual(["folder"]);
+    expect(r.siteSettingsIgnored).toBe(true);
+    expect(r.defaultsApplied).toEqual([]);
+  });
+
+  it("module:* ignores defaults", () => {
+    const r = buildEffectiveFilterInput({ UMBRACO_INCLUDE_TOOL_COLLECTIONS: "forms:*" }, "forms", false, null, false, defaults);
+    expect(r.config.excludeToolCollections).toBeUndefined();
+    expect(r.defaultsApplied).toEqual([]);
+  });
+
+  it("no defaults and null excludes nothing", () => {
+    const r = buildEffectiveFilterInput({}, "forms", false, null, false);
+    expect(r.config.excludeToolCollections).toBeUndefined();
+    expect(r.defaultsApplied).toEqual([]);
+  });
+
+  it("read-only still applies with defaults", () => {
+    const r = buildEffectiveFilterInput({}, "forms", false, null, true, defaults);
+    expect(r.config.readonly).toBe(true);
+    expect(r.config.excludeToolCollections).toEqual(["umbraco-server"]);
   });
 });
