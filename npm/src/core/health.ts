@@ -15,6 +15,8 @@ export interface ModuleRuntimeState {
   issues: string[];
   /** Collections the site disabled for this module (from capabilities). */
   siteDisabledCollections?: string[];
+  /** The module's default-off collections that were applied, because neither the site nor the env set a list. */
+  defaultDisabledCollections?: string[];
   /** The environment sets collection filters for this module, so the site's list was not applied. */
   siteSettingsIgnored?: boolean;
   /** The site limits this module to read-only tools (from capabilities). */

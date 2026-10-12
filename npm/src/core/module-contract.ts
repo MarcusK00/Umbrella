@@ -25,6 +25,8 @@ export interface McpProductModule {
   description: string;
   /** Short phrases for the requests this product handles. Disambiguate words shared with other products here. */
   useWhen: string[];
+  /** Collections that stay off until the site or the env switches them on. Must exist in the package. */
+  defaultDisabledCollections?: string[];
   /** Required modules load even without capabilities (CMS only). */
   required?: boolean;
   /** Dynamic import so absent products are never loaded. */
