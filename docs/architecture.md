@@ -56,8 +56,8 @@ All under `/umbraco/management/api/v1/mcp/`, in the Management API's "MCP" Swagg
 
 | Endpoint | Who may call it | What it does |
 |---|---|---|
-| `GET capabilities` | any backoffice user | Returns `{ addonVersion, products: [{ id, displayName, installed, enabled, version, issues, disabledCollections, readOnly }] }`. When the caller is an API user, records the connection for the "MCP API user" check |
-| `POST catalogue` | API users only (403 otherwise) | The server reports every tool group it loaded: `{ umbrellaVersion, modules: [{ id, siteSettingsIgnored, collections: [{ name, toolCount, readOnlyToolCount }] }] }`. Merged per module into the stored catalogue |
+| `GET capabilities` | any backoffice user | Returns `{ addonVersion, products: [{ id, displayName, installed, enabled, version, issues, disabledCollections, readOnly }] }`. `disabledCollections` is `null` for a product without a saved list. When the caller is an API user, records the connection for the "MCP API user" check |
+| `POST catalogue` | API users only (403 otherwise) | The server reports every tool group it loaded: `{ umbrellaVersion, modules: [{ id, siteSettingsIgnored, collections: [{ name, toolCount, readOnlyToolCount, disabledByDefault? }] }] }`. Merged per module into the stored catalogue |
 | `GET tool-settings` | Settings section | What the dashboard shows: the add-on version, products, catalogue, disabled groups, read-only products |
 | `PUT tool-settings` | Settings section | Replaces `disabledCollections` (module id → group names) and `readOnlyModules`. Unknown product ids are refused |
 
@@ -156,14 +156,15 @@ The shared provider only exists once if every product uses the same toolkit copy
 |---|---|
 | `UMBRACO_TOOL_MODES`, `UMBRACO_INCLUDE_/EXCLUDE_TOOL_COLLECTIONS`, `UMBRACO_INCLUDE_/EXCLUDE_TOOLS` | Per module: unprefixed entries → CMS, `forms:<value>` → Forms, `forms:*` → no restriction. The `*_TOOLS` lists also accept `forms--list-forms` |
 | `UMBRACO_INCLUDE_SLICES`, `UMBRACO_EXCLUDE_SLICES`, `UMBRACO_READONLY` | Every module |
-| Dashboard: disabled groups (`disabledCollections`) | Become `excludeToolCollections` for that module, **unless** the environment sets any collection filter for it; then the site list is ignored (`siteSettingsIgnored`) |
+| Dashboard: disabled groups (`disabledCollections`) | Become `excludeToolCollections` for that module, **unless** the environment sets any collection filter for it; then the site list is ignored (`siteSettingsIgnored`). A saved `[]` means nothing is off |
+| Module: `defaultDisabledCollections` | Become `excludeToolCollections` only when the site has no saved list for the module (`disabledCollections` is `null` or missing, no add-on, or capabilities unavailable) and the environment sets no collection filter for it. `get-mcp-health` then names them |
 | Dashboard: read-only (`readOnly`) | Always applied, ORed with `UMBRACO_READONLY`, since it can only remove tools |
 
-`buildEffectiveFilterInput` combines these. The catalogue sent back to the site is built before filters, so the dashboard can also show groups that are switched off.
+`buildEffectiveFilterInput` combines these: environment, then the saved site list, then the module's defaults. The catalogue sent back to the site is built before filters, so the dashboard can also show groups that are switched off; it marks default-off groups with `disabledByDefault: true`, and the dashboard starts a product without a saved list from them.
 
 ### Health
 
-`get-mcp-health` (`health.ts`) reports the add-on status, the Umbraco version check, and for each module whether it was detected, installed, enabled, loaded, its tool count and its issues, plus notes: products the site has but the server has no module for, unknown ids in `UMBRACO_MCP_MODULES`, ignored or applied dashboard settings, a failed catalogue report, and a server version that differs from the add-on's. The report's `server.version` is the running umbrella-mcp. On the site, the "MCP client setup" check and the dashboard compare the catalogue's `umbrellaVersion` with the add-on's version in the same way.
+`get-mcp-health` (`health.ts`) reports the add-on status, the Umbraco version check, and for each module whether it was detected, installed, enabled, loaded, its tool count and its issues, plus notes: products the site has but the server has no module for, unknown ids in `UMBRACO_MCP_MODULES`, ignored or applied dashboard settings, default-off tool groups, a failed catalogue report, and a server version that differs from the add-on's. The report's `server.version` is the running umbrella-mcp. On the site, the "MCP client setup" check and the dashboard compare the catalogue's `umbrellaVersion` with the add-on's version in the same way.
 
 ## The cross-language contract
 
@@ -173,7 +174,7 @@ These must match on both sides:
 |---|---|---|
 | Product ids | detector `Id` | module `id` |
 | Capabilities payload (camelCase) | `McpCapabilities`, `McpProductStatus` | `CapabilitiesPayload` (`disabledCollections` and `readOnly` optional, for older add-ons) |
-| Catalogue payload | `McpCatalogueReport` (accepts a null `readOnlyToolCount` from older servers) | `CataloguePayload` |
+| Catalogue payload | `McpCatalogueReport` (accepts a null `readOnlyToolCount` and a missing `disabledByDefault` from older servers) | `CataloguePayload` |
 | npm package name and bin | `McpClientConfig.NpmPackage` | `name`, `bin` |
 | Version | csproj `<Version>` | `version` |
 
