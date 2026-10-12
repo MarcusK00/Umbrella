@@ -3,7 +3,8 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
-    <PackageVersion Include="Umbraco.Cms.Api.Management" Version="17.7.0" />
+    <!-- The lowest supported Umbraco: the NuGet package depends on this version or later, so keep it at 17.0.0. -->
+    <PackageVersion Include="Umbraco.Cms.Api.Management" Version="17.0.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
     <PackageVersion Include="NUnit" Version="3.14.0" />
     <PackageVersion Include="NUnit3TestAdapter" Version="6.2.0" />

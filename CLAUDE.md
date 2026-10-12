@@ -150,7 +150,7 @@ No changes in `npm/src/core/`. The contract test then covers the new module auto
 
 ## Constraints and conventions
 
-- **Versions:** Umbraco **17 only**: `Umbraco.Cms.Api.Management` 17.7.0, `net10.0`, central NuGet versions in `Directory.Packages.props`. The demo site has its own `Directory.Packages.props` (Umbraco.Cms 17.7.0, Forms 17.6.1, Automate 17.4.0, Engage 17.5.0, Forms.Automate 17.0.3). Don't upgrade dependency versions unprompted.
+- **Versions:** Umbraco **17 only**: `Umbraco.Cms.Api.Management` 17.0.0 (the package's minimum Umbraco, so sites on any 17.x can install it; the add-on must compile against it), `net10.0`, central NuGet versions in `Directory.Packages.props`. The demo site has its own `Directory.Packages.props` (Umbraco.Cms 17.7.0, Forms 17.6.1, Automate 17.4.0, Engage 17.5.0, Forms.Automate 17.0.3). Don't upgrade dependency versions unprompted.
 - **npm:** ESM (`"type": "module"`, NodeNext, `.js` import suffixes in TS), TypeScript strict, Node ≥ 22.
 - **Tests:**
   - .NET tests are NUnit 3 with hand-written fakes (`tests/Umbraco.Mcp.Tests/Fakes.cs`) at the `ILoadedAssemblyProvider` / `IRegisteredApiProvider` seams.
