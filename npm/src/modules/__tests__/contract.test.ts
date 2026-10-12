@@ -1,4 +1,6 @@
+import { readFileSync } from "node:fs";
 import { createPermissiveCodegenUser } from "@umbraco-cms/mcp-server-sdk";
+import { isDestructive } from "../../core/destructive.js";
 import { buildRoutingInstructions } from "../../core/routing.js";
 import { modules } from "../index.js";
 import { modulesSkippedInCi } from "./skipped-modules.js";
@@ -101,5 +103,31 @@ describe("module set", () => {
       }
     }
     expect(seen.size).toBeGreaterThan(0);
+  });
+
+  it("destructive tools match the committed snapshot", async () => {
+    const expected: string[] = JSON.parse(readFileSync(new URL("./destructive-tools.snapshot.json", import.meta.url), "utf8"));
+    const skippedPrefixes = modules.filter((m) => skipped.has(m.id)).map((m) => m.toolPrefix);
+    const actual: string[] = [];
+    for (const module of loadable) {
+      const loaded = await module.load();
+      for (const collection of loaded.collections) {
+        for (const tool of collection.tools(user)) {
+          if (isDestructive(tool)) actual.push(`${module.toolPrefix}${tool.name}`);
+        }
+      }
+    }
+    actual.sort();
+    const wanted = expected.filter((n) => !skippedPrefixes.some((p) => n.startsWith(p))).sort();
+    const added = actual.filter((n) => !wanted.includes(n));
+    const removed = wanted.filter((n) => !actual.includes(n));
+    if (added.length > 0 || removed.length > 0) {
+      throw new Error(
+        `added: ${JSON.stringify(added)}
+removed: ${JSON.stringify(removed)}
+` +
+        "A product release changed which tools are flagged destructiveHint. Review them, then update destructive-tools.snapshot.json.",
+      );
+    }
   });
 });

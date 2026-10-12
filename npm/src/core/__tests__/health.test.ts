@@ -8,7 +8,7 @@ const mod = (id: string, displayName: string, required = false): McpProductModul
 });
 
 const state = (capabilities: CapabilitiesResult, modules: ModuleRuntimeState[], forced: string[] = [], serverVersion = "17.0.0"): HealthState => ({
-  capabilities, serverVersion, umbracoVersion: "17.7.0", versionCheckMessage: null, forcedModules: forced, modules,
+  capabilities, serverVersion, umbracoVersion: "17.7.0", versionCheckMessage: null, forcedModules: forced, modules, noDestructiveFromEnv: false,
 });
 
 const cmsLoaded: ModuleRuntimeState = {
@@ -143,6 +143,34 @@ describe("buildHealthReport", () => {
     expect(buildHealthReport(state(caps, [{ ...cmsLoaded, siteReadOnly: true }])).notes).toContain(note);
     expect(buildHealthReport(state(caps, [{ ...cmsLoaded, siteReadOnly: true, siteSettingsIgnored: true }])).notes).toContain(note);
     expect(buildHealthReport(state(caps, [cmsLoaded])).notes.join(" ")).not.toMatch(/read-only/);
+  });
+
+  it("notes a product limited to non-destructive tools in the backoffice", () => {
+    const caps = { kind: "ok" as const, payload: { addonVersion: "17.0.0", products: [] } };
+    const forms: ModuleRuntimeState = {
+      decision: { module: mod("forms", "Umbraco Forms"), product: null, load: true, reason: "ok" },
+      loaded: true, toolCount: 80, issues: [], siteNoDestructive: true, destructiveRemoved: 10,
+    };
+    expect(buildHealthReport(state(caps, [forms])).notes).toContain("Umbraco Forms: no destructive tools (10 removed), as set in the backoffice.");
+    expect(buildHealthReport(state(caps, [forms, { ...cmsLoaded, siteNoDestructive: false }])).notes.join(" ")).not.toMatch(/Umbraco CMS: no destructive/);
+  });
+
+  it("notes UMBRACO_NO_DESTRUCTIVE once, and gives a module whose level comes from the env alone no backoffice note", () => {
+    const caps = { kind: "ok" as const, payload: { addonVersion: "17.0.0", products: [] } };
+    const forms: ModuleRuntimeState = {
+      decision: { module: mod("forms", "Umbraco Forms"), product: null, load: true, reason: "ok" },
+      loaded: true, toolCount: 80, issues: [], destructiveRemoved: 10,
+    };
+    const r = buildHealthReport({ ...state(caps, [cmsLoaded, forms]), noDestructiveFromEnv: true });
+    const note = "UMBRACO_NO_DESTRUCTIVE is set, so destructive tools are removed for every product.";
+    expect(r.notes.filter((n) => n === note)).toHaveLength(1);
+    expect(r.notes.join(" ")).not.toMatch(/as set in the backoffice/);
+    expect(buildHealthReport(state(caps, [cmsLoaded, forms])).notes.join(" ")).not.toMatch(/UMBRACO_NO_DESTRUCTIVE/);
+  });
+
+  it("gives no backoffice no-destructive note without the add-on", () => {
+    const r = buildHealthReport(state({ kind: "no-addon" }, [{ ...cmsLoaded, siteNoDestructive: true, destructiveRemoved: 39 }]));
+    expect(r.notes.join(" ")).not.toMatch(/no destructive tools/);
   });
 
   it("notes a failed catalogue report", () => {

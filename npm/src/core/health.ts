@@ -35,6 +35,8 @@ export interface HealthState {
   versionCheckMessage: string | null;
   forcedModules: string[];
   modules: ModuleRuntimeState[];
+  /** UMBRACO_NO_DESTRUCTIVE is set, which removes destructive tools for every module. */
+  noDestructiveFromEnv: boolean;
   /** Absent when the catalogue was not reported (no add-on). */
   catalogueReport?: CatalogueReportResult;
 }
@@ -87,10 +89,15 @@ export function buildHealthReport(state: HealthState): HealthReport {
     notes.push("Install the Umbraco.Community.Umbrella NuGet package on the site to enable product tools beyond the CMS.");
   }
 
+  if (state.noDestructiveFromEnv) {
+    notes.push("UMBRACO_NO_DESTRUCTIVE is set, so destructive tools are removed for every product.");
+  }
+
   const products: HealthProduct[] = state.modules.map((
     {
       decision, loaded, toolCount, issues,
       siteDisabledCollections = [], defaultDisabledCollections = [], siteSettingsIgnored = false, siteReadOnly = false,
+      siteNoDestructive = false, destructiveRemoved = 0,
     },
   ) => {
     const name = decision.module.displayName;
@@ -108,6 +115,9 @@ export function buildHealthReport(state: HealthState): HealthReport {
     }
     if (hasDashboard && siteReadOnly) {
       notes.push(`${name}: only read-only tools, as set in the backoffice.`);
+    }
+    if (hasDashboard && siteNoDestructive) {
+      notes.push(`${name}: no destructive tools (${destructiveRemoved} removed), as set in the backoffice.`);
     }
     const p = detected.find((d) => d.id === decision.module.id) ?? null;
     if (caps.kind === "ok" && !decision.module.required && (!p || !p.installed)) {
