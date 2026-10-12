@@ -1,21 +1,35 @@
 # Adding an Umbraco HQ product
 
-Example: Umbraco Engage. Nothing in `npm/src/core/` or the addon's core changes.
+A product is one npm module file and one .NET detector. Nothing in `npm/src/core/` or the add-on's core changes. Umbraco Engage was added this way, so its files are the working example used below: `npm/src/modules/engage.ts` and `src/Umbraco.Mcp/Detection/Detectors/EngageDetector.cs`.
 
-## 1. Product MCP package
+## What you need from the product
 
-The product's MCP package (`@umbraco-<product>/mcp-dev`) must export the API client factory from `src/collections.ts`, next to the existing exports:
+| Value | Engage | Where to find it |
+|---|---|---|
+| id | `engage` | Choose it: lowercase, used as the tool prefix `engage--` |
+| MCP package | `@umbraco-engage/mcp-dev` | The product's MCP repository |
+| Assembly name | `Umbraco.Engage.Core` | An assembly that is always loaded when the product is installed |
+| Management API name | `engage-management` | The `[MapToApi("…")]` attribute on the product's Management API controllers |
+| Backoffice section | `Umb.Section.Engage` | The product's section alias, if it has one; it is what the API user needs |
+
+## 1. The product's MCP package
+
+The package (`@umbraco-<product>/mcp-dev`) must export its API client factory as `createApiClient` from `./collections`, next to the existing exports in `src/collections.ts`. For Engage:
 
 ```ts
 export { getUmbracoEngageManagementAPI as createApiClient } from "./umbraco-api/api/generated/umbracoEngageManagementApi.js";
 ```
 
-and depend on the same `@umbraco-cms/mcp-server-sdk` version as `npm/package.json`.
+It must also depend on the same `@umbraco-cms/mcp-server-sdk` version as `npm/package.json` (today `1.0.0-beta.45`). Otherwise users end up with a second toolkit copy and the server skips the product.
 
-- **Published release has both:** add it to `dependencies` from the registry, as CMS, Forms and Automate are. The product ships in the next `umbrella-mcp` release.
-- **Not published yet:** build it locally with `npm pack --pack-destination <path-to>/Umbraco.MCP/npm/vendor`, add it to `devDependencies` as `file:vendor/…tgz`, and add the package name to `external` in `npm/tsup.config.ts`. It then loads in local builds, while the published `umbrella-mcp` reports in `get-mcp-health` that the product's tools are not available (this is how Engage works today). Move it to `dependencies` once the release is published.
+Then add it to `npm/package.json`:
 
-## 2. npm module (`npm/src/modules/engage.ts`)
+- **A published release has both:** add it to `dependencies` with an exact registry version, as CMS, Forms and Automate are. The product ships in the next `umbrella-mcp` release.
+- **Not published yet:** pack it locally with `npm pack --pack-destination <this repo>/npm/vendor`, add it to `devDependencies` as `file:vendor/<tarball>.tgz`, and add the package name to `external` in `npm/tsup.config.ts`. It then loads in local builds, while the published `umbrella-mcp` reports in `get-mcp-health` that the product's tools are not available. This is how Engage works today. Move it to `dependencies` once the release is published, and remove it from `external`.
+
+After `npm install`, `npm ls @umbraco-cms/mcp-server-sdk` must show a single `1.0.0-beta.45`, deduped.
+
+## 2. npm module (`npm/src/modules/<id>.ts`)
 
 ```ts
 import type { LoadedModule, McpProductModule } from "../core/module-contract.js";
@@ -26,11 +40,13 @@ export const engageModule: McpProductModule = {
   toolPrefix: "engage--",
   packageName: "@umbraco-engage/mcp-dev",
   expectedMajor: "17",
-  description: "Umbraco Engage: personalisation, A/B tests, segments and visitor analytics.",
+  description: "Umbraco Engage: personalisation, A/B tests and visitor analytics.",
   useWhen: [
-    "A/B tests and their variants",
-    "personalisation, personas, segments and customer journeys",
-    "visitor analytics, goals, campaigns and reporting",
+    "A/B tests, their projects and variants",
+    "personalisation: personas, customer journeys, Engage segments and content scoring",
+    "visitor profiles, goals, campaigns, referral groups, heatmaps and annotations",
+    "website visitor analytics and reports (not form submission analytics)",
+    "the Engage main switch, traffic filters, data cleanup and Engage permissions",
   ],
   load: async (): Promise<LoadedModule> => {
     const m = await import("@umbraco-engage/mcp-dev/collections");
@@ -45,13 +61,16 @@ export const engageModule: McpProductModule = {
 };
 ```
 
-Then:
-- add `engageModule` to `npm/src/modules/index.ts`
-- write `description` as one sentence starting with the display name, and keep `useWhen` phrases short and concrete. If a word overlaps another product (e.g. "workflow", "analytics"), say in the phrase which meaning belongs here
-- add `declare module "@umbraco-engage/mcp-dev/collections";` to `npm/src/types/product-modules.d.ts` (if the package ships no types)
-- add the package to `npm/package.json` on the matching major line (see section 1 for `dependencies` or `devDependencies`)
+- **`description`:** one sentence starting with `<displayName>: `. The contract test checks this.
+- **`useWhen`:** short, concrete phrases for the requests this product handles. They become the routing instructions, which must stay under 2,000 characters for all modules together. If a word overlaps another product ("workflow", "analytics", "segments"), say in the phrase which meaning belongs here, as Engage does with "not form submission analytics".
+- **`load()`:** keep the dynamic `import()`, so the package is only loaded when the site has the product.
 
-## 3. .NET detector (`src/Umbraco.Mcp/Detection/Detectors/EngageDetector.cs`)
+Then:
+
+- Add the module to `npm/src/modules/index.ts`, after CMS (CMS must stay first).
+- If the package ships no types for `./collections`, add `declare module "@umbraco-<product>/mcp-dev/collections";` to `npm/src/types/product-modules.d.ts`.
+
+## 3. .NET detector (`src/Umbraco.Mcp/Detection/Detectors/<Product>Detector.cs`)
 
 ```csharp
 namespace Umbraco.Mcp.Detection.Detectors;
@@ -63,16 +82,38 @@ public sealed class EngageDetector(ILoadedAssemblyProvider assemblies, IRegister
     public override string DisplayName => "Umbraco Engage";
     protected override string AssemblyName => "Umbraco.Engage.Core";
     protected override string ApiName => "engage-management";
-    public override string? SectionAlias => "Umb.Section.Engage";   // section the API user needs; null if none
+    public override string? SectionAlias => "Umb.Section.Engage";   // null if the product has no section
 }
 ```
 
-Register it in `McpComposer`: `builder.Services.AddSingleton<IMcpProductDetector, EngageDetector>();`
+`Id` must equal the npm module's `id`. Register the detector in `McpComposer`; the order there is the order products appear in capabilities, health checks and the dashboard:
 
-## 4. Verify
+```csharp
+builder.Services.AddSingleton<IMcpProductDetector, EngageDetector>();
+```
 
-- `cd npm && npm test`: the contract test covers the new module automatically.
-- `dotnet test Umbraco.Mcp.slnx`
-- `scripts/e2e.sh` against a demo site with the product installed; `get-mcp-health` shows it loaded.
-- `scripts/pack-check.sh` to check the product loads when `umbrella-mcp` is installed with `npx` (registry dependencies only).
-- Add the product to the supported products and compatibility table in `README.md`, `npm/README.md` and `src/Umbraco.Mcp/README.md`.
+The add-on must not take a package dependency on the product: detection is by name only.
+
+## 4. Demo site and end-to-end checks
+
+- Add the product's NuGet package to `demo-site/Directory.Packages.props` (`PackageVersion`) and `demo-site/DemoSite.csproj` (`PackageReference`), plus any configuration it needs in `demo-site/appsettings.Development.json`.
+- Add the product to `scripts/e2e.sh`: its id to the capabilities loop and the `get-mcp-health` loaded check, and its prefix to the tool list loop.
+- Add its prefix to `scripts/pack-check.sh` once it ships from the registry. While it is a local tarball, assert that its tools are absent there, as for `engage--`.
+
+## 5. Verify
+
+```bash
+cd npm && npm run compile && npm test   # the contract test covers the new module automatically
+dotnet test Umbraco.Mcp.slnx
+scripts/e2e.sh                          # with the demo site running; get-mcp-health shows the product loaded
+scripts/pack-check.sh                   # registry dependencies only
+```
+
+The contract test checks the id and prefix format, the `load()` fields, that tools are well-formed, that prefixed names are unique across modules, and the routing length budget.
+
+## 6. Docs
+
+- `README.md`: the package table, Compatibility and Known limitations.
+- `npm/README.md` and `src/Umbraco.Mcp/README.md`: the list of supported products.
+- The `<Description>` in `src/Umbraco.Mcp/Umbraco.Mcp.csproj` (shown on NuGet).
+- `CLAUDE.md`, "Product packages".
