@@ -14,6 +14,22 @@ public sealed class KeyValueMcpConnectionStore(IKeyValueService keyValues) : IMc
     public void Record(Guid userKey, DateTimeOffset at) =>
         keyValues.SetValue(KeyPrefix + userKey.ToString("D"), at.ToString("O", CultureInfo.InvariantCulture));
 
+    /// <summary>
+    /// IKeyValueService has no delete, so the row is blanked. <see cref="GetAll"/> skips values that aren't a date,
+    /// and the next <see cref="Record"/> writes the row again.
+    /// </summary>
+    public bool Remove(Guid userKey)
+    {
+        string key = KeyPrefix + userKey.ToString("D");
+        if (!DateTimeOffset.TryParseExact(keyValues.GetValue(key), "O", CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
+        {
+            return false;
+        }
+
+        keyValues.SetValue(key, "");
+        return true;
+    }
+
     public IReadOnlyCollection<McpConnection> GetAll()
     {
         var result = new List<McpConnection>();
