@@ -80,7 +80,7 @@ Everything is kept in Umbraco's `umbracoKeyValue` table, so it survives restarts
 
 ### Client config and `.mcp.json`
 
-`McpClientConfig` builds the `{ "mcpServers": { "umbraco": … } }` JSON. The "MCP client setup" health check and `McpClientSnippets` use it. `McpClientSnippets` builds the five snippets on the Overview tab (Claude Code `.mcp.json`, the `claude mcp add` command, VS Code with `inputs`, Cursor with `${env:...}`, other clients). None contains a secret.
+`McpClientConfig` builds the `{ "mcpServers": { "umbraco": … } }` JSON. `McpClientSnippets` and `McpJsonFile.BuildJson` use it. `McpClientSnippets` builds the five snippets on the Overview tab (Claude Code `.mcp.json`, the `claude mcp add` command, VS Code with `inputs`, Cursor with `${env:...}`, other clients). None contains a secret.
 
 `McpOverviewService` (`Overview/`) gathers the status, findings, products, API users and snippets once. The three health checks render the same findings through `McpHealthCheckRows` as short rows that point to Settings → Umbrella, and the dashboard renders them in full.
 

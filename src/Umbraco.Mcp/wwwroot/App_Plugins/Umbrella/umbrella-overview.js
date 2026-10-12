@@ -41,7 +41,7 @@ export class UmbrellaOverviewElement extends UmbLitElement {
 
   async #load() {
     try {
-      this._data = await request(this, this.#auth, "GET", "overview");
+      this._data = await request(this.#auth, "GET", "overview");
       this._error = null;
     } catch (error) {
       this._error = error.message;
@@ -60,7 +60,7 @@ export class UmbrellaOverviewElement extends UmbLitElement {
   async #writeMcpJson() {
     this._busy = true;
     try {
-      const result = await request(this, this.#auth, "POST", "mcp-json");
+      const result = await request(this.#auth, "POST", "mcp-json");
       this._mcpJsonMessage = result?.message ?? null;
       await this.#load();
     } catch (error) {
@@ -85,7 +85,7 @@ export class UmbrellaOverviewElement extends UmbLitElement {
     }
     this._busy = true;
     try {
-      await request(this, this.#auth, "DELETE", `connections/${encodeURIComponent(user.key)}`);
+      await request(this.#auth, "DELETE", `connections/${encodeURIComponent(user.key)}`);
       await this.#load();
     } catch (error) {
       this.#notifications?.peek("danger", { data: { headline: "Could not forget the connection", message: error.message } });
@@ -95,10 +95,14 @@ export class UmbrellaOverviewElement extends UmbLitElement {
   }
 
   #renderStatus() {
-    const { findings } = this._data;
+    const { findings, server, apiUsers } = this._data;
     const warnings = findings.filter((f) => f.severity === "warning").length;
     const headline =
-      warnings === 0 ? "Everything is connected" : `${warnings} ${warnings === 1 ? "thing needs" : "things need"} attention`;
+      server === null || apiUsers.length === 0
+        ? "Not connected yet"
+        : warnings === 0
+          ? "Everything is connected"
+          : `${warnings} ${warnings === 1 ? "thing needs" : "things need"} attention`;
     return html`<uui-box headline=${headline}>
       ${findings.length === 0
         ? nothing
@@ -118,9 +122,15 @@ export class UmbrellaOverviewElement extends UmbLitElement {
     const open =
       apiUsers.length === 0 || server === null || findings.some((f) => f.severity === "warning" && f.area !== "products");
     const selected = clients.find((c) => c.id === this._client) ?? clients[0];
+    const insecure = /UMBRACO_BASE_URL["'=:\s]+http:\/\//.test(clients[0]?.content ?? "");
     return html`<uui-box headline="Connect an AI tool">
       <details ?open=${open}>
         <summary>Set up an MCP client for this site</summary>
+        ${insecure
+          ? html`<p class="warning">
+              The MCP server needs HTTPS. Open the backoffice over https, or change UMBRACO_BASE_URL in the snippet to the site's https address.
+            </p>`
+          : nothing}
         ${selected
           ? html`<uui-tab-group>
                 ${clients.map(
@@ -166,7 +176,7 @@ export class UmbrellaOverviewElement extends UmbLitElement {
               <uui-table-head-cell>Version</uui-table-head-cell>
               <uui-table-head-cell>API</uui-table-head-cell>
               <uui-table-head-cell>MCP server</uui-table-head-cell>
-              <uui-table-head-cell>Tools</uui-table-head-cell>
+              <uui-table-head-cell>Tools available</uui-table-head-cell>
             </uui-table-head>
             ${installed.map(
               (p) => html`<uui-table-row>

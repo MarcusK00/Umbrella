@@ -37,6 +37,18 @@ public class McpProductsHealthCheckTests
     }
 
     [Test]
+    public void Not_installed_product_with_issues_is_only_a_warning()
+    {
+        var findings = new[] { new McpFinding(McpFinding.Warning, McpFindingArea.Products, "Umbraco Forms: Its package is broken.") };
+        List<HealthCheckStatus> rows = Rows(Make(
+            findings: findings,
+            products: [Product("Umbraco CMS"), Product("Umbraco Forms", installed: false, issues: ["Its package is broken."]), Product("Umbraco Engage", installed: false)]));
+
+        Assert.That(rows.Select(r => r.Message), Has.None.Contains("Umbraco Forms, "));
+        Assert.That(rows.Any(r => r.Message == "Not installed: Umbraco Engage."), Is.True);
+    }
+
+    [Test]
     public void Product_warning_rows_replace_the_success_row()
     {
         List<HealthCheckStatus> rows = Rows(Make(

@@ -74,7 +74,7 @@ You need Umbraco 17, and Node.js 22 or later on the machine that runs your AI to
 
    Restart your AI tool afterwards: it only sees variables that were set before it started.
 
-4. **Open the site's folder in your AI tool.** When the site runs in Development, the add-on writes a `.mcp.json` next to it, filled in with the site's HTTPS address and the API user's client id. Claude Code and VS Code read this file. Approve the `umbraco` server when your tool asks, and `npx` downloads and starts `umbrella-mcp`. In the backoffice, Settings → **Umbrella** → **Overview** shows the status of this setup, and can write the file for you.
+4. **Open the site's folder in your AI tool.** When the site runs in Development, the add-on writes a `.mcp.json` next to it, filled in with the site's HTTPS address and the API user's client id. Claude Code reads this file. VS Code, Cursor and other clients get their own snippet in Settings → **Umbrella** → **Overview**. Approve the `umbraco` server when your tool asks, and `npx` downloads and starts `umbrella-mcp`. In the backoffice, Settings → **Umbrella** → **Overview** shows the status of this setup, and can write the file for you.
 
 5. **Check it works.** Ask the AI to call `get-mcp-health`. It lists each product, whether its tools loaded, and how many. In the backoffice, Settings → **Umbrella** → **Overview** shows the API user the server connected as, whether it can reach each product, and what to fix if not.
 
