@@ -161,7 +161,7 @@ export async function startServer(options: {
     ));
   }
 
-  const healthState: HealthState = { capabilities, umbracoVersion, versionCheckMessage, forcedModules, modules: states, catalogueReport };
+  const healthState: HealthState = { capabilities, serverVersion: version, umbracoVersion, versionCheckMessage, forcedModules, modules: states, catalogueReport };
   registerHealthTool(server, () => healthState);
 
   // Must run after every registerTool call.

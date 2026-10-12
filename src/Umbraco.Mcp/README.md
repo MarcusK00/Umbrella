@@ -19,7 +19,7 @@ For other AI tools, or a site that isn't running locally, copy the config from S
 - `GET /umbraco/management/api/v1/mcp/capabilities`: the installed products, for the MCP server.
 - Settings → **Umbrella**: switch the MCP server's tool groups off, or limit a product to read-only tools. Changes apply the next time the MCP server starts.
 - Health checks in the **MCP** group: detected products, the API user the MCP server connected as, and the client config.
-- In Development only, a `.mcp.json` next to the site (never overwritten, no secret in it). Turn it off with `Umbraco:Mcp:McpJson:Enabled: false`.
+- In Development only, a `.mcp.json` next to the site (no secret in it). A file you edited is never overwritten; one the site wrote is updated when you upgrade the add-on. Turn it off with `Umbraco:Mcp:McpJson:Enabled: false`.
 
 The add-on has no dependency on any product package: it detects products by name.
 

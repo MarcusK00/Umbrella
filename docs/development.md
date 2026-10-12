@@ -11,10 +11,29 @@ How to build, run and test Umbrella from a fresh clone. How the code fits togeth
 
 ### The Engage tarball
 
-`@umbraco-engage/mcp-dev` is a `devDependency` on `file:vendor/umbraco-engage-mcp-dev-17.0.0-beta.2.tgz`, because no published v17 release exports `createApiClient` yet. The tarball is gitignored. It is packed from a local, unpushed branch of the Engage MCP repository that adds that export and moves it to toolkit `1.0.0-beta.45` (details in [CLAUDE.md](../CLAUDE.md), "Product packages"):
+`@umbraco-engage/mcp-dev` is a `devDependency` on `file:vendor/umbraco-engage-mcp-dev-17.0.0-beta.2.tgz`, because no published v17 release exports `createApiClient` yet. The tarball is gitignored. It is packed from a local, uncommitted change to the Engage MCP repository that adds that export and moves it to toolkit `1.0.0-beta.45` (details in [CLAUDE.md](../CLAUDE.md), "Product packages").
+
+To recreate it in a clone of the Engage MCP repository next to this one:
+
+1. `git switch -c v17/feature/export-create-api-client origin/dev`
+2. In `src/collections.ts`, add `export { getUmbracoEngageManagementAPI as createApiClient } from "./umbraco-api/api/generated/umbracoEngageManagementApi.js";`
+3. In `package.json`, set `@umbraco-cms/mcp-server-sdk` and `@umbraco-cms/mcp-hosted` to `1.0.0-beta.45`.
+4. Build and pack:
+
+   ```bash
+   npm install && npm run compile && npm run build
+   npm pack --pack-destination <this repo>/npm/vendor
+   ```
+
+A new tarball has a new hash, so `npm install` here fails with `EINTEGRITY` until the lockfile has it. Replace the old hash with the new one and commit only that line:
 
 ```bash
-npm pack --pack-destination <this repo>/npm/vendor
+cd npm
+NEW="sha512-$(openssl dgst -sha512 -binary vendor/umbraco-engage-mcp-dev-17.0.0-beta.2.tgz | base64 -w0)"
+OLD=$(node -p 'require("./package-lock.json").packages["node_modules/@umbraco-engage/mcp-dev"].integrity')
+sed -i "s|$OLD|$NEW|" package-lock.json
+npm install
+npm ls @umbraco-cms/mcp-server-sdk   # one copy, 1.0.0-beta.45, deduped
 ```
 
 If you don't have it, install the way CI does, and don't commit the change to `package.json` or the lockfile:

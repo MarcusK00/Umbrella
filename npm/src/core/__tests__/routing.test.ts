@@ -33,6 +33,12 @@ describe("buildRoutingInstructions", () => {
     expect(text).toContain(HEALTH_TOOL_NAME);
   });
 
+  it("only claims product tools are prefixed, since the health tool is not", () => {
+    const text = buildRoutingInstructions([cms]);
+    expect(text).toContain("Every product tool name starts with its product prefix.");
+    expect(text).not.toContain("Every tool name starts");
+  });
+
   it("appends non-null extras and skips null ones", () => {
     const text = buildRoutingInstructions([cms], [null, "Version mismatch: 18 vs 17"]);
     expect(text.endsWith("\n\nVersion mismatch: 18 vs 17")).toBe(true);

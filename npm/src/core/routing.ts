@@ -48,7 +48,7 @@ export function prefixToolReferences(text: string, module: Pick<McpProductModule
  */
 export function buildRoutingInstructions(modules: McpProductModule[], extras: Array<string | null> = []): string {
   const routing = [
-    "This server exposes tools for several Umbraco products on one site. Every tool name starts with its product prefix.",
+    "This server exposes tools for several Umbraco products. Every product tool name starts with its product prefix.",
     "Pick the product from the user's request first, then only use tools with that prefix:",
     "",
     ...modules.map((m) => `- \`${m.toolPrefix}\` ${m.description} Use for: ${m.useWhen.join("; ")}.`),

@@ -7,8 +7,8 @@ const mod = (id: string, displayName: string, required = false): McpProductModul
   load: async () => { throw new Error("unused"); },
 });
 
-const state = (capabilities: CapabilitiesResult, modules: ModuleRuntimeState[], forced: string[] = []): HealthState => ({
-  capabilities, umbracoVersion: "17.7.0", versionCheckMessage: null, forcedModules: forced, modules,
+const state = (capabilities: CapabilitiesResult, modules: ModuleRuntimeState[], forced: string[] = [], serverVersion = "17.0.0"): HealthState => ({
+  capabilities, serverVersion, umbracoVersion: "17.7.0", versionCheckMessage: null, forcedModules: forced, modules,
 });
 
 const cmsLoaded: ModuleRuntimeState = {
@@ -22,6 +22,26 @@ describe("buildHealthReport", () => {
     expect(r.addon).toEqual({ installed: false, version: null, status: "not-installed" });
     expect(r.notes.join(" ")).toMatch(/Install the Umbraco\.Community\.Umbrella NuGet package/);
     expect(r.umbraco).toEqual({ version: "17.7.0", versionCheck: "ok" });
+  });
+
+  it("reports the running server's version", () => {
+    expect(buildHealthReport(state({ kind: "no-addon" }, [cmsLoaded], [], "17.0.0-alpha.1")).server).toEqual({ version: "17.0.0-alpha.1" });
+  });
+
+  it("notes when the running server is not the add-on's version, with the version to run", () => {
+    const r = buildHealthReport(state(
+      { kind: "ok", payload: { addonVersion: "17.0.0-alpha.2", products: [] } }, [cmsLoaded], [], "17.0.0-alpha.1",
+    ));
+    expect(r.notes).toContain(
+      "umbrella-mcp 17.0.0-alpha.1 is running, but the site's Umbraco.Community.Umbrella add-on is 17.0.0-alpha.2. " +
+      "The two are released together: set umbrella-mcp@17.0.0-alpha.2 in your MCP client config. " +
+      "A .mcp.json the site wrote and nobody edited is upgraded when the site next starts in Development.",
+    );
+  });
+
+  it("adds no version note when the server and the add-on have the same version", () => {
+    const r = buildHealthReport(state({ kind: "ok", payload: { addonVersion: "17.0.0", products: [] } }, [cmsLoaded], [], "17.0.0"));
+    expect(r.notes.join(" ")).not.toMatch(/is running, but/);
   });
 
   it("lists products with module and load state", () => {
