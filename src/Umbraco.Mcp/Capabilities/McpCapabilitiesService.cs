@@ -12,9 +12,27 @@ public sealed class McpCapabilitiesService(
     public McpCapabilities GetCapabilities()
     {
         IReadOnlyDictionary<string, IReadOnlyList<string>> disabled = SafeDisabledCollections();
+        IReadOnlyList<string> readOnly = SafeReadOnlyModules();
         return new(
             McpAddon.Version,
-            detectors.Select(d => SafeDetect(d) with { DisabledCollections = disabled.GetValueOrDefault(d.Id) ?? [] }).ToList());
+            detectors.Select(d => SafeDetect(d) with
+            {
+                DisabledCollections = disabled.GetValueOrDefault(d.Id) ?? [],
+                ReadOnly = readOnly.Contains(d.Id, StringComparer.Ordinal),
+            }).ToList());
+    }
+
+    private IReadOnlyList<string> SafeReadOnlyModules()
+    {
+        try
+        {
+            return toolSettings.GetReadOnlyModules();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not read the MCP read-only settings. No product is read-only in the capabilities.");
+            return [];
+        }
     }
 
     private IReadOnlyDictionary<string, IReadOnlyList<string>> SafeDisabledCollections()

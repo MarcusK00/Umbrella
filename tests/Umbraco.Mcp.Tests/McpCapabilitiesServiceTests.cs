@@ -105,16 +105,31 @@ public class McpCapabilitiesServiceTests
         McpCapabilities caps = Service([new FormsDetector(new FakeAssemblies(), new FakeApis())], store).GetCapabilities();
 
         Assert.That(caps.Products.Single().DisabledCollections, Is.Empty);
+        Assert.That(caps.Products.Single().ReadOnly, Is.False);
     }
 
     [Test]
-    public void Disabled_collections_serialise_as_camel_case()
+    public void Each_product_carries_its_read_only_flag()
     {
-        var store = new FakeToolSettingsStore { Disabled = new() { ["forms"] = ["prevalue-source"] } };
+        var a = new FakeAssemblies();
+        var r = new FakeApis();
+        var store = new FakeToolSettingsStore { ReadOnly = ["forms"] };
+
+        McpCapabilities caps = Service([new FormsDetector(a, r), new AutomateDetector(a, r)], store).GetCapabilities();
+
+        Assert.That(caps.Products[0].ReadOnly, Is.True);
+        Assert.That(caps.Products[1].ReadOnly, Is.False);
+    }
+
+    [Test]
+    public void Disabled_collections_and_read_only_serialise_as_camel_case()
+    {
+        var store = new FakeToolSettingsStore { Disabled = new() { ["forms"] = ["prevalue-source"] }, ReadOnly = ["forms"] };
         McpCapabilities caps = Service([new FormsDetector(new FakeAssemblies(), new FakeApis())], store).GetCapabilities();
 
         string json = JsonSerializer.Serialize(caps, new JsonSerializerOptions(JsonSerializerDefaults.Web));
 
         Assert.That(json, Does.Contain("\"disabledCollections\":[\"prevalue-source\"]"));
+        Assert.That(json, Does.Contain("\"readOnly\":true"));
     }
 }
