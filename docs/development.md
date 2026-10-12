@@ -7,46 +7,6 @@ How to build, run and test Umbrella from a fresh clone. How the code fits togeth
 - **.NET 10 SDK** (the add-on and the demo site target `net10.0`).
 - **Node.js 22 or later.**
 - **bash** for the scripts in `scripts/`. On Windows, use Git Bash.
-- **The Engage tarball** in `npm/vendor/` (see below). Without it `npm install` fails.
-
-### The Engage tarball
-
-`@umbraco-engage/mcp-dev` is a `devDependency` on `file:vendor/umbraco-engage-mcp-dev-17.0.0-beta.2.tgz`, because no published v17 release exports `createApiClient` yet. The tarball is gitignored. It is packed from a local, uncommitted change to the Engage MCP repository that adds that export and moves it to toolkit `1.0.0-beta.45` (details in [CLAUDE.md](../CLAUDE.md), "Product packages").
-
-To recreate it in a clone of the Engage MCP repository next to this one:
-
-1. `git switch -c v17/feature/export-create-api-client origin/dev`
-2. In `src/collections.ts`, add `export { getUmbracoEngageManagementAPI as createApiClient } from "./umbraco-api/api/generated/umbracoEngageManagementApi.js";`
-3. In `package.json`, set `@umbraco-cms/mcp-server-sdk` and `@umbraco-cms/mcp-hosted` to `1.0.0-beta.45`.
-4. Build and pack:
-
-   ```bash
-   npm install && npm run compile && npm run build
-   npm pack --pack-destination <this repo>/npm/vendor
-   ```
-
-A new tarball has a new hash, so `npm install` here fails with `EINTEGRITY` until the lockfile has it. Replace the old hash with the new one and commit only that line:
-
-```bash
-cd npm
-NEW="sha512-$(openssl dgst -sha512 -binary vendor/umbraco-engage-mcp-dev-17.0.0-beta.2.tgz | base64 -w0)"
-OLD=$(node -p 'require("./package-lock.json").packages["node_modules/@umbraco-engage/mcp-dev"].integrity')
-sed -i "s|$OLD|$NEW|" package-lock.json
-npm install
-npm ls @umbraco-cms/mcp-server-sdk   # one copy, 1.0.0-beta.45, deduped
-```
-
-If you don't have it, install the way CI does, and don't commit the change to `package.json` or the lockfile:
-
-```bash
-cd npm
-npm pkg delete devDependencies.@umbraco-engage/mcp-dev
-npm install
-CI=true CI_ABSENT_PACKAGES=@umbraco-engage/mcp-dev npm test   # lets the contract test skip Engage, as in ci.yml; without both, the Engage load tests fail
-git checkout -- package.json package-lock.json
-```
-
-Everything except Engage then works, including `e2e.sh` up to its Engage checks.
 
 ## First run
 
@@ -109,7 +69,7 @@ Expected noise: Jest runs with `--experimental-vm-modules`, so every run prints 
 Both scripts need the demo site running, `npm/.env`, and the API user.
 
 - **`scripts/e2e.sh`** runs the local build (`npm run build` first) against the site: capabilities report Forms, Automate and Engage; every prefix has tools; descriptions are product-prefixed; switching off a tool group and setting Forms to read-only change the tool list; and `get-mcp-health`, `forms--list-forms` and `automate--list-automations` answer. It changes the site's tool settings while it runs and restores them afterwards, even when it fails.
-- **`scripts/pack-check.sh`** packs `umbrella-mcp` and installs it with `npx` in an empty folder, the way users get it. There npm ignores the package's `overrides`, so this is the check that every product still shares one toolkit copy. It also checks that no vendor tarball is packed and that Engage tools are absent.
+- **`scripts/pack-check.sh`** packs `umbrella-mcp` and installs it with `npx` in an empty folder, the way users get it. There npm ignores the package's `overrides`, so this is the check that every product still shares one toolkit copy: it fails when `cms--`, `forms--`, `automate--` or `engage--` tools are missing. It also checks that no vendor tarball is packed.
 
 ## Before you commit
 

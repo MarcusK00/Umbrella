@@ -32,21 +32,16 @@ jobs:
     defaults:
       run:
         working-directory: npm
-    env:
-      # Packages CI removes before installing; the contract test skips only these (skipped-modules.ts).
-      CI_ABSENT_PACKAGES: "@umbraco-engage/mcp-dev"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      # The Engage tarball is local-only (CLAUDE.md, "Product packages"), so CI installs without it and the contract
-      # test skips Engage. Once Engage comes from the registry, remove this step and CI_ABSENT_PACKAGES, and use
-      # `npm ci` below.
-      - name: Drop the local-only Engage devDependency
-        run: for p in ${CI_ABSENT_PACKAGES//,/ }; do npm pkg delete "devDependencies.$p"; done
+      # Every product package comes from the registry. A product that is only a local tarball would need a step here
+      # that deletes its devDependency before installing, and CI_ABSENT_PACKAGES so the contract test skips it
+      # (skipped-modules.ts, docs/adding-a-product.md).
       - name: Install
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
       - name: Single toolkit copy
         run: |
           copies=$(find node_modules -type f -path '*node_modules/@umbraco-cms/mcp-server-sdk/package.json')

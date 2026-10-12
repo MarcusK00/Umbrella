@@ -4,9 +4,9 @@ import type { McpProductModule } from "../../core/module-contract.js";
 const MISSING = new Set(["ERR_MODULE_NOT_FOUND", "MODULE_NOT_FOUND"]);
 
 /**
- * Ids of modules whose package CI removed before installing (`CI_ABSENT_PACKAGES`, comma-separated, set in ci.yml;
- * today the local-only Engage tarball) and that is indeed not installed. Only when `CI=true`. Any other missing
- * package, locally or in CI, still fails the contract tests.
+ * Ids of modules whose package CI removed before installing (`CI_ABSENT_PACKAGES`, comma-separated, set in ci.yml
+ * for a product that is only a local tarball; none today) and that is indeed not installed. Only when `CI=true`.
+ * Any other missing package, locally or in CI, still fails the contract tests.
  */
 export function modulesSkippedInCi(
   mods: readonly McpProductModule[],
