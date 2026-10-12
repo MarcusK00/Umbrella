@@ -11,9 +11,10 @@ import {
   useDraft202012ToolSchemas,
   type HttpResponse,
 } from "@umbraco-cms/mcp-server-sdk";
-import { fetchCapabilities } from "./capabilities.js";
+import { fetchCapabilities, siteDisabledCollections } from "./capabilities.js";
+import { buildCatalogue, reportCatalogue, type CatalogueReportResult } from "./catalogue.js";
 import { installClientContext } from "./client-context.js";
-import { buildModuleFilterInput } from "./filter-config.js";
+import { buildEffectiveFilterInput } from "./filter-config.js";
 import { HEALTH_TOOL_NAME, registerHealthTool, type HealthState, type ModuleRuntimeState } from "./health.js";
 import type { LoadedModule, McpProductModule } from "./module-contract.js";
 import { parseForcedModules, selectModules } from "./module-selection.js";
@@ -131,11 +132,16 @@ export async function startServer(options: {
   for (const { state, loaded } of ready) {
     const { module } = state.decision;
     try {
+      state.siteDisabledCollections = siteDisabledCollections(capabilities, module.id);
+      const { config, siteSettingsIgnored } = buildEffectiveFilterInput(
+        env, module.id, module.required === true, state.siteDisabledCollections,
+      );
+      state.siteSettingsIgnored = siteSettingsIgnored;
       const filter = createCollectionConfigLoader({
         modeRegistry: loaded.allModes,
         allModeNames: loaded.allModeNames,
         allSliceNames: loaded.allSliceNames,
-      }).loadFromConfig(buildModuleFilterInput(env, module.id, module.required === true));
+      }).loadFromConfig(config);
       state.toolCount = registerModuleTools(ctx, module, loaded, filter);
       state.loaded = true;
     } catch (error) {
@@ -144,7 +150,17 @@ export async function startServer(options: {
     }
   }
 
-  const healthState: HealthState = { capabilities, umbracoVersion, versionCheckMessage, forcedModules, modules: states };
+  // Tell the site which tool groups exist, for the backoffice "Umbrella" dashboard. Without the add-on there is nowhere to send it.
+  let catalogueReport: CatalogueReportResult | undefined;
+  if (capabilities.kind === "ok") {
+    catalogueReport = await reportCatalogue(buildCatalogue(
+      version,
+      ready.map(({ state, loaded }) => ({ module: state.decision.module, loaded, siteSettingsIgnored: state.siteSettingsIgnored ?? false })),
+      user,
+    ));
+  }
+
+  const healthState: HealthState = { capabilities, umbracoVersion, versionCheckMessage, forcedModules, modules: states, catalogueReport };
   registerHealthTool(server, () => healthState);
 
   // Must run after every registerTool call.
