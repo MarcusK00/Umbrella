@@ -22,6 +22,6 @@ Product detection needs the [`Umbraco.Community.Umbrella`](https://www.nuget.org
 
 Use the same version as the NuGet package: the two are released together.
 
-Tool groups switched off in the backoffice (Settings → Umbrella) are left out on the next start, unless the environment sets `UMBRACO_INCLUDE_TOOL_COLLECTIONS` or `UMBRACO_EXCLUDE_TOOL_COLLECTIONS` for that product.
+Tool groups switched off in the backoffice (Settings → Umbrella) are left out on the next start, unless the environment sets `UMBRACO_INCLUDE_TOOL_COLLECTIONS` or `UMBRACO_EXCLUDE_TOOL_COLLECTIONS` for that product. A product set to read-only there registers only its read-only tools; that always applies.
 
 Requires Node.js 22 or later and Umbraco 17. Configuration, filters and known limitations: https://github.com/MarcusK00/Umbraco.Community.Umbrella#readme

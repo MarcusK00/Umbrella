@@ -36,7 +36,7 @@ node -e "
   const forms = s.catalogue.modules.forms;
   if (!forms || !forms.collections.some((c) => c.name === 'prevalue-source')) { console.error('forms not reported'); process.exit(1); }" <<<"$SETTINGS" \
   || fail "catalogue does not list forms/prevalue-source (excerpt: ${SETTINGS:0:300})"
-ORIGINAL=$(node -e "const s = JSON.parse(require('fs').readFileSync(0, 'utf8')); console.log(JSON.stringify({ disabledCollections: s.disabledCollections }));" <<<"$SETTINGS")
+ORIGINAL=$(node -e "const s = JSON.parse(require('fs').readFileSync(0, 'utf8')); console.log(JSON.stringify({ disabledCollections: s.disabledCollections, readOnlyModules: s.readOnlyModules }));" <<<"$SETTINGS")
 put_settings() {
   curl -sfk -X PUT -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d "$1" "$API/tool-settings" >/dev/null
 }
@@ -48,9 +48,15 @@ TOOLS_OFF=$(node dist/index.js --list-tools)
 LEFT=$(grep "^forms--.*prevalue-source" <<<"$TOOLS_OFF" | grep -v "prevalue-source-type" || true)
 [ -z "$LEFT" ] || fail "prevalue-source tools still listed after disabling them: $LEFT"
 grep -qx "forms--list-forms" <<<"$TOOLS_OFF" || fail "other forms tools vanished"
+echo "   disabling forms prevalue-source removed its tools"
+put_settings '{"disabledCollections":{},"readOnlyModules":["forms"]}' || fail "PUT read-only tool-settings failed"
+TOOLS_RO=$(node dist/index.js --list-tools)
+grep -qx "forms--list-forms" <<<"$TOOLS_RO" || fail "read-only forms lost its read-only tools"
+if grep -qx "forms--delete-form" <<<"$TOOLS_RO"; then fail "read-only forms still lists forms--delete-form"; fi
+grep -qx "cms--delete-document" <<<"$TOOLS_RO" || fail "read-only forms also made CMS read-only"
 put_settings "$ORIGINAL" || fail "could not restore tool settings"
 trap - EXIT
-echo "   disabling forms prevalue-source removed its tools"
+echo "   read-only forms kept list-forms and dropped delete-form"
 
 echo "4. Smoke calls"
 call() {
