@@ -7,8 +7,11 @@ export interface CatalogueModule {
   id: string;
   /** The environment sets collection filters for this module, so the backoffice settings do not apply. */
   siteSettingsIgnored: boolean;
-  /** `readOnlyToolCount`: how many of the usable tools are left when the module is read-only. */
-  collections: { name: string; toolCount: number; readOnlyToolCount: number }[];
+  /**
+   * `readOnlyToolCount`: how many of the usable tools are left when the module is read-only.
+   * `disabledByDefault`: present (true) only on the module's default-off collections.
+   */
+  collections: { name: string; toolCount: number; readOnlyToolCount: number; disabledByDefault?: true }[];
 }
 
 export interface CataloguePayload {
@@ -29,6 +32,7 @@ export function buildCatalogue(
   const result: CatalogueModule[] = [];
   for (const { module, loaded, siteSettingsIgnored } of modules) {
     try {
+      const defaults = new Set(module.defaultDisabledCollections ?? []);
       result.push({
         id: module.id,
         siteSettingsIgnored,
@@ -39,6 +43,7 @@ export function buildCatalogue(
             toolCount: usable.length,
             // The same test as the toolkit's read-only filter (shouldIncludeTool).
             readOnlyToolCount: usable.filter((t) => t.annotations?.readOnlyHint || t.isReadOnly).length,
+            ...(defaults.has(c.metadata.name) && { disabledByDefault: true as const }),
           };
         }),
       });
