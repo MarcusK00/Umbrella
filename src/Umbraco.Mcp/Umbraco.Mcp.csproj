@@ -11,7 +11,8 @@
     <Version>17.0.0-alpha.1</Version>
     <Description>One MCP server for your Umbraco 17 site. Detects the installed Umbraco products so the umbrella-mcp server loads only their tools (CMS, Forms, Automate and Engage), and adds MCP health checks and an "Umbrella" dashboard to switch tool groups off or limit products to read-only tools in the backoffice.</Description>
     <Authors>MarcusK00</Authors>
-    <PackageTags>umbraco;umbraco-marketplace;mcp;ai;model-context-protocol</PackageTags>
+    <!-- No umbraco-marketplace tag while releases are for testing: that tag lists the package on the Umbraco Marketplace (docs/releasing.md). -->
+    <PackageTags>umbraco;mcp;ai;model-context-protocol</PackageTags>
     <PackageProjectUrl>https://github.com/MarcusK00/Umbraco.Community.Umbrella</PackageProjectUrl>
     <RepositoryUrl>https://github.com/MarcusK00/Umbraco.Community.Umbrella</RepositoryUrl>
     <RepositoryType>git</RepositoryType>

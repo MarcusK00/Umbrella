@@ -24,7 +24,6 @@
 | `no-local-deps` | an npm `dependencies` entry is a `file:`, `link:`, git or path reference | Use a registry version, or keep it in `devDependencies` + `external` (see CLAUDE.md, "Product packages") |
 | `no-tracked-secrets` | a `.env`, `*.tgz`, `appsettings.local.json`, `demo-site/.mcp.json` or demo-site data/logs file is tracked | `git rm --cached <file>` |
 | `readme-versions` | an `umbrella-mcp@<x>` in a README differs from the npm `version` | Update the README |
-| `npm-private` | `"private": true` is gone from `npm/package.json` | Put it back, unless this is the first release ([releasing.md](releasing.md)) |
 
 ## Run it locally
 
