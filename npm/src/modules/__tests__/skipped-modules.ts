@@ -4,9 +4,9 @@ import type { McpProductModule } from "../../core/module-contract.js";
 const MISSING = new Set(["ERR_MODULE_NOT_FOUND", "MODULE_NOT_FOUND"]);
 
 /**
- * Ids of modules whose package is not installed, but only in CI (`CI=true`). CI runs without local-only product
- * tarballs (today: Engage), so the contract tests that load a module skip those. Locally nothing is skipped, so a
- * missing package still fails the tests.
+ * Ids of modules whose package CI removed before installing (`CI_ABSENT_PACKAGES`, comma-separated, set in ci.yml;
+ * today the local-only Engage tarball) and that is indeed not installed. Only when `CI=true`. Any other missing
+ * package, locally or in CI, still fails the contract tests.
  */
 export function modulesSkippedInCi(
   mods: readonly McpProductModule[],
@@ -15,7 +15,9 @@ export function modulesSkippedInCi(
 ): Set<string> {
   const skipped = new Set<string>();
   if (env.CI !== "true") return skipped;
+  const absent = new Set((env.CI_ABSENT_PACKAGES ?? "").split(",").map((p) => p.trim()));
   for (const mod of mods) {
+    if (!absent.has(mod.packageName)) continue;
     try {
       resolve(`${mod.packageName}/collections`);
     } catch (error) {
