@@ -162,7 +162,7 @@ Settings → **Umbrella** → **Tool groups** lists every product the MCP server
 Each product also has a tool level, with three choices:
 
 - **Full access:** every tool, the default.
-- **No destructive tools:** leaves out the tools the product marks as destructive (`destructiveHint`), so the AI can create and edit but not delete. They are the deletes, emptying recycle bins, removing items and rolling back versions, whatever the product flags. Unpublishing is not marked destructive, so it stays available.
+- **No destructive tools:** leaves out the tools the product marks as destructive (`destructiveHint`), so the AI can create and edit but not delete. That is the deletes, emptying recycle bins, terminating runs, and a few Engage switches and permission changes. Unpublishing, moving to the recycle bin, and CMS and Forms version rollback are not flagged, so they stay available.
 - **Read-only:** only tools marked read-only (the ones that list and fetch), so the AI can look at that product but not change it.
 
 The group labels show how many tools stay at the chosen level, for example `form (6 of 14)`. Group checkboxes still apply on top of it.
@@ -178,6 +178,7 @@ The group labels show how many tools stay at the chosen level, for example `form
 - **Before the first start:** the dashboard is empty until the MCP server has connected once, because the server reports its tool groups when it starts.
 - **Environment wins for groups:** if the MCP server's environment sets `UMBRACO_INCLUDE_TOOL_COLLECTIONS` or `UMBRACO_EXCLUDE_TOOL_COLLECTIONS` for a product (including `forms:*`, or an unprefixed entry for CMS), the group settings and the off-by-default groups are ignored for that product and the dashboard shows a warning. So `forms:*` brings the default-off Forms groups back, and so does any other Forms collection filter, such as `forms:folder`. `UMBRACO_INCLUDE_TOOLS` also still includes a tool from a switched-off group.
 - **The level always applies:** it only removes tools, so the environment can't turn it off, and it applies even when environment collection filters make the group settings ignored. `UMBRACO_READONLY=true` makes every product read-only and `UMBRACO_NO_DESTRUCTIVE=true` removes destructive tools from every product, whatever the dashboard says.
+- **If the site can't be read:** when the MCP server can't read the site's settings it can't apply the dashboard level, so set `UMBRACO_NO_DESTRUCTIVE=true` (or `UMBRACO_READONLY=true`) in the AI tool's config to enforce it regardless.
 - **Older servers:** an MCP server older than the add-on ignores the No destructive level; the dashboard warns when the server that last started is older.
 - **Not a security control:** anyone with the API user's credentials can call the Management API directly. Use the API user's groups and sections to limit what it can do.
 

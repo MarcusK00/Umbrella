@@ -109,13 +109,13 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     const level = this._levels[product.id] ?? "full";
     const suffix = level === "readOnly" ? " · read-only" : level === "noDestructive" ? " · no destructive tools" : "";
     const olderServer =
-      level === "noDestructive" && !module.collections.some((c) => typeof c.nonDestructiveToolCount === "number");
+      level === "noDestructive" && module.collections.length > 0 && !module.collections.some((c) => typeof c.nonDestructiveToolCount === "number");
     return html`<uui-box headline=${product.displayName}>
       <span slot="header-actions">${off} of ${module.collections.length} groups off${suffix}</span>
       ${module.siteSettingsIgnored
         ? html`<p class="warning">
             Your MCP server's environment sets collection filters for this product, so the group settings are ignored there.
-            Read-only still applies.
+            The tool level still applies.
           </p>`
         : nothing}
       <uui-radio-group
