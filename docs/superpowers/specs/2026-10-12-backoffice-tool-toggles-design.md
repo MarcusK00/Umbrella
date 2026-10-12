@@ -1,7 +1,7 @@
 # Backoffice Tool Group Toggles — Design Spec
 
 - **Date:** 12-10-2026
-- **Status:** Approved design, pending spec review
+- **Status:** Implemented
 - **Author:** mkr@umbraco.dk (with Claude)
 - **Builds on:** `2026-10-11-umbraco-mcp-umbrella-design.md`
 
@@ -135,7 +135,7 @@ Tool-level env lists need no special handling: the toolkit's `shouldIncludeTool`
 - `capabilities.ts`: `ProductCapability.disabledCollections?: string[]`. `isProduct` accepts a missing field and rejects a present field that is not an array of strings; a helper normalises to `[]`. `no-addon` / `unavailable` mean `[]` for every module.
 - `filter-config.ts`: `buildModuleFilterInput(env, moduleId, isDefaultModule, siteDisabled)` returns `{ config, siteSettingsIgnored }`. `entriesFor` distinguishes "module not mentioned" from `forms:*`, which today both return `undefined`.
 - New `catalogue.ts`: `buildCatalogue(ready, user, version)` (pure) and `reportCatalogue(payload, request = default)` using the same injected-request pattern as `fetchCapabilities`. It never throws; it returns `{ ok: true }` or `{ ok: false, reason }`.
-- `server.ts`: after Phase 2, report the catalogue once and await it. A failure becomes a health issue; startup continues. `--list-tools` does not report.
+- `server.ts`: after Phase 2, report the catalogue once and await it. A failure becomes a health issue; startup continues. It reports on every start, including `--list-tools` (which lets `scripts/e2e.sh` verify the report).
 - `health.ts`: per module, "Disabled in the backoffice: prevalue-source" or "… ignored because the environment sets collection filters for this module"; a top-level issue when the catalogue report failed.
 
 ## 6. Error handling
