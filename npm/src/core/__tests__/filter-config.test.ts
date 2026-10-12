@@ -128,4 +128,28 @@ describe("buildEffectiveFilterInput", () => {
     const { config } = buildEffectiveFilterInput({ UMBRACO_INCLUDE_TOOLS: "forms--get-prevalue-source" }, "forms", false, ["prevalue-source"]);
     expect(include(config, "get-prevalue-source", "prevalue-source")).toBe(true);
   });
+
+  it("sets readonly when the site made the module read-only", () => {
+    expect(buildEffectiveFilterInput({}, "forms", false, [], true).config).toEqual({ readonly: true });
+    expect(buildEffectiveFilterInput({}, "forms", false, [], false).config).toEqual({});
+  });
+
+  it("keeps the site's read-only when env collection filters override the site's groups", () => {
+    const r = buildEffectiveFilterInput({ UMBRACO_EXCLUDE_TOOL_COLLECTIONS: "forms:record" }, "forms", false, ["prevalue-source"], true);
+    expect(r).toEqual({ config: { excludeToolCollections: ["record"], readonly: true }, siteSettingsIgnored: true });
+  });
+
+  it("keeps UMBRACO_READONLY=true when the site did not set read-only", () => {
+    expect(buildEffectiveFilterInput({ UMBRACO_READONLY: "true" }, "forms", false, [], false).config.readonly).toBe(true);
+  });
+
+  it("with read-only, keeps read-only tools and drops the others", () => {
+    const { config } = buildEffectiveFilterInput({}, "forms", false, [], true);
+    const loader = createCollectionConfigLoader({ modeRegistry: [], allModeNames: [], allSliceNames: ["read"] }).loadFromConfig(config);
+    const check = (annotations: { readOnlyHint?: boolean }) =>
+      shouldIncludeTool({ name: "t", slices: ["read"], annotations }, { collectionName: "form", config: loader });
+    expect(check({ readOnlyHint: true })).toBe(true);
+    expect(check({ readOnlyHint: false })).toBe(false);
+    expect(check({})).toBe(false);
+  });
 });

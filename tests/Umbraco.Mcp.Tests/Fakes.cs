@@ -83,6 +83,8 @@ internal sealed class FakeToolSettingsStore : IMcpToolSettingsStore
 {
     public Dictionary<string, IReadOnlyList<string>> Disabled { get; set; } = new();
 
+    public List<string> ReadOnly { get; set; } = [];
+
     public McpToolCatalogue Catalogue { get; set; } = McpToolCatalogue.Empty;
 
     public List<(McpCatalogueReport Report, DateTimeOffset At)> Merged { get; } = [];
@@ -93,6 +95,10 @@ internal sealed class FakeToolSettingsStore : IMcpToolSettingsStore
 
     public void SetDisabledCollections(IReadOnlyDictionary<string, IReadOnlyList<string>> disabled) =>
         Disabled = new Dictionary<string, IReadOnlyList<string>>(disabled);
+
+    public IReadOnlyList<string> GetReadOnlyModules() => Throws is null ? ReadOnly : throw Throws;
+
+    public void SetReadOnlyModules(IReadOnlyList<string> moduleIds) => ReadOnly = [.. moduleIds];
 
     public McpToolCatalogue GetCatalogue() => Catalogue;
 

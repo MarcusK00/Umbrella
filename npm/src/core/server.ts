@@ -11,7 +11,7 @@ import {
   useDraft202012ToolSchemas,
   type HttpResponse,
 } from "@umbraco-cms/mcp-server-sdk";
-import { fetchCapabilities, siteDisabledCollections } from "./capabilities.js";
+import { fetchCapabilities, siteDisabledCollections, siteReadOnly } from "./capabilities.js";
 import { buildCatalogue, reportCatalogue, type CatalogueReportResult } from "./catalogue.js";
 import { installClientContext } from "./client-context.js";
 import { buildEffectiveFilterInput } from "./filter-config.js";
@@ -133,8 +133,9 @@ export async function startServer(options: {
     const { module } = state.decision;
     try {
       state.siteDisabledCollections = siteDisabledCollections(capabilities, module.id);
+      state.siteReadOnly = siteReadOnly(capabilities, module.id);
       const { config, siteSettingsIgnored } = buildEffectiveFilterInput(
-        env, module.id, module.required === true, state.siteDisabledCollections,
+        env, module.id, module.required === true, state.siteDisabledCollections, state.siteReadOnly,
       );
       state.siteSettingsIgnored = siteSettingsIgnored;
       const filter = createCollectionConfigLoader({

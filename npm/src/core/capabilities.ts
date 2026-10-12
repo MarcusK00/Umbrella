@@ -11,6 +11,8 @@ export interface ProductCapability {
   issues: string[];
   /** Tool groups switched off in the backoffice. Missing on older add-ons. */
   disabledCollections?: string[] | null;
+  /** Only read-only tools, as set in the backoffice. Missing on older add-ons. */
+  readOnly?: boolean | null;
 }
 
 export interface CapabilitiesPayload {
@@ -37,6 +39,7 @@ const isProduct = (p: unknown): p is ProductCapability => {
     (o.disabledCollections === undefined ||
       o.disabledCollections === null ||
       (Array.isArray(o.disabledCollections) && o.disabledCollections.every((c) => typeof c === "string"))) &&
+    (o.readOnly === undefined || o.readOnly === null || typeof o.readOnly === "boolean") &&
     Array.isArray(o.issues)
   );
 };
@@ -72,4 +75,10 @@ export async function fetchCapabilities(request: () => Promise<RawResponse> = de
 export function siteDisabledCollections(caps: CapabilitiesResult, moduleId: string): string[] {
   if (caps.kind !== "ok") return [];
   return caps.payload.products.find((p) => p.id === moduleId)?.disabledCollections ?? [];
+}
+
+/** Whether the site limits a module to read-only tools; false without the add-on or on add-ons that predate the field. */
+export function siteReadOnly(caps: CapabilitiesResult, moduleId: string): boolean {
+  if (caps.kind !== "ok") return false;
+  return caps.payload.products.find((p) => p.id === moduleId)?.readOnly === true;
 }

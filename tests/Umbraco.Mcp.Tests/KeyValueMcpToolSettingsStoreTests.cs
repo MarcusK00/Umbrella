@@ -21,8 +21,32 @@ public class KeyValueMcpToolSettingsStoreTests
         var store = Store(new FakeKeyValueService());
 
         Assert.That(store.GetDisabledCollections(), Is.Empty);
+        Assert.That(store.GetReadOnlyModules(), Is.Empty);
         Assert.That(store.GetCatalogue().Modules, Is.Empty);
         Assert.That(store.GetCatalogue().UmbrellaVersion, Is.Null);
+    }
+
+    [Test]
+    public void Read_only_modules_round_trip_in_their_own_row()
+    {
+        var values = new FakeKeyValueService();
+        var store = Store(values);
+
+        store.SetReadOnlyModules(["forms", "cms"]);
+
+        Assert.That(store.GetReadOnlyModules(), Is.EqualTo(new[] { "forms", "cms" }));
+        Assert.That(values.Values[KeyValueMcpToolSettingsStore.ReadOnlyKey], Is.EqualTo("[\"forms\",\"cms\"]"));
+        Assert.That(values.Values.ContainsKey(KeyValueMcpToolSettingsStore.SettingsKey), Is.False);
+    }
+
+    [Test]
+    public void The_catalogue_stores_read_only_tool_counts()
+    {
+        var values = new FakeKeyValueService();
+        Store(values).MergeCatalogue(new McpCatalogueReport("1.0.0", [new McpModuleReport("forms", false, [new McpCollectionInfo("form", 9, 4)])]), First);
+
+        Assert.That(values.Values[KeyValueMcpToolSettingsStore.CatalogueKey], Does.Contain("\"readOnlyToolCount\":4"));
+        Assert.That(Store(values).GetCatalogue().Modules["forms"].Collections.Single(), Is.EqualTo(new McpCollectionInfo("form", 9, 4)));
     }
 
     [Test]
@@ -77,9 +101,11 @@ public class KeyValueMcpToolSettingsStoreTests
         var values = new FakeKeyValueService();
         values.SetValue(KeyValueMcpToolSettingsStore.SettingsKey, "{not json");
         values.SetValue(KeyValueMcpToolSettingsStore.CatalogueKey, "[1,2,3]");
+        values.SetValue(KeyValueMcpToolSettingsStore.ReadOnlyKey, "{\"forms\":true}");
         var store = Store(values);
 
         Assert.That(store.GetDisabledCollections(), Is.Empty);
+        Assert.That(store.GetReadOnlyModules(), Is.Empty);
         Assert.That(store.GetCatalogue().Modules, Is.Empty);
     }
 }

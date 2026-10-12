@@ -77,16 +77,19 @@ About the written `.mcp.json`:
 | `UMBRACO_BASE_URL`, `UMBRACO_CLIENT_ID`, `UMBRACO_CLIENT_SECRET` | The site and the API user to sign in as (required) |
 | `UMBRACO_MCP_MODULES` | Force modules on without detection, for example `forms,automate` |
 | `UMBRACO_TOOL_MODES`, `UMBRACO_INCLUDE_/EXCLUDE_TOOL_COLLECTIONS`, `UMBRACO_INCLUDE_/EXCLUDE_TOOLS` | Toolkit filters. Unprefixed entries apply to CMS; `forms:<value>` targets a module; `forms:*` means no restriction for that module. In the two `*_TOOLS` lists you can also use the visible name, for example `cms--delete-document` or `forms--list-forms`. Collection filters set here for a product override the Umbrella dashboard for that product |
-| `UMBRACO_READONLY` | `true` registers only read-only tools, for every module |
+| `UMBRACO_READONLY` | `true` registers only read-only tools, for every module. To do this for one product, use the Umbrella dashboard |
 | `UMBRACO_INCLUDE_SLICES`, `UMBRACO_EXCLUDE_SLICES` | Apply to every module |
 
 ## Turning tool groups off
 
 Settings → **Umbrella** lists every product the MCP server loaded, with one checkbox per tool group (for example Umbraco Forms → `prevalue-source`). Untick a group and save to stop exposing its tools. Fewer tools means less context for the AI and better tool choice.
 
+Each product also has a **Read-only tools only** toggle. With it on, the product registers only tools marked read-only (the ones that list and fetch), so the AI can look at that product but not change it. The group labels then show how many tools stay, for example `form (6 of 14)`. Group checkboxes still apply on top of it.
+
 - **When it applies:** the next time the MCP server starts. Reconnect it in your AI tool after saving.
 - **Before the first start:** the dashboard is empty until the MCP server has connected once, because the server reports its tool groups when it starts.
-- **Environment wins:** if the MCP server's environment sets `UMBRACO_INCLUDE_TOOL_COLLECTIONS` or `UMBRACO_EXCLUDE_TOOL_COLLECTIONS` for a product (including `forms:*`, or an unprefixed entry for CMS), the dashboard settings are ignored for that product and the dashboard shows a warning. `UMBRACO_INCLUDE_TOOLS` also still includes a tool from a switched-off group.
+- **Environment wins for groups:** if the MCP server's environment sets `UMBRACO_INCLUDE_TOOL_COLLECTIONS` or `UMBRACO_EXCLUDE_TOOL_COLLECTIONS` for a product (including `forms:*`, or an unprefixed entry for CMS), the group settings are ignored for that product and the dashboard shows a warning. `UMBRACO_INCLUDE_TOOLS` also still includes a tool from a switched-off group.
+- **Read-only always applies:** it only removes tools, so the environment can't turn it off. `UMBRACO_READONLY=true` makes every product read-only whatever the dashboard says.
 - **Not a security control:** anyone with the API user's credentials can call the Management API directly. Use the API user's groups and sections to limit what it can do.
 
 The settings and the reported tool groups are stored in the `umbracoKeyValue` table. Changing them needs access to the Settings section.
