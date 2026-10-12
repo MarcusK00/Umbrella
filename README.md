@@ -74,13 +74,13 @@ You need Umbraco 17, and Node.js 22 or later on the machine that runs your AI to
 
    Restart your AI tool afterwards: it only sees variables that were set before it started.
 
-4. **Open the site's folder in your AI tool.** When the site runs in Development, the add-on writes a `.mcp.json` next to it, filled in with the site's HTTPS address and the API user's client id. Claude Code and VS Code read this file. Approve the `umbraco` server when your tool asks, and `npx` downloads and starts `umbrella-mcp`.
+4. **Open the site's folder in your AI tool.** When the site runs in Development, the add-on writes a `.mcp.json` next to it, filled in with the site's HTTPS address and the API user's client id. Claude Code and VS Code read this file. Approve the `umbraco` server when your tool asks, and `npx` downloads and starts `umbrella-mcp`. In the backoffice, Settings → **Umbrella** → **Overview** shows the status of this setup, and can write the file for you.
 
-5. **Check it works.** Ask the AI to call `get-mcp-health`. It lists each product, whether its tools loaded, and how many. In the backoffice, Settings → Health Check → **MCP** → "MCP API user" now shows the API user the server connected as, and whether it can reach each product.
+5. **Check it works.** Ask the AI to call `get-mcp-health`. It lists each product, whether its tools loaded, and how many. In the backoffice, Settings → **Umbrella** → **Overview** shows the API user the server connected as, whether it can reach each product, and what to fix if not.
 
 ### Other AI tools, or a site that is not running locally
 
-Settings → Health Check → MCP → "MCP client setup" shows the same config to paste into any MCP client, filled in with the site's URL. Replace the secret placeholder with your client secret:
+Settings → **Umbrella** → **Overview** has config to copy for Claude Code (`.mcp.json` or a `claude mcp add` command), VS Code, Cursor and other clients, filled in with the site's URL. Replace the secret placeholder with your client secret. The generic config looks like this:
 
 ```json
 {
@@ -154,7 +154,7 @@ The command `npx -y umbrella-mcp@<version> --list-tools`, run with the same envi
 
 ## Turning tool groups off
 
-Settings → **Umbrella** lists every product the MCP server loaded, with one checkbox per tool group (for example Umbraco Forms → `prevalue-source`). Untick a group and save to stop exposing its tools. Fewer tools means less context for the AI and better tool choice.
+Settings → **Umbrella** → **Tool groups** lists every product the MCP server loaded, with one checkbox per tool group (for example Umbraco Forms → `prevalue-source`). Untick a group and save to stop exposing its tools. Fewer tools means less context for the AI and better tool choice.
 
 Each product also has a **Read-only tools only** toggle. With it on, the product registers only tools marked read-only (the ones that list and fetch), so the AI can look at that product but not change it. The group labels then show how many tools stay, for example `form (6 of 14)`. Group checkboxes still apply on top of it.
 
@@ -179,7 +179,9 @@ Settings → Health Check → **MCP** has three checks:
 
 - **MCP products**: which Umbraco products the add-on detected, their versions, and whether their Management APIs are available.
 - **MCP API user**: every API user the MCP server has connected as, whatever its name or client id: when it last connected, whether it can still sign in, and whether it has the sections for each detected product. The MCP server connects once when your AI tool starts it, so until then the check only says no MCP server has connected yet. A stdio MCP server has no lasting connection, so the check shows the last connection, not whether one is open right now. Connections are stored in the `umbracoKeyValue` table.
-- **MCP client setup**: the MCP client config to copy, filled in with the site's URL and client id, and whether the MCP server that last started is the add-on's version.
+- **MCP client setup**: whether the MCP server that last started is the add-on's version.
+
+The checks show short rows with the same findings as Settings → Umbrella → Overview, which has the details and the config to copy.
 
 In your AI tool, the `get-mcp-health` tool shows what the server loaded and why: the add-on's status, the Umbraco version check, each product with its tool count and issues, and notes on what to fix, including when the server is not the add-on's version.
 
@@ -191,11 +193,11 @@ Start with `get-mcp-health` in your AI tool and the **MCP** health checks in the
 |---|---|---|
 | The server exits with `Could not authenticate against Umbraco` | Wrong URL, client id or secret; the API user is disabled; or `UMBRACO_BASE_URL` is `http://` | Check the three `UMBRACO_*` values. The URL must be `https://`. The "MCP API user" check shows whether the user can still sign in |
 | Authentication fails although the secret is right | `UMBRELLA_CLIENT_SECRET` was not set when your AI tool started, so the server received the literal text `${UMBRELLA_CLIENT_SECRET}` | Set the variable, then restart the AI tool (not just the MCP server) |
-| The server exits with `Error: UMBRACO_BASE_URL is required.` (or another variable) | The MCP client config has no `env` entry for it | Use the config from "MCP client setup", or let the site write `.mcp.json` |
+| The server exits with `Error: UMBRACO_BASE_URL is required.` (or another variable) | The MCP client config has no `env` entry for it | Use the config from Settings → Umbrella → Overview, or let the site write `.mcp.json` |
 | TLS errors such as `self-signed certificate` | Node does not trust the site's certificate. `.mcp.json` only turns checks off for `localhost` | Trust the certificate with `NODE_EXTRA_CA_CERTS=<path to the .pem>`, or for a local development host only, add `NODE_TLS_REJECT_UNAUTHORIZED=0` to `env` |
 | Only `cms--` tools are listed | The add-on is not installed or not reachable, or a product is not installed, not enabled, or not on major version 17 | `get-mcp-health` gives the reason per product. "MCP products" in the backoffice shows what the site detected |
 | A product's tools return permission errors | The API user's groups don't grant that product's section | The "MCP API user" check names the missing section |
-| No `.mcp.json` was written | The site is not running in Development, the file already exists, the site has no HTTPS address, `Umbraco:Mcp:McpJson:Enabled` is `false`, or the `Path` folder doesn't exist | The site log says why when there is no HTTPS address. Or copy the config from "MCP client setup" |
+| No `.mcp.json` was written | The site is not running in Development, the file already exists, the site has no HTTPS address, `Umbraco:Mcp:McpJson:Enabled` is `false`, or the `Path` folder doesn't exist | The site log says why when there is no HTTPS address. Or copy the config from Settings → Umbrella → Overview |
 | "MCP client setup", the dashboard or `get-mcp-health` says the versions differ | Your AI tool's config still pins the `umbrella-mcp` of an earlier add-on | Set `umbrella-mcp@<add-on version>` in the config. A `.mcp.json` the site wrote and nobody edited is updated the next time the site starts in Development |
 | The Umbrella dashboard is empty | The MCP server has not started against this site yet | Start it once from your AI tool, then reload the dashboard. If it stays empty, `get-mcp-health` notes why the tool groups could not be reported |
 | Dashboard changes have no effect | The server reads the settings when it starts, or the environment sets collection filters for that product | Reconnect the MCP server. The dashboard warns when the environment overrides it |
@@ -219,7 +221,6 @@ Start with `get-mcp-health` in your AI tool and the **MCP** health checks in the
 - `@umbraco-cms/mcp-dev/collections` does not export the CMS server's runtime setup (`setUmbracoVersion`, `setAllowFilePathUploads`). Version-gated CMS tools (for example `create-and-publish-document`, `update-and-publish-document`, `sort-document-children`, `sort-document-root-children`) are not registered, document/data type schema tools use their fallback path, and media tools do not accept local file paths. Fixing this needs the CMS package to export a setup hook from `./collections`.
 - Only `--list-tools` is supported as a CLI flag; `--describe-tool` is not implemented.
 - Collection filters do not pull in dependent collections (for example `media` does not add `temporary-file`) the way the standalone CMS MCP does.
-- VS Code reads a `.mcp.json` in the workspace root, but `${VAR}` expansion there has only been checked for Claude Code.
 
 ## Develop
 

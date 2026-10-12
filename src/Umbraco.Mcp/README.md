@@ -12,7 +12,7 @@ Install this package in your site, and Claude Code, VS Code, Cursor or Claude De
 
 - **One server for every product.** Umbraco CMS tools always, plus Umbraco Forms, Automate and Engage tools when the site has them installed.
 - **Zero-config locally.** Run the site in Development and it writes a ready-to-use `.mcp.json` for Claude Code and VS Code, with no secret in it.
-- **You stay in control.** The **Umbrella** dashboard (Settings section) switches tool groups off, or limits a product to read-only tools.
+- **You stay in control.** The **Umbrella** dashboard (Settings section) has an **Overview** tab (status, config to copy for your AI tool, products, connected API users) and a **Tool groups** tab that switches tool groups off, or limits a product to read-only tools.
 - **Easy to check.** Backoffice health checks show which products were found and which API user the AI signed in as. In the AI tool, `get-mcp-health` explains what loaded and why.
 
 ## 🚀 Get started in 5 steps

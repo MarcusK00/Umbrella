@@ -67,6 +67,17 @@ put_settings "$ORIGINAL" || fail "could not restore tool settings"
 trap - EXIT
 echo "   default-off groups are off until the site saves a list"
 
+echo "   overview endpoint"
+OVERVIEW=$(curl -sfk -H "Authorization: Bearer $TOKEN" "$API/overview") || fail "GET overview failed"
+SECRET="$UMBRACO_CLIENT_SECRET" node -e "
+  const o = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+  if (typeof o.addonVersion !== 'string' || !o.addonVersion) { console.error('no addonVersion'); process.exit(1); }
+  if (!Array.isArray(o.clients) || o.clients.length !== 5) { console.error('expected 5 clients, got ' + (o.clients && o.clients.length)); process.exit(1); }
+  const secret = process.env.SECRET;
+  if (secret && o.clients.some((c) => c.content.includes(secret))) { console.error('a client snippet contains the client secret'); process.exit(1); }" <<<"$OVERVIEW" \
+  || fail "overview check failed (excerpt: ${OVERVIEW:0:300})"
+echo "   overview has the add-on version and 5 client snippets without the secret"
+
 echo "4. Smoke calls"
 call() {
   npx -y @modelcontextprotocol/inspector@1 --cli node dist/index.js --method tools/call --tool-name "$1" \
