@@ -2,6 +2,8 @@ using System.Reflection;
 using Umbraco.Cms.Core.Models.Membership;
 using Umbraco.Cms.Core.Security;
 using Umbraco.Cms.Core.Services;
+using Umbraco.Mcp.ApiUser;
+using Umbraco.Mcp.Client;
 using Umbraco.Mcp.Connections;
 using Umbraco.Mcp.Detection;
 using Umbraco.Mcp.ToolSettings;
@@ -108,7 +110,24 @@ internal sealed class FakeToolSettingsStore : IMcpToolSettingsStore
 
     public void SetReadOnlyModules(IReadOnlyList<string> moduleIds) => ReadOnly = [.. moduleIds];
 
-    public McpToolCatalogue GetCatalogue() => Catalogue;
+    public McpToolCatalogue GetCatalogue() => Throws is null ? Catalogue : throw Throws;
 
     public void MergeCatalogue(McpCatalogueReport report, DateTimeOffset at) => Merged.Add((report, at));
+}
+
+internal sealed class FakeApiUserProvider(params McpApiUser[] users) : IMcpApiUserProvider
+{
+    public Exception? Throws { get; init; }
+
+    public Task<IReadOnlyList<McpApiUser>> GetConnectedAsync() =>
+        Throws is null ? Task.FromResult<IReadOnlyList<McpApiUser>>(users) : throw Throws;
+}
+
+internal sealed class FakeMcpJsonFile(bool isAvailable = false, string? path = null) : IMcpJsonFile
+{
+    public bool IsAvailable => isAvailable;
+
+    public string? Path => path;
+
+    public McpJsonResult WriteOrUpgrade() => new(McpJsonOutcome.Written, path ?? "", "Wrote it.");
 }
