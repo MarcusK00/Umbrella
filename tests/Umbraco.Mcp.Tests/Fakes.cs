@@ -129,5 +129,13 @@ internal sealed class FakeMcpJsonFile(bool isAvailable = false, string? path = n
 
     public string? Path => path;
 
-    public McpJsonResult WriteOrUpgrade() => new(McpJsonOutcome.Written, path ?? "", "Wrote it.");
+    public Exception? Throws { get; init; }
+
+    public int Writes { get; private set; }
+
+    public McpJsonResult WriteOrUpgrade()
+    {
+        Writes++;
+        return Throws is null ? new(McpJsonOutcome.Written, path ?? "", "Wrote it.") : throw Throws;
+    }
 }
