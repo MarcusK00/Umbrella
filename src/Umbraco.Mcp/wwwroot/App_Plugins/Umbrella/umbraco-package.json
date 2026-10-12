@@ -1,0 +1,14 @@
+{
+  "name": "Umbraco.Community.Umbrella",
+  "extensions": [
+    {
+      "type": "dashboard",
+      "alias": "Umbrella.Dashboard.ToolGroups",
+      "name": "Umbrella MCP tool groups",
+      "element": "/App_Plugins/Umbrella/umbrella-dashboard.js",
+      "weight": -100,
+      "meta": { "label": "Umbrella", "pathname": "umbrella" },
+      "conditions": [{ "alias": "Umb.Condition.SectionAlias", "match": "Umb.Section.Settings" }]
+    }
+  ]
+}
