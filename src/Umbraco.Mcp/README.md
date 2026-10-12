@@ -51,7 +51,7 @@ Then restart your AI tool, so it picks the variable up.
 
 ### Using another AI tool, or a site that isn't local?
 
-Copy the config from **Settings → Health Check → MCP → "MCP client setup"**. It looks like this, with your site's address filled in:
+Copy the config for your client from **Settings → Umbrella → Overview** ("Connect an AI tool"). The plain version looks like this, with your site's address filled in:
 
 ```json
 {
