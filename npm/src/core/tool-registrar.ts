@@ -8,6 +8,7 @@ import {
 import type { ZodRawShape, ZodType } from "zod";
 import { bindClient } from "./client-context.js";
 import type { LoadedModule, McpProductModule } from "./module-contract.js";
+import { isDestructive } from "./destructive.js";
 import { buildToolNameIndex, describeTool, prefixToolReferences, type ToolNameIndex } from "./routing.js";
 
 export class DuplicateToolNameError extends Error {
@@ -31,8 +32,10 @@ export function registerModuleTools(
   module: McpProductModule,
   loaded: LoadedModule,
   filter: CollectionConfiguration,
-): number {
+  options: { excludeDestructive?: boolean } = {},
+): { registered: number; destructiveRemoved: number } {
   let count = 0;
+  let destructiveRemoved = 0;
   const ownIndex = buildToolNameIndex([{ module, toolNames: listToolNames(loaded, ctx.user) }]);
   const index = new Map([...(ctx.toolNames ?? []), ...ownIndex]);
   const references = (text: string) => prefixToolReferences(text, module, index);
@@ -41,6 +44,10 @@ export function registerModuleTools(
     for (const tool of collection.tools(ctx.user)) {
       if (tool.enabled && !tool.enabled(ctx.user)) continue;
       if (!shouldIncludeTool(tool, { collectionName, config: filter })) continue;
+      if (options.excludeDestructive && isDestructive(tool)) {
+        destructiveRemoved++;
+        continue;
+      }
 
       const name = `${module.toolPrefix}${tool.name}`;
       const owner = ctx.registered.get(name);
@@ -61,7 +68,7 @@ export function registerModuleTools(
       count++;
     }
   }
-  return count;
+  return { registered: count, destructiveRemoved };
 }
 
 /** The unprefixed names of every tool a module provides, before filters. */

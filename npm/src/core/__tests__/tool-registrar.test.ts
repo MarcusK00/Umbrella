@@ -55,7 +55,7 @@ describe("registerModuleTools", () => {
   it("prefixes every tool and returns the count", () => {
     const c = ctx();
     const l = loaded("forms-client", [tool("list-forms"), tool("get-form")]);
-    expect(registerModuleTools(c, mod("forms"), l, noFilter(l))).toBe(2);
+    expect(registerModuleTools(c, mod("forms"), l, noFilter(l)).registered).toBe(2);
     expect([...c.calls.keys()]).toEqual(["forms--list-forms", "forms--get-form"]);
     expect(c.registered.get("forms--list-forms")).toBe("forms");
   });
@@ -93,7 +93,7 @@ describe("registerModuleTools", () => {
   it("skips tools whose enabled(user) is false", () => {
     const c = ctx();
     const l = loaded("forms-client", [tool("secret", { enabled: () => false }), tool("open")]);
-    expect(registerModuleTools(c, mod("forms"), l, noFilter(l))).toBe(1);
+    expect(registerModuleTools(c, mod("forms"), l, noFilter(l)).registered).toBe(1);
   });
 
   it("applies the filter config", () => {
@@ -101,7 +101,7 @@ describe("registerModuleTools", () => {
     const l = loaded("forms-client", [tool("a"), tool("b")]);
     const filter = createCollectionConfigLoader({ modeRegistry: [], allModeNames: [], allSliceNames: ["read"] })
       .loadFromConfig({ excludeTools: ["b"] });
-    expect(registerModuleTools(c, mod("forms"), l, filter)).toBe(1);
+    expect(registerModuleTools(c, mod("forms"), l, filter).registered).toBe(1);
   });
 
   it("excludes non-read-only tools in readonly mode", () => {
@@ -109,8 +109,45 @@ describe("registerModuleTools", () => {
     const l = loaded("forms-client", [tool("list-forms"), tool("delete-form", { annotations: { destructiveHint: true } })]);
     const filter = createCollectionConfigLoader({ modeRegistry: [], allModeNames: [], allSliceNames: ["read"] })
       .loadFromConfig({ readonly: true });
-    expect(registerModuleTools(c, mod("forms"), l, filter)).toBe(1);
+    expect(registerModuleTools(c, mod("forms"), l, filter).registered).toBe(1);
     expect([...c.calls.keys()]).toEqual(["forms--list-forms"]);
+  });
+
+  describe("excludeDestructive", () => {
+    const tools = () => [tool("list-forms"), tool("delete-form", { annotations: { destructiveHint: true } })];
+
+    it("drops exactly the flagged tools", () => {
+      const c = ctx();
+      const l = loaded("forms-client", tools());
+      const r = registerModuleTools(c, mod("forms"), l, noFilter(l), { excludeDestructive: true });
+      expect([...c.calls.keys()]).toEqual(["forms--list-forms"]);
+      expect(r).toEqual({ registered: 1, destructiveRemoved: 1 });
+    });
+
+    it("without the option nothing is dropped", () => {
+      const c = ctx();
+      const l = loaded("forms-client", tools());
+      expect(registerModuleTools(c, mod("forms"), l, noFilter(l))).toEqual({ registered: 2, destructiveRemoved: 0 });
+    });
+
+    it("read-only and no-destructive together equal read-only", () => {
+      const l = loaded("forms-client", tools());
+      const readonly = createCollectionConfigLoader({ modeRegistry: [], allModeNames: [], allSliceNames: ["read"] })
+        .loadFromConfig({ readonly: true });
+      const a = ctx();
+      const b = ctx();
+      registerModuleTools(a, mod("forms"), l, readonly);
+      registerModuleTools(b, mod("forms"), l, readonly, { excludeDestructive: true });
+      expect([...b.calls.keys()]).toEqual([...a.calls.keys()]);
+    });
+
+    it("counts only the destructive tools the filter would otherwise have kept", () => {
+      const c = ctx();
+      const l = loaded("forms-client", tools());
+      const filter = createCollectionConfigLoader({ modeRegistry: [], allModeNames: [], allSliceNames: ["read"] })
+        .loadFromConfig({ excludeTools: ["delete-form"] });
+      expect(registerModuleTools(c, mod("forms"), l, filter, { excludeDestructive: true })).toEqual({ registered: 1, destructiveRemoved: 0 });
+    });
   });
 
   it("throws on a duplicate final name", () => {

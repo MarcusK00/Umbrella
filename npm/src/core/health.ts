@@ -21,6 +21,10 @@ export interface ModuleRuntimeState {
   siteSettingsIgnored?: boolean;
   /** The site limits this module to read-only tools (from capabilities). */
   siteReadOnly?: boolean;
+  /** The site removes this module's destructive tools (from capabilities). */
+  siteNoDestructive?: boolean;
+  /** How many destructive tools were removed from this module at registration. */
+  destructiveRemoved?: number;
 }
 
 export interface HealthState {
