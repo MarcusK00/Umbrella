@@ -1,0 +1,81 @@
+# Checks every PR to main must pass before it is safe to merge. See docs/merging.md.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  dotnet:
+    name: dotnet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Test (add-on, tests and demo site build)
+        run: dotnet test Umbraco.Mcp.slnx
+
+  npm:
+    name: npm
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: npm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # The Engage tarball is local-only (CLAUDE.md, "Product packages"), so CI installs without it and the contract
+      # test skips Engage. Once Engage comes from the registry, remove this step and use `npm ci` below.
+      - name: Drop the local-only Engage devDependency
+        run: npm pkg delete devDependencies.@umbraco-engage/mcp-dev
+      - name: Install
+        run: npm install --no-audit --no-fund
+      - name: Single toolkit copy
+        run: |
+          copies=$(find node_modules -type f -path '*node_modules/@umbraco-cms/mcp-server-sdk/package.json')
+          echo "$copies"
+          [ "$(grep -c . <<<"$copies")" = 1 ] || { echo "::error::Expected exactly one @umbraco-cms/mcp-server-sdk copy"; exit 1; }
+          version=$(node -p 'require("./node_modules/@umbraco-cms/mcp-server-sdk/package.json").version')
+          [ "$version" = "1.0.0-beta.45" ] || { echo "::error::@umbraco-cms/mcp-server-sdk is $version, expected 1.0.0-beta.45"; exit 1; }
+      - name: Compile
+        run: npm run compile
+      - name: Test
+        run: npm test
+      - name: Build
+        run: npm run build
+
+  guards:
+    name: guards
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read # gitleaks lists the PR's commits
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Guard script tests
+        run: bash scripts/check-guards.test.sh
+      - name: Repo guards
+        run: bash scripts/check-guards.sh
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: false # the token is read-only; findings show in the job log
