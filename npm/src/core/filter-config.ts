@@ -62,3 +62,32 @@ export function buildModuleFilterInput(
   if (env.UMBRACO_READONLY?.trim().toLowerCase() === "true") config.readonly = true;
   return config;
 }
+
+const COLLECTION_FILTERS = [MODULE_SCOPED.includeToolCollections, MODULE_SCOPED.excludeToolCollections];
+
+/** True when the environment sets any collection filter for this module, including `module:*`. */
+export function envSetsCollectionFilter(env: NodeJS.ProcessEnv, moduleId: string, isDefaultModule: boolean): boolean {
+  return COLLECTION_FILTERS.some((envName) =>
+    split(env[envName]).some((entry) => {
+      const colon = entry.indexOf(":");
+      if (colon === -1) return isDefaultModule;
+      return entry.slice(0, colon).toLowerCase() === moduleId && entry.slice(colon + 1).trim().length > 0;
+    }),
+  );
+}
+
+/**
+ * The module's filter input with the collections disabled in the backoffice added as exclusions.
+ * The environment wins: when it sets collection filters for the module, the site's list is ignored.
+ */
+export function buildEffectiveFilterInput(
+  env: NodeJS.ProcessEnv,
+  moduleId: string,
+  isDefaultModule: boolean,
+  siteDisabled: readonly string[],
+): { config: ServerConfigForCollections; siteSettingsIgnored: boolean } {
+  const config = buildModuleFilterInput(env, moduleId, isDefaultModule);
+  const siteSettingsIgnored = envSetsCollectionFilter(env, moduleId, isDefaultModule);
+  if (!siteSettingsIgnored && siteDisabled.length > 0) config.excludeToolCollections = [...siteDisabled];
+  return { config, siteSettingsIgnored };
+}

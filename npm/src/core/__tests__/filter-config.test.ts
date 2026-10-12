@@ -1,4 +1,5 @@
-import { buildModuleFilterInput } from "../filter-config.js";
+import { createCollectionConfigLoader, shouldIncludeTool } from "@umbraco-cms/mcp-server-sdk";
+import { buildEffectiveFilterInput, buildModuleFilterInput, envSetsCollectionFilter } from "../filter-config.js";
 
 describe("buildModuleFilterInput", () => {
   const env = {
@@ -65,5 +66,66 @@ describe("buildModuleFilterInput", () => {
     const e = { UMBRACO_EXCLUDE_TOOLS: "forms:, ,cms--" };
     expect(buildModuleFilterInput(e, "forms", false).excludeTools).toBeUndefined();
     expect(buildModuleFilterInput(e, "cms", true).excludeTools).toBeUndefined();
+  });
+});
+
+describe("envSetsCollectionFilter", () => {
+  it.each([
+    ["forms exclude", { UMBRACO_EXCLUDE_TOOL_COLLECTIONS: "forms:record" }, "forms", false, true],
+    ["forms include", { UMBRACO_INCLUDE_TOOL_COLLECTIONS: "forms:form" }, "forms", false, true],
+    ["forms:*", { UMBRACO_INCLUDE_TOOL_COLLECTIONS: "forms:*" }, "forms", false, true],
+    ["unprefixed counts for CMS", { UMBRACO_EXCLUDE_TOOL_COLLECTIONS: "log-viewer" }, "cms", true, true],
+    ["unprefixed does not count for forms", { UMBRACO_EXCLUDE_TOOL_COLLECTIONS: "log-viewer" }, "forms", false, false],
+    ["another module only", { UMBRACO_EXCLUDE_TOOL_COLLECTIONS: "engage:persona" }, "forms", false, false],
+    // Review Focus 3
+    ["empty item forms:", { UMBRACO_EXCLUDE_TOOL_COLLECTIONS: "forms:, " }, "forms", false, false],
+    ["tool-level lists", { UMBRACO_EXCLUDE_TOOLS: "forms:delete-form", UMBRACO_INCLUDE_TOOLS: "forms--list-forms" }, "forms", false, false],
+    ["modes", { UMBRACO_TOOL_MODES: "forms:forms" }, "forms", false, false],
+    ["nothing set", {}, "forms", false, false],
+  ])("%s", (_label, env, id, isDefault, expected) => {
+    expect(envSetsCollectionFilter(env as NodeJS.ProcessEnv, id, isDefault)).toBe(expected);
+  });
+});
+
+describe("buildEffectiveFilterInput", () => {
+  it("turns the site list into excludeToolCollections when env is silent", () => {
+    const r = buildEffectiveFilterInput({ UMBRACO_EXCLUDE_TOOLS: "forms:delete-form" }, "forms", false, ["prevalue-source"]);
+    expect(r).toEqual({ config: { excludeTools: ["delete-form"], excludeToolCollections: ["prevalue-source"] }, siteSettingsIgnored: false });
+  });
+
+  it("ignores the site list when env sets collection filters for the module", () => {
+    const r = buildEffectiveFilterInput({ UMBRACO_EXCLUDE_TOOL_COLLECTIONS: "forms:record" }, "forms", false, ["prevalue-source"]);
+    expect(r).toEqual({ config: { excludeToolCollections: ["record"] }, siteSettingsIgnored: true });
+  });
+
+  it("flags ignored even when the site disabled nothing, so the dashboard can warn", () => {
+    expect(buildEffectiveFilterInput({ UMBRACO_INCLUDE_TOOL_COLLECTIONS: "forms:*" }, "forms", false, []).siteSettingsIgnored).toBe(true);
+  });
+
+  it("leaves the config unchanged when the site disabled nothing", () => {
+    expect(buildEffectiveFilterInput({}, "cms", true, [])).toEqual({ config: {}, siteSettingsIgnored: false });
+  });
+
+  const include = (config: ReturnType<typeof buildEffectiveFilterInput>["config"], name: string, collectionName: string) =>
+    shouldIncludeTool(
+      { name, slices: ["read"] },
+      { collectionName, config: createCollectionConfigLoader({ modeRegistry: [], allModeNames: [], allSliceNames: ["read"] }).loadFromConfig(config) },
+    );
+
+  it("removes the disabled collection's tools and keeps the others", () => {
+    const { config } = buildEffectiveFilterInput({}, "forms", false, ["prevalue-source"]);
+    expect(include(config, "get-prevalue-source", "prevalue-source")).toBe(false);
+    expect(include(config, "list-forms", "form")).toBe(true);
+  });
+
+  // Review Focus 2
+  it("a disabled name the module does not have changes nothing", () => {
+    const { config } = buildEffectiveFilterInput({}, "forms", false, ["no-such-collection"]);
+    expect(include(config, "list-forms", "form")).toBe(true);
+  });
+
+  it("an env tool allow-list still wins over a site-disabled collection", () => {
+    const { config } = buildEffectiveFilterInput({ UMBRACO_INCLUDE_TOOLS: "forms--get-prevalue-source" }, "forms", false, ["prevalue-source"]);
+    expect(include(config, "get-prevalue-source", "prevalue-source")).toBe(true);
   });
 });

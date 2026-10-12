@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createToolResult } from "@umbraco-cms/mcp-server-sdk";
 import type { CapabilitiesResult } from "./capabilities.js";
+import type { CatalogueReportResult } from "./catalogue.js";
 import type { ModuleDecision } from "./module-selection.js";
 
 import { HEALTH_TOOL_NAME } from "./routing.js";
@@ -12,6 +13,10 @@ export interface ModuleRuntimeState {
   loaded: boolean;
   toolCount: number;
   issues: string[];
+  /** Collections the site disabled for this module (from capabilities). */
+  siteDisabledCollections?: string[];
+  /** The environment sets collection filters for this module, so the site's list was not applied. */
+  siteSettingsIgnored?: boolean;
 }
 
 export interface HealthState {
@@ -20,6 +25,8 @@ export interface HealthState {
   versionCheckMessage: string | null;
   forcedModules: string[];
   modules: ModuleRuntimeState[];
+  /** Absent when the catalogue was not reported (no add-on). */
+  catalogueReport?: CatalogueReportResult;
 }
 
 export interface HealthProduct {
@@ -59,7 +66,15 @@ export function buildHealthReport(state: HealthState): HealthReport {
     notes.push("Install the Umbraco.Community.Umbrella NuGet package on the site to enable product tools beyond the CMS.");
   }
 
-  const products: HealthProduct[] = state.modules.map(({ decision, loaded, toolCount, issues }) => {
+  const products: HealthProduct[] = state.modules.map(({ decision, loaded, toolCount, issues, siteDisabledCollections = [], siteSettingsIgnored = false }) => {
+    const name = decision.module.displayName;
+    // Without the add-on there is no Umbrella dashboard, so there are no backoffice settings to mention.
+    const hasDashboard = caps.kind === "ok";
+    if (hasDashboard && siteSettingsIgnored) {
+      notes.push(`${name}: the backoffice tool group settings are ignored because the environment sets collection filters for this module.`);
+    } else if (hasDashboard && siteDisabledCollections.length > 0) {
+      notes.push(`${name}: tool groups disabled in the backoffice: ${siteDisabledCollections.join(", ")}.`);
+    }
     const p = detected.find((d) => d.id === decision.module.id) ?? null;
     if (caps.kind === "ok" && !decision.module.required && (!p || !p.installed)) {
       notes.push(`There is a module for ${decision.module.displayName}, but it is not installed on this site.`);
@@ -88,6 +103,10 @@ export function buildHealthReport(state: HealthState): HealthReport {
     if (!state.modules.some((m) => m.decision.module.id === id)) {
       notes.push(`UMBRACO_MCP_MODULES lists "${id}", but there is no module with that id.`);
     }
+  }
+
+  if (state.catalogueReport && !state.catalogueReport.ok) {
+    notes.push(`Could not report the tool groups to the site, so the backoffice Umbrella dashboard may be out of date: ${state.catalogueReport.reason}`);
   }
 
   return {
