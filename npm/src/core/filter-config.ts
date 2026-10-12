@@ -77,21 +77,25 @@ export function envSetsCollectionFilter(env: NodeJS.ProcessEnv, moduleId: string
 }
 
 /**
- * The module's filter input with the backoffice settings applied.
- * Disabled collections become exclusions, but the environment wins: when it sets collection filters for the
- * module, the site's list is ignored. Read-only always applies, since it can only remove tools; together with
+ * The module's filter input with the backoffice settings and the module's defaults applied. Collection exclusions
+ * come from the first of: the environment (when it sets collection filters for the module, the site's list and the
+ * defaults are ignored), the site's saved list (`[]` included), or the module's default-off collections when the
+ * site has no saved list (`null`). Read-only always applies, since it can only remove tools; together with
  * `UMBRACO_READONLY` either one turns it on.
  */
 export function buildEffectiveFilterInput(
   env: NodeJS.ProcessEnv,
   moduleId: string,
   isDefaultModule: boolean,
-  siteDisabled: readonly string[],
+  siteDisabled: readonly string[] | null,
   siteReadOnly = false,
-): { config: ServerConfigForCollections; siteSettingsIgnored: boolean } {
+  defaults: readonly string[] = [],
+): { config: ServerConfigForCollections; siteSettingsIgnored: boolean; defaultsApplied: string[] } {
   const config = buildModuleFilterInput(env, moduleId, isDefaultModule);
   const siteSettingsIgnored = envSetsCollectionFilter(env, moduleId, isDefaultModule);
-  if (!siteSettingsIgnored && siteDisabled.length > 0) config.excludeToolCollections = [...siteDisabled];
+  const excluded = siteSettingsIgnored ? [] : [...(siteDisabled ?? defaults)];
+  if (excluded.length > 0) config.excludeToolCollections = excluded;
   if (siteReadOnly) config.readonly = true;
-  return { config, siteSettingsIgnored };
+  const defaultsApplied = !siteSettingsIgnored && siteDisabled === null ? [...defaults] : [];
+  return { config, siteSettingsIgnored, defaultsApplied };
 }
