@@ -9,7 +9,7 @@
     <Title>Umbrella</Title>
     <!-- Released together with the npm package umbrella-mcp, which must have the same version (see NpmPackageContractTests). -->
     <Version>17.0.0-alpha.1</Version>
-    <Description>One MCP server for your Umbraco 17 site. Detects the installed Umbraco products so the umbrella-mcp server loads only their tools (CMS, Forms and Automate; Engage is detected, but its tools are not included yet), and adds MCP health checks and an "Umbrella" dashboard to switch tool groups off or limit products to read-only tools in the backoffice.</Description>
+    <Description>One MCP server for your Umbraco 17 site. Detects the installed Umbraco products so the umbrella-mcp server loads only their tools (CMS, Forms, Automate and Engage), and adds MCP health checks and an "Umbrella" dashboard to switch tool groups off or limit products to read-only tools in the backoffice.</Description>
     <Authors>MarcusK00</Authors>
     <PackageTags>umbraco;umbraco-marketplace;mcp;ai;model-context-protocol</PackageTags>
     <PackageProjectUrl>https://github.com/MarcusK00/Umbraco.Community.Umbrella</PackageProjectUrl>
