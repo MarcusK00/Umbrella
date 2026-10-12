@@ -9,7 +9,13 @@ Umbrella: "one MCP server per Umbraco site", a personal project (not under the U
 - **`src/Umbraco.Mcp`** (NuGet **`Umbraco.Community.Umbrella`**): an add-on installed in the Umbraco 17 site. It detects which Umbraco HQ products are installed, serves `GET /umbraco/management/api/v1/mcp/capabilities`, adds an "MCP" backoffice health check group, and in Development writes a `.mcp.json` next to the site.
 - **`npm/`** (npm **`umbrella-mcp`**): a stdio MCP server that AI tools start with `npx`. It loads the CMS, Forms, Automate and Engage tool collections in one process, but only for the products the site reports, and prefixes every tool `<module-id>--`.
 
-The authoritative design is `docs/superpowers/specs/2026-10-11-umbraco-mcp-umbrella-design.md`. The plan it was built from, including its spec deltas and global constraints, is `docs/superpowers/plans/2026-10-11-umbraco-mcp-umbrella.md`. `README.md` covers configuration and known limitations.
+The original design is `docs/superpowers/specs/2026-10-11-umbraco-mcp-umbrella-design.md`. The plan it was built from, including its spec deltas and global constraints, is `docs/superpowers/plans/2026-10-11-umbraco-mcp-umbrella.md`. Specs and plans under `docs/superpowers/` are dated records and are not updated afterwards.
+
+Current docs, to keep in sync with the code:
+- `README.md`: setup, configuration, troubleshooting and known limitations, for users.
+- `docs/architecture.md`: how the code works, for contributors. It overlaps this file; update both.
+- `docs/development.md`: setup from a fresh clone, tests, the e2e scripts.
+- `docs/adding-a-product.md`, `docs/releasing.md`, `docs/merging.md`.
 
 The docs are written as if both packages are released, but nothing is published yet: `npm/package.json` keeps `"private": true` until the first release (`docs/releasing.md`). The source folders, namespaces and solution keep their `Umbraco.Mcp` names; only the package ids changed. Earlier working names were `Umbraco.Mcp` / `@umbraco/mcp`.
 
@@ -102,7 +108,7 @@ This only works because product tool handlers call `getApiClient()` lazily insid
 ### Product packages
 
 - **CMS:** `@umbraco-cms/mcp-dev` 17.6.10 comes from the registry. `cms.ts` uses `UmbracoManagementClient.getClient()` as its factory.
-- **Forms and Automate:** `@umbraco-forms/mcp-dev` 17.6.1-beta.3 and `@umbraco-automate/mcp-dev` 17.4.0-beta.1 come from the registry (`lts-17-beta` tag). These are the first v17 releases whose `./collections` exports `createApiClient` and that depend on toolkit beta.45; earlier v17 releases do not work here.
+- **Forms and Automate:** `@umbraco-forms/mcp-dev` 17.6.1-beta.4 and `@umbraco-automate/mcp-dev` 17.4.0-beta.2 come from the registry (`lts-17-beta` tag). Forms 17.6.1-beta.3 and Automate 17.4.0-beta.1 were the first v17 releases whose `./collections` exports `createApiClient` and that depend on toolkit beta.45; earlier v17 releases do not work here. Forms beta.4 adds refusing duplicate explicit field aliases, Automate beta.2 refusing settings keys a step or trigger type doesn't declare.
 - **Engage:** `@umbraco-engage/mcp-dev` is a `file:vendor/*.tgz` tarball in **`devDependencies`** (gitignored, so `npm install` fails without it), because the published `17.0.0-beta.2` lacks the `createApiClient` export.
   - **Not shipped:** it is `external` in `tsup.config.ts`, so local builds load it from `node_modules` while the published package doesn't have it. `checkPackageInstalled` (`sdk-instance.ts`) then turns the missing package into a `get-mcp-health` issue instead of a load failure.
   - **Origin:** it is packed from the local branch `v17/feature/export-create-api-client` in `~/Desktop/Umbraco/MCPS/Engage.MCP.Developer.Repository/Umbraco-Engage-MCP-Dev` (branched from `dev`).
