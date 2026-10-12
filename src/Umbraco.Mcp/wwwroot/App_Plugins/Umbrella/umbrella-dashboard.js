@@ -168,10 +168,18 @@ export class UmbrellaDashboardElement extends UmbLitElement {
       </uui-box>`;
     }
     const last = reported.map((m) => m.reportedAt).sort().at(-1);
+    const { umbrellaVersion } = this._data.catalogue;
+    const addonVersion = this._data.addonVersion;
 
     return html`
       <uui-box headline="Umbrella – MCP tool groups">
-        <p>Last reported by umbrella-mcp ${this._data.catalogue.umbrellaVersion} · ${formatDate(last)}</p>
+        <p>Last reported by umbrella-mcp ${umbrellaVersion} · ${formatDate(last)}</p>
+        ${addonVersion && umbrellaVersion && umbrellaVersion !== addonVersion
+          ? html`<p class="warning">
+              The add-on is ${addonVersion}, but the MCP server ran umbrella-mcp ${umbrellaVersion}. The two are released
+              together: set umbrella-mcp@${addonVersion} in your AI tool's MCP configuration.
+            </p>`
+          : nothing}
         <p>Changes apply the next time the MCP server starts. Reconnect it in your AI tool.</p>
       </uui-box>
       ${this.#visibleProducts().map((p) => this.#renderProduct(p))}
