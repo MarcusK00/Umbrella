@@ -76,6 +76,7 @@ Both scripts need the demo site running, `npm/.env`, and the API user.
 - **Stage files by name**, not with `git add -A`.
 - **`demo-site/appsettings.json`:** the demo site may write a generated `Imaging:HMACSecretKey` into it on boot. Don't commit it; the committed value is `""`.
 - **Never commit** `npm/.env`, `npm/vendor/*.tgz`, `appsettings.local.json`, `demo-site/.mcp.json` or anything under `demo-site/umbraco/`. They are gitignored.
+- **New files in `demo-site/`** are ignored too, so local experiments stay local: only the files already in the repo are tracked. Add one on purpose with `git add -f`.
 - **`bash scripts/check-guards.sh`** catches most of these, plus README versions that differ from the npm version.
 - **Don't upgrade dependencies** as a side effect of other work.
 - **Docs:** dates are DD-MM-YYYY. When behaviour or configuration changes, update `README.md`, `npm/README.md`, `src/Umbraco.Mcp/README.md` and `CLAUDE.md`.

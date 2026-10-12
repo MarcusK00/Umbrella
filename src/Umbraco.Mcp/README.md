@@ -11,8 +11,8 @@ Install this package in your site, and Claude Code, VS Code, Cursor or Claude De
 ## ✨ What you get
 
 - **One server for every product.** Umbraco CMS tools always, plus Umbraco Forms, Automate and Engage tools when the site has them installed.
-- **Zero-config locally.** Run the site in Development and it writes a ready-to-use `.mcp.json` for Claude Code and VS Code, with no secret in it.
-- **You stay in control.** The **Umbrella** dashboard (Settings section) switches tool groups off, or limits a product to read-only tools.
+- **Zero-config locally.** Run the site in Development and it writes a ready-to-use `.mcp.json` for Claude Code, with no secret in it. VS Code, Cursor and other clients get their own snippet in Settings → Umbrella → Overview.
+- **You stay in control.** The **Umbrella** dashboard (Settings section) has an **Overview** tab (status, config to copy for your AI tool, products, connected API users) and a **Tool groups** tab that switches tool groups off, or limits a product to read-only tools.
 - **Easy to check.** Backoffice health checks show which products were found and which API user the AI signed in as. In the AI tool, `get-mcp-health` explains what loaded and why.
 
 ## 🚀 Get started in 5 steps
@@ -45,7 +45,7 @@ setx UMBRELLA_CLIENT_SECRET "<the client secret>"
 
 Then restart your AI tool, so it picks the variable up.
 
-**4. Open the site's folder** in Claude Code or VS Code while the site runs in Development. Approve the `umbraco` server when asked.
+**4. Open the site's folder** in Claude Code while the site runs in Development. Approve the `umbraco` server when asked. For VS Code, Cursor or another client, copy its snippet from Settings → Umbrella → Overview.
 
 **5. Say hello.** Ask the AI to *"call get-mcp-health"*. It lists each product and how many tools it loaded.
 

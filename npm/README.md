@@ -38,7 +38,16 @@ Without the NuGet package, the server still starts, with CMS tools only.
 
 Tool groups switched off in the backoffice (Settings → Umbrella) are left out on the next start, unless the environment sets `UMBRACO_INCLUDE_TOOL_COLLECTIONS` or `UMBRACO_EXCLUDE_TOOL_COLLECTIONS` for that product. A product set to read-only there registers only its read-only tools; that always applies.
 
-Three tool groups are off by default: Umbraco Forms `umbraco-server` and `acceptance-tests`, and Umbraco Automate `umbraco-server`. They stay off until the site saves a list for that product in the dashboard, or the environment sets a collection filter for it: `UMBRACO_INCLUDE_TOOL_COLLECTIONS=forms:*` brings the Forms ones back. Any collection filter for a product replaces its defaults.
+Some tool groups are off by default because they repeat another tool, are test aids or serve only the backoffice UI:
+
+| Product | Groups off by default |
+|---|---|
+| Umbraco CMS | `manifest`, `user-data`, `imaging` |
+| Umbraco Forms | `umbraco-server`, `acceptance-tests`, `licensing`, `updates`, `media` |
+| Umbraco Automate | `umbraco-server` |
+| Umbraco Engage | `package`, `add-ons`, `cultures` |
+
+They stay off until the site saves a list for that product in the dashboard, or the environment sets a collection filter for it: `UMBRACO_INCLUDE_TOOL_COLLECTIONS=forms:*` brings the Forms ones back, and `cms:*` the CMS ones. Any collection filter for a product replaces its defaults.
 
 `umbrella-mcp --list-tools` prints the tool names it would register, then exits.
 
