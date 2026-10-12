@@ -39,11 +39,6 @@ check_readme_versions() {
   done
 }
 
-check_npm_private() {
-  [ "$(json "$ROOT/npm/package.json" 'j.private === true')" = "true" ] \
-    || echo "npm/package.json no longer has \"private\": true (remove this check as part of the first release, docs/releasing.md)"
-}
-
 run() {
   local id="$1" reason
   reason="$("$2" 2>&1)"
@@ -59,5 +54,4 @@ run hmac-key check_hmac_key
 run no-local-deps check_no_local_deps
 run no-tracked-secrets check_no_tracked_secrets
 run readme-versions check_readme_versions
-run npm-private check_npm_private
 exit "$FAILED"
