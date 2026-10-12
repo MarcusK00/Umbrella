@@ -8,11 +8,13 @@ npm/dist/
 npm/vendor/*.tgz
 .env
 appsettings.local.json
-demo-site/umbraco/Data/
-demo-site/umbraco/Logs/
-demo-site/wwwroot/media/
-# written by the add-on on startup (Development)
-demo-site/.mcp.json
+# demo site: only the files already tracked belong in the repo; anything new
+# there (data, logs, media, .mcp.json, local experiments) stays local.
+# Add a file on purpose with `git add -f`.
+demo-site/*
+
+# dotnet pack output (docs/releasing.md)
+artifacts/
 coverage/
 
 # macOS
