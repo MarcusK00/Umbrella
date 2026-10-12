@@ -59,18 +59,25 @@ describe("siteDisabledCollections", () => {
     expect(siteDisabledCollections(withDisabled(["prevalue-source"]), "forms")).toEqual(["prevalue-source"]);
   });
 
-  it("is empty for an old add-on without the field, another module, or no add-on", () => {
-    expect(siteDisabledCollections(interpretCapabilitiesResponse({ status: 200, data: payload }), "forms")).toEqual([]);
-    expect(siteDisabledCollections(withDisabled(["prevalue-source"]), "cms")).toEqual([]);
-    expect(siteDisabledCollections({ kind: "no-addon" }, "forms")).toEqual([]);
-    expect(siteDisabledCollections({ kind: "unavailable", reason: "x" }, "forms")).toEqual([]);
+  it("saved empty list stays empty", () => {
+    expect(siteDisabledCollections(withDisabled([]), "forms")).toEqual([]);
+  });
+
+  it("is null (no saved list) for another module or without the add-on", () => {
+    expect(siteDisabledCollections(withDisabled(["prevalue-source"]), "cms")).toBeNull();
+    expect(siteDisabledCollections({ kind: "no-addon" }, "forms")).toBeNull();
+    expect(siteDisabledCollections({ kind: "unavailable", reason: "x" }, "forms")).toBeNull();
+  });
+
+  it("missing field means no saved list", () => {
+    expect(siteDisabledCollections(interpretCapabilitiesResponse({ status: 200, data: payload }), "forms")).toBeNull();
   });
 
   // Review Focus 1: a null must not make the whole payload unexpected.
-  it("treats null as empty and keeps the payload ok", () => {
+  it("treats null as no saved list and keeps the payload ok", () => {
     const r = withDisabled(null);
     expect(r.kind).toBe("ok");
-    expect(siteDisabledCollections(r, "forms")).toEqual([]);
+    expect(siteDisabledCollections(r, "forms")).toBeNull();
   });
 });
 

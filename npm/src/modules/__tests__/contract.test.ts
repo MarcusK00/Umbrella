@@ -37,6 +37,12 @@ describe.each(modules.map((m) => [m.id, m] as const))("module %s", (_id, module)
     expect(typeof loaded.createApiClient).toBe("function");
   });
 
+  itLoads("default-off collections exist in the package", async () => {
+    const loaded = await module.load();
+    const names = loaded.collections.map((c) => c.metadata.name);
+    for (const name of module.defaultDisabledCollections ?? []) expect(names).toContain(name);
+  });
+
   itLoads("defines well-formed tools", async () => {
     const loaded = await module.load();
     for (const collection of loaded.collections) {
@@ -68,6 +74,14 @@ describe("module set", () => {
   it("routes form submission analytics to Forms, which Engage points away from", () => {
     const forms = modules.find((m) => m.id === "forms")!.useWhen.join("; ");
     expect(forms).toMatch(/analys/);
+  });
+
+  it("forms and automate switch off their duplicate server groups", () => {
+    const defaults = (id: string) => modules.find((m) => m.id === id)!.defaultDisabledCollections;
+    expect(defaults("forms")).toEqual(["umbraco-server", "acceptance-tests"]);
+    expect(defaults("automate")).toEqual(["umbraco-server"]);
+    expect(defaults("cms")).toBeUndefined();
+    expect(defaults("engage")).toBeUndefined();
   });
 
   it("keeps the routing instructions for all modules under 2,000 characters", () => {

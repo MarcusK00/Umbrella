@@ -71,10 +71,13 @@ export async function fetchCapabilities(request: () => Promise<RawResponse> = de
   }
 }
 
-/** The collections the site disabled for a module; empty without the add-on or on add-ons that predate the field. */
-export function siteDisabledCollections(caps: CapabilitiesResult, moduleId: string): string[] {
-  if (caps.kind !== "ok") return [];
-  return caps.payload.products.find((p) => p.id === moduleId)?.disabledCollections ?? [];
+/**
+ * The collections the site disabled for a module, or null when the site has no saved list for it (never saved, no
+ * add-on, capabilities unavailable, or an add-on that omits the field). Null means the module's defaults apply.
+ */
+export function siteDisabledCollections(caps: CapabilitiesResult, moduleId: string): string[] | null {
+  if (caps.kind !== "ok") return null;
+  return caps.payload.products.find((p) => p.id === moduleId)?.disabledCollections ?? null;
 }
 
 /** Whether the site limits a module to read-only tools; false without the add-on or on add-ons that predate the field. */
