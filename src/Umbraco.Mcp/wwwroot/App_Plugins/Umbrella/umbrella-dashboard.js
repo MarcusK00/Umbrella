@@ -13,11 +13,12 @@ const formatDate = (iso) => {
   return `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
-/** Settings → Umbrella: switch the MCP server's tool groups (collections) on or off per product. */
+/** Settings → Umbrella: switch the MCP server's tool groups (collections) on or off, or limit them to read-only tools, per product. */
 export class UmbrellaDashboardElement extends UmbLitElement {
   static properties = {
     _data: { state: true },
     _disabled: { state: true },
+    _readOnly: { state: true },
     _error: { state: true },
     _saving: { state: true },
   };
@@ -29,6 +30,7 @@ export class UmbrellaDashboardElement extends UmbLitElement {
     super();
     this._data = null;
     this._disabled = {};
+    this._readOnly = new Set();
     this._error = null;
     this._saving = false;
     this.consumeContext(UMB_NOTIFICATION_CONTEXT, (ctx) => (this.#notifications = ctx));
@@ -63,6 +65,7 @@ export class UmbrellaDashboardElement extends UmbLitElement {
       this._disabled = Object.fromEntries(
         Object.entries(this._data.disabledCollections ?? {}).map(([id, names]) => [id, new Set(names)]),
       );
+      this._readOnly = new Set(this._data.readOnlyModules ?? []);
       this._error = null;
     } catch (error) {
       this._error = error.message;
@@ -76,6 +79,13 @@ export class UmbrellaDashboardElement extends UmbLitElement {
     this._disabled = { ...this._disabled, [moduleId]: set };
   }
 
+  #toggleReadOnly(moduleId, readOnly) {
+    const set = new Set(this._readOnly);
+    if (readOnly) set.add(moduleId);
+    else set.delete(moduleId);
+    this._readOnly = set;
+  }
+
   async #save() {
     this._saving = true;
     // Only modules and names the MCP reported: a name it no longer reports is dropped here.
@@ -85,14 +95,16 @@ export class UmbrellaDashboardElement extends UmbLitElement {
         .filter((p) => modules[p.id])
         .map((p) => [p.id, modules[p.id].collections.map((c) => c.name).filter((n) => this._disabled[p.id]?.has(n))]),
     );
+    // Read-only only removes tools, so it is kept for every product the site detects, reported or not.
+    const readOnlyModules = this._data.products.map((p) => p.id).filter((id) => this._readOnly.has(id));
     try {
-      await this.#request("PUT", { disabledCollections });
+      await this.#request("PUT", { disabledCollections, readOnlyModules });
       this.#notifications?.peek("positive", {
-        data: { headline: "Tool groups saved", message: "Reconnect the MCP server in your AI tool to apply the change." },
+        data: { headline: "Tool settings saved", message: "Reconnect the MCP server in your AI tool to apply the change." },
       });
       await this.#load();
     } catch (error) {
-      this.#notifications?.peek("danger", { data: { headline: "Could not save tool groups", message: error.message } });
+      this.#notifications?.peek("danger", { data: { headline: "Could not save tool settings", message: error.message } });
     } finally {
       this._saving = false;
     }
@@ -111,23 +123,38 @@ export class UmbrellaDashboardElement extends UmbLitElement {
       </uui-box>`;
     }
     const off = module.collections.filter((c) => this._disabled[product.id]?.has(c.name)).length;
+    const readOnly = this._readOnly.has(product.id);
     return html`<uui-box headline=${product.displayName}>
-      <span slot="header-actions">${off} of ${module.collections.length} groups off</span>
+      <span slot="header-actions">${off} of ${module.collections.length} groups off${readOnly ? " · read-only" : ""}</span>
       ${module.siteSettingsIgnored
         ? html`<p class="warning">
-            Your MCP server's environment sets collection filters for this product, so these settings are ignored there.
+            Your MCP server's environment sets collection filters for this product, so the group settings are ignored there.
+            Read-only still applies.
           </p>`
         : nothing}
+      <uui-toggle
+        class="read-only"
+        label="Read-only tools only"
+        ?checked=${readOnly}
+        @change=${(e) => this.#toggleReadOnly(product.id, e.target.checked)}
+      ></uui-toggle>
       <div class="groups">
         ${module.collections.map(
           (c) => html`<uui-checkbox
-            label="${c.name} (${c.toolCount})"
+            label="${c.name} (${this.#toolCount(c, readOnly)})"
             ?checked=${!this._disabled[product.id]?.has(c.name)}
             @change=${(e) => this.#toggle(product.id, c.name, e.target.checked)}
           ></uui-checkbox>`,
         )}
       </div>
     </uui-box>`;
+  }
+
+  /** "12", or "4 of 12" when read-only; reports from older MCP servers have no read-only count. */
+  #toolCount(collection, readOnly) {
+    return readOnly && typeof collection.readOnlyToolCount === "number"
+      ? `${collection.readOnlyToolCount} of ${collection.toolCount}`
+      : `${collection.toolCount}`;
   }
 
   render() {
@@ -161,6 +188,7 @@ export class UmbrellaDashboardElement extends UmbLitElement {
       uui-box { margin-bottom: var(--uui-size-space-5); }
       .groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: var(--uui-size-space-3); }
       .warning { color: var(--uui-color-warning-standalone); }
+      .read-only { display: block; margin-bottom: var(--uui-size-space-4); }
       .actions { display: flex; justify-content: flex-end; }
     `,
   ];

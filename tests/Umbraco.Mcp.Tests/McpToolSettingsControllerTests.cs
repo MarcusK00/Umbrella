@@ -43,15 +43,65 @@ public class McpToolSettingsControllerTests
     }
 
     [Test]
-    public void Get_returns_products_catalogue_and_disabled_lists()
+    public void Get_returns_products_catalogue_disabled_lists_and_read_only_modules()
     {
-        var store = new FakeToolSettingsStore { Disabled = new() { ["forms"] = ["prevalue-source"] } };
+        var store = new FakeToolSettingsStore { Disabled = new() { ["forms"] = ["prevalue-source"] }, ReadOnly = ["cms"] };
 
         var body = (McpToolSettingsResponse)((OkObjectResult)Controller(store).GetToolSettings()).Value!;
 
         Assert.That(body.Products.Select(p => p.Id), Is.EqualTo(new[] { "cms", "forms" }));
         Assert.That(body.Catalogue, Is.SameAs(store.Catalogue));
         Assert.That(body.DisabledCollections["forms"], Is.EqualTo(new[] { "prevalue-source" }));
+        Assert.That(body.ReadOnlyModules, Is.EqualTo(new[] { "cms" }));
+    }
+
+    [Test]
+    public void Put_stores_read_only_modules_trimmed_and_deduplicated()
+    {
+        var store = new FakeToolSettingsStore();
+
+        IActionResult result = Controller(store).PutToolSettings(new McpToolSettingsRequest(
+            new Dictionary<string, IReadOnlyList<string>?>(), [" forms ", "forms", ""]));
+
+        Assert.That(result, Is.InstanceOf<OkObjectResult>());
+        Assert.That(store.ReadOnly, Is.EqualTo(new[] { "forms" }));
+    }
+
+    [Test]
+    public void Put_without_read_only_modules_clears_them()
+    {
+        var store = new FakeToolSettingsStore { ReadOnly = ["forms"] };
+
+        Controller(store).PutToolSettings(new McpToolSettingsRequest(new Dictionary<string, IReadOnlyList<string>?>()));
+
+        Assert.That(store.ReadOnly, Is.Empty);
+    }
+
+    [Test]
+    public void Put_rejects_an_unknown_read_only_module_and_stores_nothing()
+    {
+        var store = new FakeToolSettingsStore { ReadOnly = ["cms"] };
+
+        IActionResult result = Controller(store).PutToolSettings(new McpToolSettingsRequest(
+            new Dictionary<string, IReadOnlyList<string>?> { ["forms"] = ["prevalue-source"] }, ["commerce"]));
+
+        Assert.That(result, Is.InstanceOf<BadRequestObjectResult>());
+        Assert.That(store.Disabled, Is.Empty);
+        Assert.That(store.ReadOnly, Is.EqualTo(new[] { "cms" }));
+    }
+
+    [TestCase(4, 4)]
+    [TestCase(-1, 0)]
+    [TestCase(99, 10)]
+    [TestCase(null, null)]
+    public void Post_keeps_read_only_counts_between_zero_and_the_tool_count(int? reported, int? stored)
+    {
+        var store = new FakeToolSettingsStore();
+        var report = new McpCatalogueReport("17.0.0", [new McpModuleReport("forms", false, [new McpCollectionInfo("form", 10, reported)])]);
+
+        Controller(store, User(UserKind.Api)).PostCatalogue(report);
+
+        Assert.That(store.Merged.Single().Report.Modules.Single().Collections.Single().ReadOnlyToolCount, Is.EqualTo(stored));
     }
 
     [Test]

@@ -73,13 +73,27 @@ internal static class McpToolSettingsValidation
                 return $"{id}: {error}";
             }
 
-            var counts = collections.Where(c => c?.Name is not null).GroupBy(c => c.Name.Trim()).ToDictionary(g => g.Key, g => Math.Max(0, g.First().ToolCount));
-            modules.Add(new McpModuleReport(id, module.SiteSettingsIgnored, names.Select(n => new McpCollectionInfo(n, counts[n])).ToList()));
+            var byName = collections.Where(c => c?.Name is not null).GroupBy(c => c.Name.Trim()).ToDictionary(g => g.Key, g => NormalizeCounts(g.Key, g.First()));
+            modules.Add(new McpModuleReport(id, module.SiteSettingsIgnored, names.Select(n => byName[n]).ToList()));
         }
 
         string version = report.UmbrellaVersion?.Trim() ?? string.Empty;
         result = new McpCatalogueReport(version.Length > MaxNameLength ? version[..MaxNameLength] : version, modules);
         return null;
+    }
+
+    /// <returns>An error message, or null when <paramref name="result"/> holds the trimmed, distinct module ids.</returns>
+    public static string? TryNormalizeReadOnlyModules(IReadOnlyList<string?>? input, ISet<string> knownModuleIds, out List<string> result)
+    {
+        result = (input ?? []).Where(n => n is not null).Select(n => n!.Trim()).Where(n => n.Length > 0).Distinct(StringComparer.Ordinal).ToList();
+        string? unknown = result.FirstOrDefault(id => !knownModuleIds.Contains(id));
+        return unknown is null ? null : $"readOnlyModules: \"{unknown}\" is not a product this site detects.";
+    }
+
+    private static McpCollectionInfo NormalizeCounts(string name, McpCollectionInfo info)
+    {
+        int toolCount = Math.Max(0, info.ToolCount);
+        return new McpCollectionInfo(name, toolCount, info.ReadOnlyToolCount is int readOnly ? Math.Clamp(readOnly, 0, toolCount) : null);
     }
 
     private static string? TryNormalizeNames(IReadOnlyList<string?>? names, out List<string> clean)
