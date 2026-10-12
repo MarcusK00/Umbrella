@@ -6,7 +6,9 @@ const mod = (id: string): McpProductModule => ({
   load: async () => { throw new Error("unused"); },
 });
 
-const collection = (name: string, tools: Array<{ name: string; enabled?: (user: unknown) => boolean }>) => ({
+type FakeTool = { name: string; enabled?: (user: unknown) => boolean; annotations?: { readOnlyHint?: boolean }; isReadOnly?: boolean };
+
+const collection = (name: string, tools: FakeTool[]) => ({
   metadata: { name, displayName: name, description: "" },
   tools: () => tools as never,
 });
@@ -27,9 +29,24 @@ describe("buildCatalogue", () => {
       modules: [{
         id: "forms",
         siteSettingsIgnored: true,
-        collections: [{ name: "form", toolCount: 1 }, { name: "prevalue-source", toolCount: 1 }],
+        collections: [{ name: "form", toolCount: 1, readOnlyToolCount: 0 }, { name: "prevalue-source", toolCount: 1, readOnlyToolCount: 0 }],
       }],
     });
+  });
+
+  it("counts the usable tools that a read-only filter keeps", () => {
+    const forms = loaded([
+      collection("form", [
+        { name: "list-forms", annotations: { readOnlyHint: true } },
+        { name: "get-form", isReadOnly: true },
+        { name: "delete-form", annotations: { readOnlyHint: false } },
+        { name: "admin-list", annotations: { readOnlyHint: true }, enabled: () => false },
+      ]),
+    ]);
+
+    const [module] = buildCatalogue("1", [{ module: mod("forms"), loaded: forms, siteSettingsIgnored: false }], {}).modules;
+
+    expect(module.collections).toEqual([{ name: "form", toolCount: 3, readOnlyToolCount: 2 }]);
   });
 
   it("leaves out a module whose tools cannot be listed", () => {

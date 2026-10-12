@@ -13,6 +13,7 @@ public sealed class KeyValueMcpToolSettingsStore(IKeyValueService keyValues, ILo
 {
     internal const string SettingsKey = "Umbraco.Mcp.ToolSettings";
     internal const string CatalogueKey = "Umbraco.Mcp.Catalogue";
+    internal const string ReadOnlyKey = "Umbraco.Mcp.ReadOnlyModules";
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
@@ -21,6 +22,11 @@ public sealed class KeyValueMcpToolSettingsStore(IKeyValueService keyValues, ILo
 
     public void SetDisabledCollections(IReadOnlyDictionary<string, IReadOnlyList<string>> disabled) =>
         keyValues.SetValue(SettingsKey, JsonSerializer.Serialize(disabled, Json));
+
+    public IReadOnlyList<string> GetReadOnlyModules() => Read<List<string>>(ReadOnlyKey) ?? [];
+
+    public void SetReadOnlyModules(IReadOnlyList<string> moduleIds) =>
+        keyValues.SetValue(ReadOnlyKey, JsonSerializer.Serialize(moduleIds, Json));
 
     public McpToolCatalogue GetCatalogue() => Read<McpToolCatalogue>(CatalogueKey) is { Modules: not null } c ? c : McpToolCatalogue.Empty;
 

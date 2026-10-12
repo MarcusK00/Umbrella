@@ -14,7 +14,7 @@ For other AI tools, copy the config from Settings → Health Check → MCP → "
 ## What it adds
 
 - `GET /umbraco/management/api/v1/mcp/capabilities`: the installed products, for the MCP server.
-- Settings → **Umbrella**: switch the MCP server's tool groups off per product. Changes apply the next time the MCP server starts.
+- Settings → **Umbrella**: switch the MCP server's tool groups off, or limit a product to read-only tools. Changes apply the next time the MCP server starts.
 - Health checks in the **MCP** group: detected products, the MCP API user, and the client config.
 - In Development only, a `.mcp.json` next to the site (never overwritten, no secret in it). Turn it off with `Umbraco:Mcp:McpJson:Enabled: false`.
 

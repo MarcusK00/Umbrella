@@ -1,4 +1,4 @@
-import { fetchCapabilities, interpretCapabilitiesResponse, siteDisabledCollections } from "../capabilities.js";
+import { fetchCapabilities, interpretCapabilitiesResponse, siteDisabledCollections, siteReadOnly } from "../capabilities.js";
 
 const payload = {
   addonVersion: "17.0.0",
@@ -30,6 +30,7 @@ describe("interpretCapabilitiesResponse", () => {
     ["products not an array", { addonVersion: "1", products: "x" }],
     ["product missing id", { addonVersion: "1", products: [{ installed: true }] }],
     ["disabledCollections not a string array", { addonVersion: "1", products: [{ ...payload.products[0], disabledCollections: [1] }] }],
+    ["readOnly not a boolean", { addonVersion: "1", products: [{ ...payload.products[0], readOnly: "true" }] }],
   ])("treats a malformed 200 (%s) as unavailable", (_label, data) => {
     const r = interpretCapabilitiesResponse({ status: 200, data });
     expect(r.kind).toBe("unavailable");
@@ -70,5 +71,25 @@ describe("siteDisabledCollections", () => {
     const r = withDisabled(null);
     expect(r.kind).toBe("ok");
     expect(siteDisabledCollections(r, "forms")).toEqual([]);
+  });
+});
+
+describe("siteReadOnly", () => {
+  const withReadOnly = (readOnly: unknown) =>
+    interpretCapabilitiesResponse({ status: 200, data: { ...payload, products: [{ ...payload.products[1], readOnly }] } });
+
+  it("is true only for the module the site set to read-only", () => {
+    expect(siteReadOnly(withReadOnly(true), "forms")).toBe(true);
+    expect(siteReadOnly(withReadOnly(true), "cms")).toBe(false);
+    expect(siteReadOnly(withReadOnly(false), "forms")).toBe(false);
+  });
+
+  it("is false for an old add-on without the field, a null, or no add-on", () => {
+    expect(siteReadOnly(interpretCapabilitiesResponse({ status: 200, data: payload }), "forms")).toBe(false);
+    const nulled = withReadOnly(null);
+    expect(nulled.kind).toBe("ok");
+    expect(siteReadOnly(nulled, "forms")).toBe(false);
+    expect(siteReadOnly({ kind: "no-addon" }, "forms")).toBe(false);
+    expect(siteReadOnly({ kind: "unavailable", reason: "x" }, "forms")).toBe(false);
   });
 });

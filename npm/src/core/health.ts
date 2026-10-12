@@ -17,6 +17,8 @@ export interface ModuleRuntimeState {
   siteDisabledCollections?: string[];
   /** The environment sets collection filters for this module, so the site's list was not applied. */
   siteSettingsIgnored?: boolean;
+  /** The site limits this module to read-only tools (from capabilities). */
+  siteReadOnly?: boolean;
 }
 
 export interface HealthState {
@@ -66,7 +68,9 @@ export function buildHealthReport(state: HealthState): HealthReport {
     notes.push("Install the Umbraco.Community.Umbrella NuGet package on the site to enable product tools beyond the CMS.");
   }
 
-  const products: HealthProduct[] = state.modules.map(({ decision, loaded, toolCount, issues, siteDisabledCollections = [], siteSettingsIgnored = false }) => {
+  const products: HealthProduct[] = state.modules.map((
+    { decision, loaded, toolCount, issues, siteDisabledCollections = [], siteSettingsIgnored = false, siteReadOnly = false },
+  ) => {
     const name = decision.module.displayName;
     // Without the add-on there is no Umbrella dashboard, so there are no backoffice settings to mention.
     const hasDashboard = caps.kind === "ok";
@@ -74,6 +78,9 @@ export function buildHealthReport(state: HealthState): HealthReport {
       notes.push(`${name}: the backoffice tool group settings are ignored because the environment sets collection filters for this module.`);
     } else if (hasDashboard && siteDisabledCollections.length > 0) {
       notes.push(`${name}: tool groups disabled in the backoffice: ${siteDisabledCollections.join(", ")}.`);
+    }
+    if (hasDashboard && siteReadOnly) {
+      notes.push(`${name}: only read-only tools, as set in the backoffice.`);
     }
     const p = detected.find((d) => d.id === decision.module.id) ?? null;
     if (caps.kind === "ok" && !decision.module.required && (!p || !p.installed)) {
