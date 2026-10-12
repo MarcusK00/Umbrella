@@ -8,6 +8,7 @@
     "model-context-protocol",
     "ai"
   ],
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/MarcusK00/Umbraco.Community.Umbrella.git",
