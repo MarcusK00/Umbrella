@@ -76,12 +76,12 @@ describe("module set", () => {
     expect(forms).toMatch(/analys/);
   });
 
-  it("forms and automate switch off their duplicate server groups", () => {
+  it("switches off duplicate, test-aid and backoffice-plumbing groups", () => {
     const defaults = (id: string) => modules.find((m) => m.id === id)!.defaultDisabledCollections;
-    expect(defaults("forms")).toEqual(["umbraco-server", "acceptance-tests"]);
+    expect(defaults("cms")).toEqual(["manifest", "user-data", "imaging"]);
+    expect(defaults("forms")).toEqual(["umbraco-server", "acceptance-tests", "licensing", "updates", "media"]);
     expect(defaults("automate")).toEqual(["umbraco-server"]);
-    expect(defaults("cms")).toBeUndefined();
-    expect(defaults("engage")).toBeUndefined();
+    expect(defaults("engage")).toEqual(["package", "add-ons", "cultures"]);
   });
 
   it("keeps the routing instructions for all modules under 2,000 characters", () => {

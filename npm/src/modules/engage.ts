@@ -14,6 +14,8 @@ export const engageModule: McpProductModule = {
     "website visitor analytics and reports (not form submission analytics)",
     "the Engage main switch, traffic filters, data cleanup and Engage permissions",
   ],
+  // License info, the add-on switches and the tracked cultures (CMS languages cover those).
+  defaultDisabledCollections: ["package", "add-ons", "cultures"],
   load: async (): Promise<LoadedModule> => {
     const m = await import("@umbraco-engage/mcp-dev/collections");
     return {
