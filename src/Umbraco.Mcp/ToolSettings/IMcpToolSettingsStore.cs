@@ -1,7 +1,7 @@
 namespace Umbraco.Mcp.ToolSettings;
 
 /// <summary>
-/// The tool groups switched off in the backoffice, the products limited to read-only tools, and the groups the MCP
+/// The tool groups switched off in the backoffice, the products limited to read-only or non-destructive tools, and the groups the MCP
 /// server last reported.
 /// </summary>
 public interface IMcpToolSettingsStore
@@ -15,6 +15,11 @@ public interface IMcpToolSettingsStore
     IReadOnlyList<string> GetReadOnlyModules();
 
     void SetReadOnlyModules(IReadOnlyList<string> moduleIds);
+
+    /// <summary>Ids of the modules that only get non-destructive tools. Empty when nothing is stored.</summary>
+    IReadOnlyList<string> GetNoDestructiveModules();
+
+    void SetNoDestructiveModules(IReadOnlyList<string> moduleIds);
 
     McpToolCatalogue GetCatalogue();
 

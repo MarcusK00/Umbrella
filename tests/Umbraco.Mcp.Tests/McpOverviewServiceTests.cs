@@ -214,6 +214,24 @@ public class McpOverviewServiceTests
     }
 
     [Test]
+    public async Task Access_follows_the_level()
+    {
+        McpProductStatus[] products =
+        [
+            Product("cms", "Umbraco CMS") with { ReadOnly = true, NoDestructive = true },
+            Product("forms", "Umbraco Forms") with { NoDestructive = true },
+            Product("automate", "Umbraco Automate"),
+        ];
+        var service = Service(caps: new StubCapabilities(new McpCapabilities(Addon, products)));
+
+        McpOverview overview = await service.GetOverviewAsync(null);
+
+        Assert.That(overview.Products.Single(p => p.Id == "cms").Access, Is.EqualTo("readOnly"));
+        Assert.That(overview.Products.Single(p => p.Id == "forms").Access, Is.EqualTo("noDestructive"));
+        Assert.That(overview.Products.Single(p => p.Id == "automate").Access, Is.EqualTo("full"));
+    }
+
+    [Test]
     public async Task Module_missing_from_the_latest_report_is_not_loaded()
     {
         var catalogue = new McpToolCatalogue(Addon, new Dictionary<string, McpModuleCatalogue>

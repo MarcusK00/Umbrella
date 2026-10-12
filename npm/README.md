@@ -34,9 +34,10 @@ Without the NuGet package, the server still starts, with CMS tools only.
 |---|---|
 | `UMBRACO_MCP_MODULES` | Force modules on without detection, for example `forms,automate` |
 | `UMBRACO_READONLY` | `true` registers only read-only tools, for every product |
+| `UMBRACO_NO_DESTRUCTIVE` | `true` leaves out tools the products mark as destructive (`destructiveHint`), for every product |
 | `UMBRACO_INCLUDE_TOOL_COLLECTIONS`, `UMBRACO_EXCLUDE_TOOL_COLLECTIONS`, `UMBRACO_INCLUDE_TOOLS`, `UMBRACO_EXCLUDE_TOOLS`, `UMBRACO_TOOL_MODES` | Filters. Unprefixed entries apply to CMS, `forms:<value>` to Forms; the tool lists also accept names like `forms--list-forms` |
 
-Tool groups switched off in the backoffice (Settings → Umbrella) are left out on the next start, unless the environment sets `UMBRACO_INCLUDE_TOOL_COLLECTIONS` or `UMBRACO_EXCLUDE_TOOL_COLLECTIONS` for that product. A product set to read-only there registers only its read-only tools; that always applies.
+Tool groups switched off in the backoffice (Settings → Umbrella) are left out on the next start, unless the environment sets `UMBRACO_INCLUDE_TOOL_COLLECTIONS` or `UMBRACO_EXCLUDE_TOOL_COLLECTIONS` for that product. A product set to read-only there registers only its read-only tools, and one set to no destructive tools leaves out its destructive tools; both always apply.
 
 Some tool groups are off by default because they repeat another tool, are test aids or serve only the backoffice UI:
 

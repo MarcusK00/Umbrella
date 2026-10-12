@@ -7,6 +7,7 @@ import { UmbTextStyles } from "@umbraco-cms/backoffice/style";
 import { formatDate, request } from "./umbrella-api.js";
 
 const STATE_LABELS = { active: "Active", disabled: "Disabled", lockedOut: "Locked out" };
+const ACCESS_LABELS = { full: "Full access", noDestructive: "No destructive tools", readOnly: "Read-only" };
 
 /**
  * Settings → Umbrella → Overview: what needs attention, how to connect an AI tool, which products the MCP server
@@ -176,6 +177,7 @@ export class UmbrellaOverviewElement extends UmbLitElement {
               <uui-table-head-cell>Version</uui-table-head-cell>
               <uui-table-head-cell>API</uui-table-head-cell>
               <uui-table-head-cell>MCP server</uui-table-head-cell>
+              <uui-table-head-cell>Access</uui-table-head-cell>
               <uui-table-head-cell>Tools available</uui-table-head-cell>
             </uui-table-head>
             ${installed.map(
@@ -184,6 +186,7 @@ export class UmbrellaOverviewElement extends UmbLitElement {
                 <uui-table-cell>${p.version ?? ""}</uui-table-cell>
                 <uui-table-cell class=${p.enabled ? "" : "warning"}>${p.enabled ? "Available" : "Not available"}</uui-table-cell>
                 <uui-table-cell>${p.loaded ? "Loaded" : "Not loaded"}</uui-table-cell>
+                <uui-table-cell>${ACCESS_LABELS[p.access] ?? ACCESS_LABELS.full}</uui-table-cell>
                 <uui-table-cell>${p.loaded ? p.toolCount : ""}</uui-table-cell>
               </uui-table-row>`,
             )}
