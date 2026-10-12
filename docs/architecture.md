@@ -57,13 +57,13 @@ All under `/umbraco/management/api/v1/mcp/`, in the Management API's "MCP" Swagg
 
 | Endpoint | Who may call it | What it does |
 |---|---|---|
-| `GET capabilities` | any backoffice user | Returns `{ addonVersion, products: [{ id, displayName, installed, enabled, version, issues, disabledCollections, readOnly }] }`. `disabledCollections` is `null` for a product without a saved list. When the caller is an API user, records the connection for the "MCP API user" check |
-| `POST catalogue` | API users only (403 otherwise) | The server reports every tool group it loaded: `{ umbrellaVersion, modules: [{ id, siteSettingsIgnored, collections: [{ name, toolCount, readOnlyToolCount, disabledByDefault? }] }] }`. Merged per module into the stored catalogue |
+| `GET capabilities` | any backoffice user | Returns `{ addonVersion, products: [{ id, displayName, installed, enabled, version, issues, disabledCollections, readOnly, noDestructive }] }`. `disabledCollections` is `null` for a product without a saved list. When the caller is an API user, records the connection for the "MCP API user" check |
+| `POST catalogue` | API users only (403 otherwise) | The server reports every tool group it loaded: `{ umbrellaVersion, modules: [{ id, siteSettingsIgnored, collections: [{ name, toolCount, readOnlyToolCount, nonDestructiveToolCount, disabledByDefault? }] }] }`. Merged per module into the stored catalogue |
 | `GET overview` | Settings section | What the Overview tab shows (`McpOverviewService`): status, findings, products, connected API users, the `.mcp.json` status and the client snippets |
 | `DELETE connections/{userKey}` | Settings section | Forgets an API user's stored connection (404 if unknown); it returns the next time the server signs in |
 | `POST mcp-json` | Settings section | Writes or upgrades `.mcp.json` through `McpJsonFile`; returns `{ outcome, path, message }`. 404 when the site is not in Development or writing is off, 500 on an I/O failure |
-| `GET tool-settings` | Settings section | What the dashboard shows: the add-on version, products, catalogue, disabled groups, read-only products |
-| `PUT tool-settings` | Settings section | Replaces `disabledCollections` (module id → group names) and `readOnlyModules`. Unknown product ids are refused |
+| `GET tool-settings` | Settings section | What the dashboard shows: the add-on version, products, catalogue, disabled groups, read-only products, no-destructive products |
+| `PUT tool-settings` | Settings section | Replaces `disabledCollections` (module id → group names) `readOnlyModules` and `noDestructiveModules`. Unknown product ids are refused, and a product in both level lists is a 400 (nothing stored) |
 
 Input is trimmed, de-duplicated and capped (`McpToolSettingsValidation`: 50 modules, 200 groups per module, 100 characters per name), so a stray client cannot bloat the database.
 
@@ -75,6 +75,7 @@ Everything is kept in Umbraco's `umbracoKeyValue` table, so it survives restarts
 |---|---|
 | `Umbraco.Mcp.ToolSettings` | Disabled tool groups per module |
 | `Umbraco.Mcp.ReadOnlyModules` | Products limited to read-only tools |
+| `Umbraco.Mcp.NoDestructiveModules` | Products whose destructive tools are left out |
 | `Umbraco.Mcp.Catalogue` | The last reported tool groups per module, with when they were reported |
 | `Umbraco.Mcp.Connection.<user key>` | When that API user last fetched capabilities |
 
@@ -161,10 +162,11 @@ The shared provider only exists once if every product uses the same toolkit copy
 | Input | Scope |
 |---|---|
 | `UMBRACO_TOOL_MODES`, `UMBRACO_INCLUDE_/EXCLUDE_TOOL_COLLECTIONS`, `UMBRACO_INCLUDE_/EXCLUDE_TOOLS` | Per module: unprefixed entries → CMS, `forms:<value>` → Forms, `forms:*` → no restriction. The `*_TOOLS` lists also accept `forms--list-forms` |
-| `UMBRACO_INCLUDE_SLICES`, `UMBRACO_EXCLUDE_SLICES`, `UMBRACO_READONLY` | Every module |
+| `UMBRACO_INCLUDE_SLICES`, `UMBRACO_EXCLUDE_SLICES`, `UMBRACO_READONLY`, `UMBRACO_NO_DESTRUCTIVE` | Every module |
 | Dashboard: disabled groups (`disabledCollections`) | Become `excludeToolCollections` for that module, **unless** the environment sets any collection filter for it; then the site list is ignored (`siteSettingsIgnored`). A saved `[]` means nothing is off |
 | Module: `defaultDisabledCollections` | Become `excludeToolCollections` only when the site has no saved list for the module (`disabledCollections` is `null` or missing, no add-on, or capabilities unavailable) and the environment sets no collection filter for it. `get-mcp-health` then names them |
 | Dashboard: read-only (`readOnly`) | Always applied, ORed with `UMBRACO_READONLY`, since it can only remove tools |
+| Dashboard: no destructive tools (`noDestructive`) | Always applied, ORed with `UMBRACO_NO_DESTRUCTIVE`, and it survives env collection filters. Removes tools where `isDestructive(tool)` (`npm/src/core/destructive.ts`: `annotations.destructiveHint === true`) holds. Read-only is the stricter level and wins in the stored levels. Umbrella keeps no list of its own |
 
 `buildEffectiveFilterInput` combines these: environment, then the saved site list, then the module's defaults. The catalogue sent back to the site is built before filters, so the dashboard can also show groups that are switched off; it marks default-off groups with `disabledByDefault: true`, and the dashboard starts a product without a saved list from them.
 
@@ -179,8 +181,8 @@ These must match on both sides:
 | What | C# | npm |
 |---|---|---|
 | Product ids | detector `Id` | module `id` |
-| Capabilities payload (camelCase) | `McpCapabilities`, `McpProductStatus` | `CapabilitiesPayload` (`disabledCollections` and `readOnly` optional, for older add-ons) |
-| Catalogue payload | `McpCatalogueReport` (accepts a null `readOnlyToolCount` and a missing `disabledByDefault` from older servers) | `CataloguePayload` |
+| Capabilities payload (camelCase) | `McpCapabilities`, `McpProductStatus` | `CapabilitiesPayload` (`disabledCollections`, `readOnly` and `noDestructive` optional, for older add-ons) |
+| Catalogue payload | `McpCatalogueReport` (accepts a null `readOnlyToolCount` and `nonDestructiveToolCount` and a missing `disabledByDefault` from older servers) | `CataloguePayload` |
 | npm package name and bin | `McpClientConfig.NpmPackage` | `name`, `bin` |
 | Version | csproj `<Version>` | `version` |
 
