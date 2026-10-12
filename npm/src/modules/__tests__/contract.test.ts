@@ -7,7 +7,7 @@ const user = createPermissiveCodegenUser();
 
 const skipped = modulesSkippedInCi(modules, process.env, (s) => import.meta.resolve(s));
 if (skipped.size > 0) {
-  console.warn(`Skipping load tests for ${[...skipped].join(", ")}: CI=true and the package is not installed.`);
+  console.warn(`Skipping load tests for ${[...skipped].join(", ")}: CI removed the package before installing (CI_ABSENT_PACKAGES).`);
 }
 const loadable = modules.filter((m) => !skipped.has(m.id));
 
