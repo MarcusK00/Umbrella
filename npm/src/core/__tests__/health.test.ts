@@ -76,4 +76,27 @@ describe("buildHealthReport", () => {
     s.versionCheckMessage = "Version mismatch: 18 vs 17";
     expect(buildHealthReport(s).umbraco.versionCheck).toBe("Version mismatch: 18 vs 17");
   });
+
+  it("notes collections disabled in the backoffice", () => {
+    const r = buildHealthReport(state({ kind: "ok", payload: { addonVersion: "17.0.0", products: [] } }, [{ ...cmsLoaded, siteDisabledCollections: ["log-viewer", "webhook"] }]));
+    expect(r.notes).toContain("Umbraco CMS: tool groups disabled in the backoffice: log-viewer, webhook.");
+  });
+
+  it("notes when the environment overrides the backoffice settings", () => {
+    const r = buildHealthReport(state({ kind: "ok", payload: { addonVersion: "17.0.0", products: [] } }, [{ ...cmsLoaded, siteDisabledCollections: ["log-viewer"], siteSettingsIgnored: true }]));
+    expect(r.notes).toContain(
+      "Umbraco CMS: the backoffice tool group settings are ignored because the environment sets collection filters for this module.",
+    );
+    expect(r.notes.join(" ")).not.toMatch(/disabled in the backoffice/);
+  });
+
+  it("says nothing about backoffice settings when the site has no add-on (there is no dashboard)", () => {
+    const r = buildHealthReport(state({ kind: "no-addon" }, [{ ...cmsLoaded, siteSettingsIgnored: true }]));
+    expect(r.notes.join(" ")).not.toMatch(/backoffice tool group/);
+  });
+
+  it("notes a failed catalogue report", () => {
+    const r = buildHealthReport({ ...state({ kind: "no-addon" }, [cmsLoaded]), catalogueReport: { ok: false, reason: "HTTP 403" } });
+    expect(r.notes).toContain("Could not report the tool groups to the site, so the backoffice Umbrella dashboard may be out of date: HTTP 403");
+  });
 });

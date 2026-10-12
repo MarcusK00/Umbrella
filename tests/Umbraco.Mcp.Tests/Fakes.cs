@@ -4,6 +4,7 @@ using Umbraco.Cms.Core.Security;
 using Umbraco.Cms.Core.Services;
 using Umbraco.Mcp.Connections;
 using Umbraco.Mcp.Detection;
+using Umbraco.Mcp.ToolSettings;
 
 namespace Umbraco.Mcp.Tests;
 
@@ -76,4 +77,24 @@ internal sealed class FakeBackOfficeSecurityAccessor(IUser? currentUser) : IBack
     public bool UserHasSectionAccess(string section, IUser user) => false;
 
     public bool IsAuthenticated() => currentUser is not null;
+}
+
+internal sealed class FakeToolSettingsStore : IMcpToolSettingsStore
+{
+    public Dictionary<string, IReadOnlyList<string>> Disabled { get; set; } = new();
+
+    public McpToolCatalogue Catalogue { get; set; } = McpToolCatalogue.Empty;
+
+    public List<(McpCatalogueReport Report, DateTimeOffset At)> Merged { get; } = [];
+
+    public Exception? Throws { get; init; }
+
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> GetDisabledCollections() => Throws is null ? Disabled : throw Throws;
+
+    public void SetDisabledCollections(IReadOnlyDictionary<string, IReadOnlyList<string>> disabled) =>
+        Disabled = new Dictionary<string, IReadOnlyList<string>>(disabled);
+
+    public McpToolCatalogue GetCatalogue() => Catalogue;
+
+    public void MergeCatalogue(McpCatalogueReport report, DateTimeOffset at) => Merged.Add((report, at));
 }

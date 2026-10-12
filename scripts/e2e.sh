@@ -27,7 +27,32 @@ echo "   $(echo "$TOOLS" | wc -l | tr -d ' ') tools"
 LIST=$(npx -y @modelcontextprotocol/inspector@1 --cli node dist/index.js --method tools/list)
 grep -q '\[Umbraco Forms\]' <<<"$LIST" || fail "tool descriptions are not product-prefixed"
 
-echo "3. Smoke calls"
+echo "3. Backoffice tool settings"
+API="$UMBRACO_BASE_URL/umbraco/management/api/v1/mcp"
+SETTINGS=$(curl -sfk -H "Authorization: Bearer $TOKEN" "$API/tool-settings") || fail "GET tool-settings failed"
+# The --list-tools run above reported the catalogue.
+node -e "
+  const s = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+  const forms = s.catalogue.modules.forms;
+  if (!forms || !forms.collections.some((c) => c.name === 'prevalue-source')) { console.error('forms not reported'); process.exit(1); }" <<<"$SETTINGS" \
+  || fail "catalogue does not list forms/prevalue-source (excerpt: ${SETTINGS:0:300})"
+ORIGINAL=$(node -e "const s = JSON.parse(require('fs').readFileSync(0, 'utf8')); console.log(JSON.stringify({ disabledCollections: s.disabledCollections }));" <<<"$SETTINGS")
+put_settings() {
+  curl -sfk -X PUT -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d "$1" "$API/tool-settings" >/dev/null
+}
+trap 'put_settings "$ORIGINAL" || true' EXIT
+put_settings '{"disabledCollections":{"forms":["prevalue-source"]}}' || fail "PUT tool-settings failed"
+TOOLS_OFF=$(node dist/index.js --list-tools)
+# The separate prevalue-source-type group stays on, so leave its tools out of the check.
+# No `grep -q` at the end of the pipe: under pipefail an early exit could SIGPIPE the first grep and hide a leak.
+LEFT=$(grep "^forms--.*prevalue-source" <<<"$TOOLS_OFF" | grep -v "prevalue-source-type" || true)
+[ -z "$LEFT" ] || fail "prevalue-source tools still listed after disabling them: $LEFT"
+grep -qx "forms--list-forms" <<<"$TOOLS_OFF" || fail "other forms tools vanished"
+put_settings "$ORIGINAL" || fail "could not restore tool settings"
+trap - EXIT
+echo "   disabling forms prevalue-source removed its tools"
+
+echo "4. Smoke calls"
 call() {
   npx -y @modelcontextprotocol/inspector@1 --cli node dist/index.js --method tools/call --tool-name "$1" \
     || fail "$1 call failed"
