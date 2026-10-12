@@ -230,3 +230,7 @@ Setup from scratch, the demo site, and the end-to-end checks: [docs/development.
 - Before merging: [docs/merging.md](docs/merging.md) (CI checks, guards, PR checklist)
 - Releasing: [docs/releasing.md](docs/releasing.md)
 - Adding a product: [docs/adding-a-product.md](docs/adding-a-product.md)
+
+## License
+
+[MIT](LICENSE)
