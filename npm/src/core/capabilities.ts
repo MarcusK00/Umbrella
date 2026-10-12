@@ -9,6 +9,8 @@ export interface ProductCapability {
   enabled: boolean;
   version: string | null;
   issues: string[];
+  /** Tool groups switched off in the backoffice. Missing on older add-ons. */
+  disabledCollections?: string[] | null;
 }
 
 export interface CapabilitiesPayload {
@@ -32,6 +34,9 @@ const isProduct = (p: unknown): p is ProductCapability => {
     typeof o.installed === "boolean" &&
     typeof o.enabled === "boolean" &&
     (o.version === null || typeof o.version === "string") &&
+    (o.disabledCollections === undefined ||
+      o.disabledCollections === null ||
+      (Array.isArray(o.disabledCollections) && o.disabledCollections.every((c) => typeof c === "string"))) &&
     Array.isArray(o.issues)
   );
 };
@@ -61,4 +66,10 @@ export async function fetchCapabilities(request: () => Promise<RawResponse> = de
   } catch (error) {
     return { kind: "unavailable", reason: `Request failed: ${error instanceof Error ? error.message : String(error)}` };
   }
+}
+
+/** The collections the site disabled for a module; empty without the add-on or on add-ons that predate the field. */
+export function siteDisabledCollections(caps: CapabilitiesResult, moduleId: string): string[] {
+  if (caps.kind !== "ok") return [];
+  return caps.payload.products.find((p) => p.id === moduleId)?.disabledCollections ?? [];
 }
