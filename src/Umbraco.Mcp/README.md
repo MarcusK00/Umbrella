@@ -23,6 +23,6 @@ For other AI tools, or a site that isn't running locally, copy the config from S
 
 The add-on has no dependency on any product package: it detects products by name.
 
-Supported products: Umbraco CMS, Umbraco Forms, Umbraco Automate. Requires Umbraco 17, and Node.js 22+ on the machine running the AI tool.
+Supported products: Umbraco CMS, Umbraco Forms, Umbraco Automate, Umbraco Engage. Requires Umbraco 17, and Node.js 22+ on the machine running the AI tool.
 
 Documentation, configuration and troubleshooting: https://github.com/MarcusK00/Umbraco.Community.Umbrella#readme

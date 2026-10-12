@@ -7,8 +7,8 @@
 ## Checklist
 
 1. **Version.** Set the same version in `src/Umbraco.Mcp/Umbraco.Mcp.csproj` (`<Version>`) and `npm/package.json` (`version`), and update the version in the config examples in `README.md` and `npm/README.md`. `NpmPackageContractTests` fails if the two packages differ in name or version, and the `readme-versions` guard fails if a README still names another version. Also check that the Compatibility table in `README.md` matches the product package versions in `npm/package.json`.
-2. **No local dependencies.** `npm/package.json` `dependencies` must only reference registry versions. A `file:` dependency cannot be installed by users. Products that only exist locally (today: Engage) stay in `devDependencies` and `external` in `tsup.config.ts`.
-3. **Tests and guards.** With the Engage tarball installed:
+2. **No local dependencies.** `npm/package.json` `dependencies` must only reference registry versions. A `file:` dependency cannot be installed by users. A product that only exists as a local tarball stays in `devDependencies` and `external` in `tsup.config.ts` (none today).
+3. **Tests and guards.**
    ```bash
    dotnet test Umbraco.Mcp.slnx
    cd npm && npm run compile && npm test

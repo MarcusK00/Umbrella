@@ -6,7 +6,7 @@ const mods = [
   { id: "engage", packageName: "@a/engage" },
 ] as McpProductModule[];
 
-/** CI with the Engage package removed before install, the way ci.yml runs. */
+/** CI with a local-only product package removed before install, the way ci.yml would run it. */
 const ci = { CI: "true", CI_ABSENT_PACKAGES: "@a/engage" };
 
 function missing(packageName: string, code: string) {

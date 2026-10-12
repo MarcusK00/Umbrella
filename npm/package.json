@@ -38,6 +38,7 @@
     "@umbraco-automate/mcp-dev": "17.4.0-beta.2",
     "@umbraco-cms/mcp-dev": "17.6.10",
     "@umbraco-cms/mcp-server-sdk": "1.0.0-beta.45",
+    "@umbraco-engage/mcp-dev": "17.0.0-beta.3",
     "@umbraco-forms/mcp-dev": "17.6.1-beta.4",
     "zod": "^4.4.3"
   },
@@ -47,7 +48,6 @@
   "devDependencies": {
     "@types/jest": "^30.0.0",
     "@types/node": "^26.1.2",
-    "@umbraco-engage/mcp-dev": "file:vendor/umbraco-engage-mcp-dev-17.0.0-beta.2.tgz",
     "jest": "^30.4.2",
     "ts-jest": "^29.4.11",
     "tsup": "^8.4.0",
