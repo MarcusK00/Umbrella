@@ -115,7 +115,7 @@ describe("buildHealthReport", () => {
 
   it("notes default-off tool groups without the add-on and points at the env var", () => {
     const r = buildHealthReport(state({ kind: "no-addon" }, [{ ...formsLoaded, defaultDisabledCollections: ["umbraco-server", "acceptance-tests"] }]));
-    expect(r.notes).toContain("Umbraco Forms: tool groups off by default: umbraco-server, acceptance-tests. Set UMBRACO_INCLUDE_TOOL_COLLECTIONS to switch them on.");
+    expect(r.notes).toContain("Umbraco Forms: tool groups off by default: umbraco-server, acceptance-tests. Set UMBRACO_INCLUDE_TOOL_COLLECTIONS=forms:* to switch them on.");
   });
 
   it("says nothing about defaults when none were applied", () => {

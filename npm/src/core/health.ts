@@ -93,7 +93,8 @@ export function buildHealthReport(state: HealthState): HealthReport {
     // Without the add-on there is no Umbrella dashboard, so there are no backoffice settings to mention.
     const hasDashboard = caps.kind === "ok";
     if (defaultDisabledCollections.length > 0) {
-      const how = hasDashboard ? "Switch them on in the Umbrella dashboard." : "Set UMBRACO_INCLUDE_TOOL_COLLECTIONS to switch them on.";
+      // `<id>:*`, not the group names: an include list keeps only the groups it names.
+      const how = hasDashboard ? "Switch them on in the Umbrella dashboard." : `Set UMBRACO_INCLUDE_TOOL_COLLECTIONS=${decision.module.id}:* to switch them on.`;
       notes.push(`${name}: tool groups off by default: ${defaultDisabledCollections.join(", ")}. ${how}`);
     }
     if (hasDashboard && siteSettingsIgnored) {
