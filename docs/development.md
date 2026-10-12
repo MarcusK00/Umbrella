@@ -68,7 +68,7 @@ Expected noise: Jest runs with `--experimental-vm-modules`, so every run prints 
 
 Both scripts need the demo site running, `npm/.env`, and the API user.
 
-- **`scripts/e2e.sh`** runs the local build (`npm run build` first) against the site: capabilities report Forms, Automate and Engage; every prefix has tools; descriptions are product-prefixed; switching off a tool group and setting Forms to read-only change the tool list; and `get-mcp-health`, `forms--list-forms` and `automate--list-automations` answer. It changes the site's tool settings while it runs and restores them afterwards, even when it fails.
+- **`scripts/e2e.sh`** runs the local build (`npm run build` first) against the site: capabilities report Forms, Automate and Engage; every prefix has tools; descriptions are product-prefixed; switching off a tool group and setting Forms to read-only or to no destructive tools (checking `forms--delete-form` is gone) change the tool list; and `get-mcp-health`, `forms--list-forms` and `automate--list-automations` answer. It changes the site's tool settings while it runs and restores them afterwards, even when it fails.
 - **`scripts/pack-check.sh`** packs `umbrella-mcp` and installs it with `npx` in an empty folder, the way users get it. There npm ignores the package's `overrides`, so this is the check that every product still shares one toolkit copy: it fails when `cms--`, `forms--`, `automate--` or `engage--` tools are missing. It also checks that no vendor tarball is packed.
 
 ## Before you commit

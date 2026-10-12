@@ -141,6 +141,19 @@ describe("registerModuleTools", () => {
       expect([...b.calls.keys()]).toEqual([...a.calls.keys()]);
     });
 
+    it("a tool flagged both read-only and destructive is dropped when the no-destructive level is on", () => {
+      const both = () => [tool("list-forms"), tool("odd-tool", { annotations: { readOnlyHint: true, destructiveHint: true } })];
+      const readonly = createCollectionConfigLoader({ modeRegistry: [], allModeNames: [], allSliceNames: ["read"] })
+        .loadFromConfig({ readonly: true });
+      const l = loaded("forms-client", both());
+      const a = ctx();
+      registerModuleTools(a, mod("forms"), l, readonly);
+      expect([...a.calls.keys()]).toEqual(["forms--list-forms", "forms--odd-tool"]);
+      const b = ctx();
+      registerModuleTools(b, mod("forms"), l, readonly, { excludeDestructive: true });
+      expect([...b.calls.keys()]).toEqual(["forms--list-forms"]);
+    });
+
     it("counts only the destructive tools the filter would otherwise have kept", () => {
       const c = ctx();
       const l = loaded("forms-client", tools());
