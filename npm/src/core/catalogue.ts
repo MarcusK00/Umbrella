@@ -7,7 +7,8 @@ export interface CatalogueModule {
   id: string;
   /** The environment sets collection filters for this module, so the backoffice settings do not apply. */
   siteSettingsIgnored: boolean;
-  collections: { name: string; toolCount: number }[];
+  /** `readOnlyToolCount`: how many of the usable tools are left when the module is read-only. */
+  collections: { name: string; toolCount: number; readOnlyToolCount: number }[];
 }
 
 export interface CataloguePayload {
@@ -31,10 +32,15 @@ export function buildCatalogue(
       result.push({
         id: module.id,
         siteSettingsIgnored,
-        collections: loaded.collections.map((c) => ({
-          name: c.metadata.name,
-          toolCount: c.tools(user).filter((t) => !t.enabled || t.enabled(user)).length,
-        })),
+        collections: loaded.collections.map((c) => {
+          const usable = c.tools(user).filter((t) => !t.enabled || t.enabled(user));
+          return {
+            name: c.metadata.name,
+            toolCount: usable.length,
+            // The same test as the toolkit's read-only filter (shouldIncludeTool).
+            readOnlyToolCount: usable.filter((t) => t.annotations?.readOnlyHint || t.isReadOnly).length,
+          };
+        }),
       });
     } catch {
       // A module whose tools can't be listed already reports that when it registers.
