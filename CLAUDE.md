@@ -47,6 +47,7 @@ dotnet run --project demo-site --launch-profile Umbraco.Web.UI   # https://local
 node scripts/create-api-user.mjs        # creates client "umbraco-back-office-mcp"; prints a generated secret
 scripts/e2e.sh                          # needs the site running, npm/.env and a built npm/dist
 scripts/pack-check.sh                   # packs umbrella-mcp, installs it with npx in an empty folder, checks it against the site
+bash scripts/check-guards.sh            # repo guards CI runs on every PR; see docs/merging.md
 ```
 
 - **Demo admin:** `admin@test.com` / `SecurePass1234` (unattended install, set in `demo-site/appsettings.Development.json`).

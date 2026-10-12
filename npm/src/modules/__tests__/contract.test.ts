@@ -1,8 +1,15 @@
 import { createPermissiveCodegenUser } from "@umbraco-cms/mcp-server-sdk";
 import { buildRoutingInstructions } from "../../core/routing.js";
 import { modules } from "../index.js";
+import { modulesSkippedInCi } from "./skipped-modules.js";
 
 const user = createPermissiveCodegenUser();
+
+const skipped = modulesSkippedInCi(modules, process.env, (s) => import.meta.resolve(s));
+if (skipped.size > 0) {
+  console.warn(`Skipping load tests for ${[...skipped].join(", ")}: CI=true and the package is not installed.`);
+}
+const loadable = modules.filter((m) => !skipped.has(m.id));
 
 describe.each(modules.map((m) => [m.id, m] as const))("module %s", (_id, module) => {
   it("has a valid id, prefix, package and major", () => {
@@ -18,7 +25,9 @@ describe.each(modules.map((m) => [m.id, m] as const))("module %s", (_id, module)
     for (const phrase of module.useWhen) expect(phrase.trim().length).toBeGreaterThan(0);
   });
 
-  it("loads every LoadedModule field", async () => {
+  const itLoads = skipped.has(module.id) ? it.skip : it;
+
+  itLoads("loads every LoadedModule field", async () => {
     const loaded = await module.load();
     expect(Array.isArray(loaded.collections)).toBe(true);
     expect(loaded.collections.length).toBeGreaterThan(0);
@@ -28,7 +37,7 @@ describe.each(modules.map((m) => [m.id, m] as const))("module %s", (_id, module)
     expect(typeof loaded.createApiClient).toBe("function");
   });
 
-  it("defines well-formed tools", async () => {
+  itLoads("defines well-formed tools", async () => {
     const loaded = await module.load();
     for (const collection of loaded.collections) {
       for (const tool of collection.tools(user)) {
@@ -55,7 +64,7 @@ describe("module set", () => {
 
   it("produces unique prefixed tool names across all modules", async () => {
     const seen = new Map<string, string>();
-    for (const module of modules) {
+    for (const module of loadable) {
       const loaded = await module.load();
       for (const collection of loaded.collections) {
         for (const tool of collection.tools(user)) {
