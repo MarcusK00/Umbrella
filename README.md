@@ -1,3 +1,5 @@
+Nuget: https://www.nuget.org/packages/Umbraco.Community.Umbrella/
+
 # Umbrella
 
 One MCP server for your Umbraco 17 site. Umbrella detects which Umbraco products the site has installed and gives your AI tool (Claude Code, VS Code, Cursor, Claude Desktop) the tools for exactly those products.
