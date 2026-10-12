@@ -11,7 +11,7 @@ import {
   useDraft202012ToolSchemas,
   type HttpResponse,
 } from "@umbraco-cms/mcp-server-sdk";
-import { fetchCapabilities, siteDisabledCollections, siteReadOnly } from "./capabilities.js";
+import { fetchCapabilities, siteDisabledCollections, siteNoDestructive, siteReadOnly } from "./capabilities.js";
 import { buildCatalogue, reportCatalogue, type CatalogueReportResult } from "./catalogue.js";
 import { installClientContext } from "./client-context.js";
 import { buildEffectiveFilterInput } from "./filter-config.js";
@@ -135,8 +135,9 @@ export async function startServer(options: {
       const siteDisabled = siteDisabledCollections(capabilities, module.id);
       state.siteDisabledCollections = siteDisabled ?? undefined;
       state.siteReadOnly = siteReadOnly(capabilities, module.id);
-      const { config, siteSettingsIgnored, defaultsApplied } = buildEffectiveFilterInput(
-        env, module.id, module.required === true, siteDisabled, state.siteReadOnly, module.defaultDisabledCollections,
+      state.siteNoDestructive = siteNoDestructive(capabilities, module.id);
+      const { config, siteSettingsIgnored, defaultsApplied, excludeDestructive } = buildEffectiveFilterInput(
+        env, module.id, module.required === true, siteDisabled, state.siteReadOnly, module.defaultDisabledCollections, state.siteNoDestructive,
       );
       state.siteSettingsIgnored = siteSettingsIgnored;
       state.defaultDisabledCollections = defaultsApplied;
@@ -145,7 +146,9 @@ export async function startServer(options: {
         allModeNames: loaded.allModeNames,
         allSliceNames: loaded.allSliceNames,
       }).loadFromConfig(config);
-      state.toolCount = registerModuleTools(ctx, module, loaded, filter);
+      const result = registerModuleTools(ctx, module, loaded, filter, { excludeDestructive });
+      state.toolCount = result.registered;
+      state.destructiveRemoved = result.destructiveRemoved;
       state.loaded = true;
     } catch (error) {
       if (error instanceof DuplicateToolNameError || module.required) throw error;
