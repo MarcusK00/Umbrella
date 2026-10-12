@@ -17,3 +17,6 @@ coverage/
 
 # macOS
 .DS_Store
+
+# local Claude Code tooling
+.claude/
