@@ -17,12 +17,13 @@ The add-on tells AI tools to run `npx -y umbrella-mcp@<add-on version>`, so both
 src/Umbraco.Mcp/
   Detection/        product detectors (one per product) and the seams they use
   Capabilities/     builds the capabilities payload
-  Api/              Management API controllers (capabilities, tool settings, catalogue)
+  Api/              Management API controllers (capabilities, tool settings, catalogue, overview)
+  Overview/         McpOverviewService: status, findings and snippets for the dashboard and the health checks
   ToolSettings/     dashboard settings and the reported catalogue, in umbracoKeyValue
   Connections/      which API users the MCP server connected as
   ApiUser/          resolves those users for the health check
-  HealthChecks/     the three checks in the "MCP" group
-  Client/           MCP client config and the .mcp.json writer
+  HealthChecks/     the three checks in the "MCP" group (short rows over the overview's findings)
+  Client/           MCP client config, per-client snippets and the .mcp.json file logic
   wwwroot/App_Plugins/Umbrella/   the "Umbrella" backoffice dashboard (plain JS, no build step)
 npm/src/
   core/             server startup, selection, filters, registration, routing, health
@@ -58,6 +59,9 @@ All under `/umbraco/management/api/v1/mcp/`, in the Management API's "MCP" Swagg
 |---|---|---|
 | `GET capabilities` | any backoffice user | Returns `{ addonVersion, products: [{ id, displayName, installed, enabled, version, issues, disabledCollections, readOnly }] }`. `disabledCollections` is `null` for a product without a saved list. When the caller is an API user, records the connection for the "MCP API user" check |
 | `POST catalogue` | API users only (403 otherwise) | The server reports every tool group it loaded: `{ umbrellaVersion, modules: [{ id, siteSettingsIgnored, collections: [{ name, toolCount, readOnlyToolCount, disabledByDefault? }] }] }`. Merged per module into the stored catalogue |
+| `GET overview` | Settings section | What the Overview tab shows (`McpOverviewService`): status, findings, products, connected API users, the `.mcp.json` status and the client snippets |
+| `DELETE connections/{userKey}` | Settings section | Forgets an API user's stored connection (404 if unknown); it returns the next time the server signs in |
+| `POST mcp-json` | Settings section | Writes or upgrades `.mcp.json` through `McpJsonFile`; returns `{ outcome, path, message }`. 404 when the site is not in Development or writing is off, 500 on an I/O failure |
 | `GET tool-settings` | Settings section | What the dashboard shows: the add-on version, products, catalogue, disabled groups, read-only products |
 | `PUT tool-settings` | Settings section | Replaces `disabledCollections` (module id → group names) and `readOnlyModules`. Unknown product ids are refused |
 
@@ -76,9 +80,11 @@ Everything is kept in Umbraco's `umbracoKeyValue` table, so it survives restarts
 
 ### Client config and `.mcp.json`
 
-`McpClientConfig` builds the `{ "mcpServers": { "umbraco": … } }` JSON. Both the "MCP client setup" health check and `McpJsonWriter` use it.
+`McpClientConfig` builds the `{ "mcpServers": { "umbraco": … } }` JSON. The "MCP client setup" health check and `McpClientSnippets` use it. `McpClientSnippets` builds the five snippets on the Overview tab (Claude Code `.mcp.json`, the `claude mcp add` command, VS Code with `inputs`, Cursor with `${env:...}`, other clients). None contains a secret.
 
-`McpJsonWriter` is a hosted service. In Development, once the server has started (only then are its addresses known), it writes `.mcp.json` to the content root or `Umbraco:Mcp:McpJson:Path`. It:
+`McpOverviewService` (`Overview/`) gathers the status, findings, products, API users and snippets once. The three health checks render the same findings through `McpHealthCheckRows` as short rows that point to Settings → Umbrella, and the dashboard renders them in full.
+
+`McpJsonFile` holds the `.mcp.json` rules. `McpJsonWriter` is a hosted service that calls it at startup, and `POST mcp-json` calls it on request. In Development, once the server has started (only then are its addresses known), it writes `.mcp.json` to the content root or `Umbraco:Mcp:McpJson:Path`. It:
 
 - uses the first HTTPS address, with wildcard hosts (`*`, `+`, `0.0.0.0`, `[::]`) turned into `localhost`, and writes nothing if there is none;
 - writes `${UMBRELLA_CLIENT_SECRET}` instead of a secret;
