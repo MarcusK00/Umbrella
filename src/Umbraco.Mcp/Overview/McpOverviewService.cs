@@ -78,7 +78,8 @@ public sealed class McpOverviewService(
             && catalogue!.Modules.TryGetValue(p.Id, out module)
             && module!.ReportedAt == LatestReportedAt(catalogue);
         int toolCount = loaded ? module!.Collections.Sum(c => c.ToolCount) : 0;
-        return new McpOverviewProduct(p.Id, p.DisplayName, p.Installed, p.Enabled, p.Version, p.Issues, loaded, toolCount);
+        string access = p.ReadOnly ? "readOnly" : p.NoDestructive ? "noDestructive" : "full";
+        return new McpOverviewProduct(p.Id, p.DisplayName, p.Installed, p.Enabled, p.Version, p.Issues, loaded, toolCount, access);
     }
 
     private static McpServerReport? BuildServer(McpToolCatalogue? catalogue, string addonVersion)

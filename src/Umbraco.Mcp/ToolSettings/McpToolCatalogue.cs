@@ -4,8 +4,15 @@ namespace Umbraco.Mcp.ToolSettings;
 /// One tool group (collection) of a module and how many of its tools the MCP's API user can use. The read-only
 /// count is null in reports from MCP servers that predate it. <paramref name="DisabledByDefault"/> marks a group the
 /// module keeps off until the site saves a list for it; false in reports from MCP servers that predate it.
+/// <paramref name="NonDestructiveToolCount"/> is the tools without a destructive hint; null in reports from MCP servers
+/// that predate it.
 /// </summary>
-public sealed record McpCollectionInfo(string Name, int ToolCount, int? ReadOnlyToolCount = null, bool DisabledByDefault = false);
+public sealed record McpCollectionInfo(
+    string Name,
+    int ToolCount,
+    int? ReadOnlyToolCount = null,
+    bool DisabledByDefault = false,
+    int? NonDestructiveToolCount = null);
 
 /// <summary>What the MCP server last reported for one module.</summary>
 public sealed record McpModuleCatalogue(DateTimeOffset ReportedAt, bool SiteSettingsIgnored, IReadOnlyList<McpCollectionInfo> Collections);

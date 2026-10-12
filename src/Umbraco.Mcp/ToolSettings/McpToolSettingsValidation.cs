@@ -83,18 +83,29 @@ internal static class McpToolSettingsValidation
     }
 
     /// <returns>An error message, or null when <paramref name="result"/> holds the trimmed, distinct module ids.</returns>
-    public static string? TryNormalizeReadOnlyModules(IReadOnlyList<string?>? input, ISet<string> knownModuleIds, out List<string> result)
+    public static string? TryNormalizeModuleIds(IReadOnlyList<string?>? input, ISet<string> knownModuleIds, string field, out List<string> result)
     {
         result = (input ?? []).Where(n => n is not null).Select(n => n!.Trim()).Where(n => n.Length > 0).Distinct(StringComparer.Ordinal).ToList();
         string? unknown = result.FirstOrDefault(id => !knownModuleIds.Contains(id));
-        return unknown is null ? null : $"readOnlyModules: \"{unknown}\" is not a product this site detects.";
+        return unknown is null ? null : $"{field}: \"{unknown}\" is not a product this site detects.";
+    }
+
+    /// <returns>An error message when a product is in both lists, otherwise null.</returns>
+    public static string? CheckLevelOverlap(IReadOnlyList<string> readOnly, IReadOnlyList<string> noDestructive)
+    {
+        var both = readOnly.Intersect(noDestructive, StringComparer.Ordinal).ToList();
+        return both.Count == 0 ? null : $"A product cannot be both read-only and limited to non-destructive tools: {string.Join(", ", both)}.";
     }
 
     private static McpCollectionInfo NormalizeCounts(string name, McpCollectionInfo info)
     {
         int toolCount = Math.Max(0, info.ToolCount);
         return new McpCollectionInfo(
-            name, toolCount, info.ReadOnlyToolCount is int readOnly ? Math.Clamp(readOnly, 0, toolCount) : null, info.DisabledByDefault);
+            name,
+            toolCount,
+            info.ReadOnlyToolCount is int readOnly ? Math.Clamp(readOnly, 0, toolCount) : null,
+            info.DisabledByDefault,
+            info.NonDestructiveToolCount is int nonDestructive ? Math.Clamp(nonDestructive, 0, toolCount) : null);
     }
 
     private static string? TryNormalizeNames(IReadOnlyList<string?>? names, out List<string> clean)
