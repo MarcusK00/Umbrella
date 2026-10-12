@@ -58,7 +58,7 @@ All under `/umbraco/management/api/v1/mcp/`, in the Management API's "MCP" Swagg
 |---|---|---|
 | `GET capabilities` | any backoffice user | Returns `{ addonVersion, products: [{ id, displayName, installed, enabled, version, issues, disabledCollections, readOnly }] }`. When the caller is an API user, records the connection for the "MCP API user" check |
 | `POST catalogue` | API users only (403 otherwise) | The server reports every tool group it loaded: `{ umbrellaVersion, modules: [{ id, siteSettingsIgnored, collections: [{ name, toolCount, readOnlyToolCount }] }] }`. Merged per module into the stored catalogue |
-| `GET tool-settings` | Settings section | What the dashboard shows: products, catalogue, disabled groups, read-only products |
+| `GET tool-settings` | Settings section | What the dashboard shows: the add-on version, products, catalogue, disabled groups, read-only products |
 | `PUT tool-settings` | Settings section | Replaces `disabledCollections` (module id → group names) and `readOnlyModules`. Unknown product ids are refused |
 
 Input is trimmed, de-duplicated and capped (`McpToolSettingsValidation`: 50 modules, 200 groups per module, 100 characters per name), so a stray client cannot bloat the database.
@@ -83,7 +83,8 @@ Everything is kept in Umbraco's `umbracoKeyValue` table, so it survives restarts
 - uses the first HTTPS address, with wildcard hosts (`*`, `+`, `0.0.0.0`, `[::]`) turned into `localhost`, and writes nothing if there is none;
 - writes `${UMBRELLA_CLIENT_SECRET}` instead of a secret;
 - adds `NODE_TLS_REJECT_UNAUTHORIZED=0` only when the address is loopback;
-- never overwrites a file (it opens with `FileMode.CreateNew`) and never creates folders;
+- never overwrites a file someone edited (a new file is opened with `FileMode.CreateNew`) and never creates folders;
+- upgrades a file it wrote itself (`TryUpgrade`): when the file equals what it would write for the `umbrella-mcp@<version>` it pins, and the add-on's version is newer by `Umbraco.Cms.Core.Semver`, it rewrites the file for the add-on's version. A changed port or client id, an `Args` override or any edit leaves the file alone, and an older add-on never downgrades it;
 - logs failures and never stops the site.
 
 ## The server
@@ -162,7 +163,7 @@ The shared provider only exists once if every product uses the same toolkit copy
 
 ### Health
 
-`get-mcp-health` (`health.ts`) reports the add-on status, the Umbraco version check, and for each module whether it was detected, installed, enabled, loaded, its tool count and its issues, plus notes: products the site has but the server has no module for, unknown ids in `UMBRACO_MCP_MODULES`, ignored or applied dashboard settings, and a failed catalogue report.
+`get-mcp-health` (`health.ts`) reports the add-on status, the Umbraco version check, and for each module whether it was detected, installed, enabled, loaded, its tool count and its issues, plus notes: products the site has but the server has no module for, unknown ids in `UMBRACO_MCP_MODULES`, ignored or applied dashboard settings, a failed catalogue report, and a server version that differs from the add-on's. The report's `server.version` is the running umbrella-mcp. On the site, the "MCP client setup" check and the dashboard compare the catalogue's `umbrellaVersion` with the add-on's version in the same way.
 
 ## The cross-language contract
 
