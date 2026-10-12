@@ -1,0 +1,260 @@
+﻿@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+@{
+    Layout = null;
+    var formId = Model.Value<IEnumerable<Guid>>("form", defaultValue: Enumerable.Empty<Guid>()).FirstOrDefault();
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@Model.Name</title>
+    @* Umbraco Forms needs a client-side validation framework; it ships aspnet-client-validation. *@
+    <script src="/App_Plugins/UmbracoForms/assets/aspnet-client-validation/dist/aspnet-validation.min.js"></script>
+    <style>
+        :root {
+            --bg: #f4f1ec;
+            --bg-accent: #e9e3f7;
+            --card: #ffffff;
+            --text: #1b1a22;
+            --muted: #615e70;
+            --border: #dcd8e4;
+            --field: #fbfaf8;
+            --accent: #3544b1;
+            --accent-hover: #283590;
+            --accent-soft: #e6e8f8;
+            --error: #c0392b;
+            --success-bg: #e7f5ec;
+            --success: #1e6b3a;
+            --radius: 12px;
+        }
+        @@media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #15141b;
+                --bg-accent: #1f1c2e;
+                --card: #1f1e27;
+                --text: #f1eff6;
+                --muted: #a7a3b8;
+                --border: #393647;
+                --field: #262530;
+                --accent: #8f9bff;
+                --accent-hover: #aab3ff;
+                --accent-soft: #2b2e4d;
+                --error: #ff8a7a;
+                --success-bg: #1d3326;
+                --success: #8fdcaa;
+            }
+        }
+
+        *, *::before, *::after { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            font-size: 16px;
+            line-height: 1.5;
+            color: var(--text);
+            background: radial-gradient(circle at top left, var(--bg-accent), var(--bg) 60%);
+        }
+
+        .page {
+            max-width: 640px;
+            margin: 0 auto;
+            padding: 56px 16px 72px;
+        }
+
+        .intro { margin-bottom: 28px; }
+        .eyebrow {
+            display: inline-block;
+            margin-bottom: 12px;
+            padding: 4px 12px;
+            border-radius: 999px;
+            background: var(--accent-soft);
+            color: var(--accent);
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+        .intro h1 {
+            margin: 0 0 8px;
+            font-size: clamp(28px, 5vw, 40px);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+        }
+        .intro p { margin: 0; color: var(--muted); font-size: 18px; }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 32px;
+            box-shadow: 0 1px 2px rgba(20, 16, 40, 0.04), 0 12px 32px rgba(20, 16, 40, 0.08);
+        }
+        @@media (max-width: 520px) { .card { padding: 22px 18px; } }
+
+        /* Umbraco Forms markup */
+        .umbraco-forms-form .umbraco-forms-caption { display: none; }
+        .umbraco-forms-form fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+        .umbraco-forms-fieldset + .umbraco-forms-fieldset {
+            margin-top: 28px;
+            padding-top: 28px;
+            border-top: 1px solid var(--border);
+        }
+        .umbraco-forms-fieldset > legend {
+            margin-bottom: 18px;
+            padding: 0;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .umbraco-forms-field { margin-bottom: 20px; }
+        .umbraco-forms-container > .umbraco-forms-field:last-child { margin-bottom: 0; }
+
+        .umbraco-forms-label,
+        .umbraco-forms-field > legend.umbraco-forms-legend {
+            display: block;
+            margin-bottom: 8px;
+            padding: 0;
+            font-weight: 600;
+            font-size: 15px;
+        }
+        .umbraco-forms-indicator { color: var(--error); margin-left: 2px; }
+        .umbraco-forms-tooltip { display: block; margin: -4px 0 8px; color: var(--muted); font-size: 14px; }
+
+        .umbraco-forms-form input[type=text],
+        .umbraco-forms-form input[type=email],
+        .umbraco-forms-form select,
+        .umbraco-forms-form textarea {
+            width: 100%;
+            padding: 12px 14px;
+            font: inherit;
+            color: var(--text);
+            background: var(--field);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .umbraco-forms-form textarea { min-height: 150px; resize: vertical; }
+        .umbraco-forms-form input::placeholder,
+        .umbraco-forms-form textarea::placeholder { color: var(--muted); opacity: 0.75; }
+        .umbraco-forms-form input:focus,
+        .umbraco-forms-form select:focus,
+        .umbraco-forms-form textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 4px var(--accent-soft);
+        }
+        .umbraco-forms-form .input-validation-error { border-color: var(--error); }
+
+        /* Rating as a row of pills */
+        .radiobuttonlist { display: flex; flex-wrap: wrap; gap: 8px; }
+        .radiobuttonlist > div { position: relative; }
+        .radiobuttonlist input[type=radio] {
+            position: absolute;
+            opacity: 0;
+            width: 1px;
+            height: 1px;
+        }
+        .radiobuttonlist label {
+            display: inline-block;
+            padding: 9px 16px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: var(--field);
+            font-size: 15px;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s, color 0.15s;
+        }
+        .radiobuttonlist label:hover { border-color: var(--accent); }
+        .radiobuttonlist input:checked + label {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+        }
+        .radiobuttonlist input:focus-visible + label { box-shadow: 0 0 0 4px var(--accent-soft); }
+
+        /* Checkboxes */
+        .umbraco-forms-field.checkbox,
+        .umbraco-forms-field.dataconsent { display: flex; align-items: flex-start; gap: 12px; }
+        .umbraco-forms-field.checkbox { flex-direction: row-reverse; justify-content: flex-end; }
+        .umbraco-forms-field.checkbox .umbraco-forms-label { margin: 0; font-weight: 500; }
+        .umbraco-forms-field.dataconsent > .umbraco-forms-label { display: none; }
+        .umbraco-forms-field.checkbox .umbraco-forms-field-wrapper,
+        .umbraco-forms-field.dataconsent .umbraco-forms-field-wrapper { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+        .umbraco-forms-form input[type=checkbox] {
+            width: 20px;
+            height: 20px;
+            margin: 2px 0 0;
+            flex: none;
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+        .umbraco-forms-field.dataconsent label { flex: 1; color: var(--muted); font-size: 15px; cursor: pointer; }
+
+        /* Validation */
+        .field-validation-error { display: block; width: 100%; margin-top: 6px; color: var(--error); font-size: 14px; }
+        .validation-summary-errors {
+            margin-bottom: 20px;
+            padding: 12px 16px;
+            border-radius: var(--radius);
+            background: color-mix(in srgb, var(--error) 12%, transparent);
+            color: var(--error);
+        }
+        .validation-summary-errors ul { margin: 0; padding-left: 18px; }
+
+        /* Submit */
+        .umbraco-forms-navigation { margin-top: 28px; }
+        .umbraco-forms-form .btn.primary {
+            width: 100%;
+            padding: 14px 24px;
+            font: inherit;
+            font-weight: 600;
+            color: #fff;
+            background: var(--accent);
+            border: 0;
+            border-radius: var(--radius);
+            cursor: pointer;
+            transition: background 0.15s, transform 0.05s;
+        }
+        @@media (prefers-color-scheme: dark) { .umbraco-forms-form .btn.primary { color: #11121f; } }
+        .umbraco-forms-form .btn.primary:hover { background: var(--accent-hover); }
+        .umbraco-forms-form .btn.primary:active { transform: translateY(1px); }
+        .umbraco-forms-form .btn.primary:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--accent-soft); }
+
+        /* Thank-you message */
+        .umbraco-forms-submitmessage {
+            display: block;
+            padding: 20px;
+            border-radius: var(--radius);
+            background: var(--success-bg);
+            color: var(--success);
+            font-size: 18px;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .umbraco-forms-hidden { display: none; }
+    </style>
+</head>
+<body>
+    <main class="page">
+        <header class="intro">
+            <span class="eyebrow">Feedback</span>
+            <h1>Tell us what you think</h1>
+            <p>It only takes a minute, and it helps us make things better.</p>
+        </header>
+
+        @if (formId != Guid.Empty)
+        {
+            <section class="card">
+                @await Component.InvokeAsync("RenderForm", new { formId = formId, theme = "default", includeScripts = true })
+            </section>
+        }
+    </main>
+</body>
+</html>
