@@ -84,11 +84,18 @@ export function buildHealthReport(state: HealthState): HealthReport {
   }
 
   const products: HealthProduct[] = state.modules.map((
-    { decision, loaded, toolCount, issues, siteDisabledCollections = [], siteSettingsIgnored = false, siteReadOnly = false },
+    {
+      decision, loaded, toolCount, issues,
+      siteDisabledCollections = [], defaultDisabledCollections = [], siteSettingsIgnored = false, siteReadOnly = false,
+    },
   ) => {
     const name = decision.module.displayName;
     // Without the add-on there is no Umbrella dashboard, so there are no backoffice settings to mention.
     const hasDashboard = caps.kind === "ok";
+    if (defaultDisabledCollections.length > 0) {
+      const how = hasDashboard ? "Switch them on in the Umbrella dashboard." : "Set UMBRACO_INCLUDE_TOOL_COLLECTIONS to switch them on.";
+      notes.push(`${name}: tool groups off by default: ${defaultDisabledCollections.join(", ")}. ${how}`);
+    }
     if (hasDashboard && siteSettingsIgnored) {
       notes.push(`${name}: the backoffice tool group settings are ignored because the environment sets collection filters for this module.`);
     } else if (hasDashboard && siteDisabledCollections.length > 0) {

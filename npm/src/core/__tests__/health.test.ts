@@ -102,6 +102,28 @@ describe("buildHealthReport", () => {
     expect(r.notes).toContain("Umbraco CMS: tool groups disabled in the backoffice: log-viewer, webhook.");
   });
 
+  const formsLoaded: ModuleRuntimeState = {
+    decision: { module: mod("forms", "Umbraco Forms"), product: null, load: true, reason: "Installed." },
+    loaded: true, toolCount: 100, issues: [],
+  };
+
+  it("notes default-off tool groups and points at the dashboard", () => {
+    const caps = { kind: "ok" as const, payload: { addonVersion: "17.0.0", products: [] } };
+    const r = buildHealthReport(state(caps, [{ ...formsLoaded, defaultDisabledCollections: ["umbraco-server", "acceptance-tests"] }]));
+    expect(r.notes).toContain("Umbraco Forms: tool groups off by default: umbraco-server, acceptance-tests. Switch them on in the Umbrella dashboard.");
+  });
+
+  it("notes default-off tool groups without the add-on and points at the env var", () => {
+    const r = buildHealthReport(state({ kind: "no-addon" }, [{ ...formsLoaded, defaultDisabledCollections: ["umbraco-server", "acceptance-tests"] }]));
+    expect(r.notes).toContain("Umbraco Forms: tool groups off by default: umbraco-server, acceptance-tests. Set UMBRACO_INCLUDE_TOOL_COLLECTIONS to switch them on.");
+  });
+
+  it("says nothing about defaults when none were applied", () => {
+    const caps = { kind: "ok" as const, payload: { addonVersion: "17.0.0", products: [] } };
+    expect(buildHealthReport(state(caps, [{ ...formsLoaded, defaultDisabledCollections: [] }])).notes.join(" ")).not.toMatch(/off by default/);
+    expect(buildHealthReport(state(caps, [formsLoaded])).notes.join(" ")).not.toMatch(/off by default/);
+  });
+
   it("notes when the environment overrides the backoffice settings", () => {
     const r = buildHealthReport(state({ kind: "ok", payload: { addonVersion: "17.0.0", products: [] } }, [{ ...cmsLoaded, siteDisabledCollections: ["log-viewer"], siteSettingsIgnored: true }]));
     expect(r.notes).toContain(
