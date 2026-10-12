@@ -44,4 +44,43 @@ public class KeyValueMcpConnectionStoreTests
 
         Assert.That(store.GetAll(), Is.EqualTo(new[] { new McpConnection(Alice, at) }));
     }
+
+    [Test]
+    public void Remove_blanks_the_row_and_hides_the_connection()
+    {
+        var values = new FakeKeyValueService();
+        var store = new KeyValueMcpConnectionStore(values);
+        store.Record(Alice, new DateTimeOffset(2026, 10, 11, 9, 0, 0, TimeSpan.Zero));
+
+        bool removed = store.Remove(Alice);
+
+        Assert.That(removed, Is.True);
+        Assert.That(store.GetAll(), Is.Empty);
+        Assert.That(values.Values[$"Umbraco.Mcp.Connection.{Alice:D}"], Is.EqualTo(""));
+    }
+
+    [Test]
+    public void Remove_of_an_unknown_or_already_removed_key_returns_false()
+    {
+        var store = new KeyValueMcpConnectionStore(new FakeKeyValueService());
+        store.Record(Alice, new DateTimeOffset(2026, 10, 11, 9, 0, 0, TimeSpan.Zero));
+
+        Assert.That(store.Remove(Bob), Is.False);
+        Assert.That(store.Remove(Alice), Is.True);
+        Assert.That(store.Remove(Alice), Is.False);
+    }
+
+    [Test]
+    public void Record_after_remove_brings_the_connection_back()
+    {
+        var store = new KeyValueMcpConnectionStore(new FakeKeyValueService());
+        var first = new DateTimeOffset(2026, 10, 11, 9, 0, 0, TimeSpan.Zero);
+        var later = first.AddHours(3);
+        store.Record(Alice, first);
+        store.Remove(Alice);
+
+        store.Record(Alice, later);
+
+        Assert.That(store.GetAll(), Is.EqualTo(new[] { new McpConnection(Alice, later) }));
+    }
 }

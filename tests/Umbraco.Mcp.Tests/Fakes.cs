@@ -65,7 +65,15 @@ internal sealed class FakeConnectionStore : IMcpConnectionStore
         Recorded.Add(new McpConnection(userKey, at));
     }
 
+    public List<Guid> Removed { get; } = [];
+
     public IReadOnlyCollection<McpConnection> GetAll() => Recorded;
+
+    public bool Remove(Guid userKey)
+    {
+        Removed.Add(userKey);
+        return Recorded.RemoveAll(c => c.UserKey == userKey) > 0;
+    }
 }
 
 internal sealed class FakeBackOfficeSecurityAccessor(IUser? currentUser) : IBackOfficeSecurityAccessor, IBackOfficeSecurity

@@ -37,7 +37,7 @@ public class McpApiUserHealthCheckTests
         Build([user], products);
 
     private static McpApiUser User(UserState state = UserState.Active, params string[] sections) =>
-        new("MCP API user", state, sections, ["umbraco-back-office-mcp"], LastConnected);
+        new(Guid.NewGuid(), "MCP API user", state, sections, ["umbraco-back-office-mcp"], LastConnected);
 
     [Test]
     public void No_connection_yet_is_a_single_info_row()
@@ -52,7 +52,7 @@ public class McpApiUserHealthCheckTests
     [Test]
     public void Any_user_name_and_client_id_the_mcp_connected_with_is_success()
     {
-        var user = new McpApiUser("DoctorUserApi", UserState.Active, ["Umb.Section.Forms", "Ua.Section.Automate"],
+        var user = new McpApiUser(Guid.NewGuid(), "DoctorUserApi", UserState.Active, ["Umb.Section.Forms", "Ua.Section.Automate"],
             ["random-client-id-name-here"], LastConnected);
 
         HealthCheckStatus row = Build(user, AllProducts).Single();
@@ -74,7 +74,7 @@ public class McpApiUserHealthCheckTests
     [Test]
     public void A_user_without_client_ids_left_is_named_without_them()
     {
-        var user = new McpApiUser("MCP API user", UserState.Active, [], [], LastConnected);
+        var user = new McpApiUser(Guid.NewGuid(), "MCP API user", UserState.Active, [], [], LastConnected);
 
         HealthCheckStatus row = Build(user, Product("cms", "Umbraco CMS")).Single();
 
@@ -124,9 +124,9 @@ public class McpApiUserHealthCheckTests
     [Test]
     public void Each_connected_user_is_checked_on_its_own()
     {
-        var editor = new McpApiUser("Editor MCP", UserState.Active, ["Umb.Section.Forms", "Ua.Section.Automate"],
+        var editor = new McpApiUser(Guid.NewGuid(), "Editor MCP", UserState.Active, ["Umb.Section.Forms", "Ua.Section.Automate"],
             ["editor-mcp"], LastConnected);
-        var developer = new McpApiUser("Developer MCP", UserState.Active, ["Umb.Section.Forms"],
+        var developer = new McpApiUser(Guid.NewGuid(), "Developer MCP", UserState.Active, ["Umb.Section.Forms"],
             ["developer-mcp"], LastConnected.AddHours(-1));
 
         List<HealthCheckStatus> rows = Build([editor, developer], AllProducts);
