@@ -1,0 +1,146 @@
+using System.Reflection;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using NUnit.Framework;
+using Umbraco.Cms.Core.Configuration.Models;
+using Umbraco.Cms.Core.Models.Membership;
+using Umbraco.Cms.Web.Common.Authorization;
+using Umbraco.Mcp.Api;
+using Umbraco.Mcp.Capabilities;
+using Umbraco.Mcp.Detection;
+using Umbraco.Mcp.ToolSettings;
+
+namespace Umbraco.Mcp.Tests;
+
+[TestFixture]
+public class McpToolSettingsControllerTests
+{
+    private sealed class StubCapabilities(params string[] ids) : IMcpCapabilitiesService
+    {
+        public McpCapabilities GetCapabilities() =>
+            new("17.0.0", ids.Select(id => new McpProductStatus(id, id, true, true, "17.0.0", [])).ToList());
+    }
+
+    private static IUser User(UserKind kind) => new User(new GlobalSettings()) { Key = Guid.NewGuid(), Kind = kind };
+
+    private static McpToolSettingsController Controller(FakeToolSettingsStore store, IUser? user = null) =>
+        new(store, new StubCapabilities("cms", "forms"), new FakeBackOfficeSecurityAccessor(user ?? User(UserKind.Default)));
+
+    private static McpCatalogueReport Report(string id = "forms", int collections = 1, string name = "prevalue-source") =>
+        new("17.0.0-alpha.1", [new McpModuleReport(id, false, Enumerable.Range(0, collections).Select(i => new McpCollectionInfo(collections == 1 ? name : $"{name}-{i}", 10)).ToList())]);
+
+    private static string? PolicyOf(string method) =>
+        typeof(McpToolSettingsController).GetMethod(method)!.GetCustomAttribute<AuthorizeAttribute>()?.Policy;
+
+    [Test]
+    public void Controller_requires_back_office_access_and_settings_for_the_dashboard_endpoints()
+    {
+        Assert.That(typeof(McpToolSettingsController).GetCustomAttribute<AuthorizeAttribute>(inherit: false)!.Policy,
+            Is.EqualTo(AuthorizationPolicies.BackOfficeAccess));
+        Assert.That(PolicyOf(nameof(McpToolSettingsController.GetToolSettings)), Is.EqualTo(AuthorizationPolicies.SectionAccessSettings));
+        Assert.That(PolicyOf(nameof(McpToolSettingsController.PutToolSettings)), Is.EqualTo(AuthorizationPolicies.SectionAccessSettings));
+        Assert.That(PolicyOf(nameof(McpToolSettingsController.PostCatalogue)), Is.Null);
+    }
+
+    [Test]
+    public void Get_returns_products_catalogue_and_disabled_lists()
+    {
+        var store = new FakeToolSettingsStore { Disabled = new() { ["forms"] = ["prevalue-source"] } };
+
+        var body = (McpToolSettingsResponse)((OkObjectResult)Controller(store).GetToolSettings()).Value!;
+
+        Assert.That(body.Products.Select(p => p.Id), Is.EqualTo(new[] { "cms", "forms" }));
+        Assert.That(body.Catalogue, Is.SameAs(store.Catalogue));
+        Assert.That(body.DisabledCollections["forms"], Is.EqualTo(new[] { "prevalue-source" }));
+    }
+
+    [Test]
+    public void Put_trims_drops_empty_and_deduplicates_names()
+    {
+        var store = new FakeToolSettingsStore();
+
+        IActionResult result = Controller(store).PutToolSettings(new McpToolSettingsRequest(new Dictionary<string, IReadOnlyList<string>?>
+        {
+            ["forms"] = [" prevalue-source ", "", "prevalue-source", "data-source"],
+            ["cms"] = null,
+        }));
+
+        Assert.That(result, Is.InstanceOf<OkObjectResult>());
+        Assert.That(store.Disabled["forms"], Is.EqualTo(new[] { "prevalue-source", "data-source" }));
+        Assert.That(store.Disabled["cms"], Is.Empty);
+    }
+
+    [TestCase("commerce")]
+    [TestCase("Forms")]
+    public void Put_rejects_a_module_id_that_is_not_a_detected_product(string id)
+    {
+        var store = new FakeToolSettingsStore();
+
+        IActionResult result = Controller(store).PutToolSettings(
+            new McpToolSettingsRequest(new Dictionary<string, IReadOnlyList<string>?> { [id] = ["x"] }));
+
+        Assert.That(result, Is.InstanceOf<BadRequestObjectResult>());
+        Assert.That(store.Disabled, Is.Empty);
+    }
+
+    [Test]
+    public void Put_rejects_a_missing_body_and_oversized_lists()
+    {
+        var store = new FakeToolSettingsStore();
+        var tooMany = Enumerable.Range(0, McpToolSettingsValidation.MaxCollections + 1).Select(i => $"c{i}").ToList();
+        var tooLong = new string('x', McpToolSettingsValidation.MaxNameLength + 1);
+
+        Assert.That(Controller(store).PutToolSettings(new McpToolSettingsRequest(null)), Is.InstanceOf<BadRequestObjectResult>());
+        Assert.That(Controller(store).PutToolSettings(new McpToolSettingsRequest(new Dictionary<string, IReadOnlyList<string>?> { ["forms"] = tooMany })),
+            Is.InstanceOf<BadRequestObjectResult>());
+        Assert.That(Controller(store).PutToolSettings(new McpToolSettingsRequest(new Dictionary<string, IReadOnlyList<string>?> { ["forms"] = [tooLong] })),
+            Is.InstanceOf<BadRequestObjectResult>());
+        Assert.That(store.Disabled, Is.Empty);
+    }
+
+    [Test]
+    public void Post_from_a_normal_backoffice_user_is_forbidden_and_not_stored()
+    {
+        var store = new FakeToolSettingsStore();
+
+        IActionResult result = Controller(store, User(UserKind.Default)).PostCatalogue(Report());
+
+        Assert.That(result, Is.InstanceOf<StatusCodeResult>().With.Property(nameof(StatusCodeResult.StatusCode)).EqualTo(403));
+        Assert.That(store.Merged, Is.Empty);
+    }
+
+    [Test]
+    public void Post_from_an_api_user_merges_the_report_with_the_current_time()
+    {
+        var store = new FakeToolSettingsStore();
+        DateTimeOffset before = DateTimeOffset.UtcNow;
+
+        IActionResult result = Controller(store, User(UserKind.Api)).PostCatalogue(Report());
+
+        Assert.That(result, Is.InstanceOf<NoContentResult>());
+        Assert.That(store.Merged.Single().Report.Modules.Single().Collections.Single(), Is.EqualTo(new McpCollectionInfo("prevalue-source", 10)));
+        Assert.That(store.Merged.Single().At, Is.InRange(before, DateTimeOffset.UtcNow));
+    }
+
+    // Review Focus 4: a newer npm may report a module this add-on has no detector for.
+    [Test]
+    public void Post_accepts_a_module_the_add_on_does_not_know()
+    {
+        var store = new FakeToolSettingsStore();
+
+        Assert.That(Controller(store, User(UserKind.Api)).PostCatalogue(Report("commerce")), Is.InstanceOf<NoContentResult>());
+        Assert.That(store.Merged.Single().Report.Modules.Single().Id, Is.EqualTo("commerce"));
+    }
+
+    [Test]
+    public void Post_rejects_oversized_reports()
+    {
+        var store = new FakeToolSettingsStore();
+        var api = User(UserKind.Api);
+
+        Assert.That(Controller(store, api).PostCatalogue(Report(collections: McpToolSettingsValidation.MaxCollections + 1)), Is.InstanceOf<BadRequestObjectResult>());
+        Assert.That(Controller(store, api).PostCatalogue(Report(name: new string('x', McpToolSettingsValidation.MaxNameLength + 1))), Is.InstanceOf<BadRequestObjectResult>());
+        Assert.That(Controller(store, api).PostCatalogue(Report(id: "")), Is.InstanceOf<BadRequestObjectResult>());
+        Assert.That(store.Merged, Is.Empty);
+    }
+}
