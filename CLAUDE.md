@@ -17,7 +17,7 @@ Current docs, to keep in sync with the code:
 - `docs/development.md`: setup from a fresh clone, tests, the e2e scripts.
 - `docs/adding-a-product.md`, `docs/releasing.md`, `docs/merging.md`.
 
-The docs are written as if both packages are released, but nothing is published yet: `npm/package.json` keeps `"private": true` until the first release (`docs/releasing.md`). The source folders, namespaces and solution keep their `Umbraco.Mcp` names; only the package ids changed. Earlier working names were `Umbraco.Mcp` / `@umbraco/mcp`.
+The docs are written as if both packages are released. Releases are pre-release test versions for now: `"private": true` is gone from `npm/package.json`, and the NuGet package has no `umbraco-marketplace` tag until a Marketplace release (`docs/releasing.md`). The source folders, namespaces and solution keep their `Umbraco.Mcp` names; only the package ids changed. Earlier working names were `Umbraco.Mcp` / `@umbraco/mcp`.
 
 ## Commands
 
@@ -160,4 +160,4 @@ No changes in `npm/src/core/`. The contract test then covers the new module auto
   - `npm/.env.example` holds placeholders only.
   - On boot the demo site may write a generated `Imaging:HMACSecretKey` into `demo-site/appsettings.json`. Don't commit it: the committed value is `""`. Stage files explicitly rather than with `git add -A`.
 - **Docs:** dates use DD-MM-YYYY. User docs (`README.md`, `npm/README.md`, `src/Umbraco.Mcp/README.md`) describe the released packages; keep the version in their config examples equal to the package version.
-- **Publishing:** never publish to npm or NuGet unless asked. Keep `"private": true` in `npm/package.json` until then.
+- **Publishing:** never publish to npm or NuGet unless asked; nothing guards against it any more, since `"private": true` is gone. Don't add the `umbraco-marketplace` tag back unless asked.
