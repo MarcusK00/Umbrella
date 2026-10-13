@@ -83,6 +83,18 @@ describe("buildHealthReport", () => {
     expect(skipped.products.find((p) => p.id === "forms")!.issues).toEqual(["disabled"]);
   });
 
+  it("reports an off module as a note, not an issue", () => {
+    const forms = { id: "forms", displayName: "Umbraco Forms", installed: true, enabled: true, version: "17.6.1", issues: [], off: true };
+    const caps = { kind: "ok" as const, payload: { addonVersion: "17.0.0", products: [forms] } };
+    const reason = "Switched off in the backoffice (Settings → Umbrella).";
+    const r = buildHealthReport(state(caps, [cmsLoaded, {
+      decision: { module: mod("forms", "Umbraco Forms"), product: forms, load: false, reason, switchedOff: true },
+      loaded: false, toolCount: 0, issues: [],
+    }]));
+    expect(r.products.find((p) => p.id === "forms")!.issues).toEqual([]);
+    expect(r.notes).toContain(`Umbraco Forms: ${reason}`);
+  });
+
   // Review Focus 4: unknown forced ids are reported, not thrown
   it("notes forced module ids that match no module", () => {
     const r = buildHealthReport(state({ kind: "no-addon" }, [cmsLoaded], ["engage"]));

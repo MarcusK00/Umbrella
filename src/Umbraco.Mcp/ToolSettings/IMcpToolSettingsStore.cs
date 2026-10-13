@@ -21,6 +21,11 @@ public interface IMcpToolSettingsStore
 
     void SetNoDestructiveModules(IReadOnlyList<string> moduleIds);
 
+    /// <summary>Ids of the modules switched off: the npm server does not load them. Empty when nothing is stored.</summary>
+    IReadOnlyList<string> GetOffModules();
+
+    void SetOffModules(IReadOnlyList<string> moduleIds);
+
     McpToolCatalogue GetCatalogue();
 
     /// <summary>Overwrites the modules in <paramref name="report"/> and keeps every other module's last entry.</summary>

@@ -7,7 +7,10 @@ public static class McpToolLevel
     public const string NoDestructive = "noDestructive";
     public const string ReadOnly = "readOnly";
 
-    public static bool IsValid(string? level) => level is Full or NoDestructive or ReadOnly;
+    /// <summary>The npm server does not load the product at all.</summary>
+    public const string Off = "off";
+
+    public static bool IsValid(string? level) => level is Full or NoDestructive or ReadOnly or Off;
 }
 
 /// <summary>

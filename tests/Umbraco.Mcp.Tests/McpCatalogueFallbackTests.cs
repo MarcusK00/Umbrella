@@ -123,6 +123,26 @@ public class McpCatalogueFallbackTests
     }
 
     [Test]
+    public void Highest_fills_modules_no_user_reported_from_the_shared_row()
+    {
+        Guid user = Guid.NewGuid();
+        var catalogues = new Dictionary<Guid, McpToolCatalogue>
+        {
+            [user] = new("17.0.0", new Dictionary<string, McpModuleCatalogue> { ["cms"] = Module(T2, new McpCollectionInfo("document", 20)) }),
+        };
+        var shared = new McpToolCatalogue("17.0.0", new Dictionary<string, McpModuleCatalogue>
+        {
+            ["cms"] = Module(T1, new McpCollectionInfo("document", 5)),
+            ["forms"] = Module(T1, new McpCollectionInfo("form", 30)),
+        });
+
+        McpToolCatalogue highest = McpCatalogueFallback.Highest(catalogues, shared, new HashSet<Guid> { user });
+
+        Assert.That(highest.Modules["cms"].Collections.Single(), Is.EqualTo(new McpCollectionInfo("document", 20)));
+        Assert.That(highest.Modules["forms"], Is.SameAs(shared.Modules["forms"]));
+    }
+
+    [Test]
     public void Highest_keeps_a_count_missing_when_no_report_has_it()
     {
         Guid a = Guid.NewGuid(), b = Guid.NewGuid();

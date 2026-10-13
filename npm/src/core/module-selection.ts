@@ -6,6 +6,8 @@ export interface ModuleDecision {
   product: ProductCapability | null;
   load: boolean;
   reason: string;
+  /** Set only when the module was skipped because the site switched it off in the backoffice. */
+  switchedOff?: true;
 }
 
 export function parseForcedModules(value: string | undefined): string[] {
@@ -31,6 +33,13 @@ export function selectModules(
     const decide = (load: boolean, reason: string): ModuleDecision => ({ module, product, load, reason });
 
     if (module.required) return decide(true, "Required module.");
+    // The backoffice's restrictions always apply, so Off wins over forcing it on via the environment.
+    if (product?.off === true) {
+      const reason = product.settingsScope === "user"
+        ? "Switched off for this API user in the backoffice (Settings → Umbrella)."
+        : "Switched off in the backoffice (Settings → Umbrella).";
+      return { ...decide(false, reason), switchedOff: true };
+    }
     if (forced.includes(module.id)) return decide(true, "Forced on via UMBRACO_MCP_MODULES.");
     if (capabilities.kind === "no-addon") {
       return decide(false, "The Umbraco.Community.Umbrella add-on is not installed on the site, so products cannot be detected.");

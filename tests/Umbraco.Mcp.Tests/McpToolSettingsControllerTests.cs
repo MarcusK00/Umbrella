@@ -119,6 +119,65 @@ public class McpToolSettingsControllerTests
     }
 
     [Test]
+    public async Task Put_saves_off_modules()
+    {
+        var store = new FakeToolSettingsStore();
+        McpToolSettingsController controller = Controller(store);
+
+        IActionResult result = controller.PutToolSettings(new McpToolSettingsRequest(
+            new Dictionary<string, IReadOnlyList<string>?>(), null, null, [" forms ", "forms"]));
+
+        Assert.That(result, Is.InstanceOf<OkObjectResult>());
+        Assert.That(store.Off, Is.EqualTo(new[] { "forms" }));
+        Assert.That(((McpToolSettings)((OkObjectResult)result).Value!).OffModules, Is.EqualTo(new[] { "forms" }));
+        var body = (McpToolSettingsResponse)((OkObjectResult)await controller.GetToolSettings()).Value!;
+        Assert.That(body.OffModules, Is.EqualTo(new[] { "forms" }));
+    }
+
+    [Test]
+    public void Put_rejects_a_module_off_and_read_only_and_stores_nothing()
+    {
+        var store = new FakeToolSettingsStore { ReadOnly = ["cms"], Off = ["automate"] };
+
+        IActionResult result = Controller(store).PutToolSettings(new McpToolSettingsRequest(
+            new Dictionary<string, IReadOnlyList<string>?>(), ["forms"], null, ["forms"]));
+
+        Assert.That(result, Is.InstanceOf<BadRequestObjectResult>());
+        Assert.That(((ProblemDetails)((BadRequestObjectResult)result).Value!).Detail,
+            Is.EqualTo("A product that is off cannot also be read-only or limited to non-destructive tools: forms."));
+        Assert.That(store.ReadOnly, Is.EqualTo(new[] { "cms" }));
+        Assert.That(store.NoDestructive, Is.Empty);
+        Assert.That(store.Off, Is.EqualTo(new[] { "automate" }));
+    }
+
+    [Test]
+    public void Put_rejects_cms_off()
+    {
+        var store = new FakeToolSettingsStore();
+
+        IActionResult result = Controller(store).PutToolSettings(new McpToolSettingsRequest(
+            new Dictionary<string, IReadOnlyList<string>?>(), null, null, ["cms"]));
+
+        Assert.That(result, Is.InstanceOf<BadRequestObjectResult>());
+        Assert.That(((ProblemDetails)((BadRequestObjectResult)result).Value!).Detail,
+            Is.EqualTo("CMS cannot be switched off: the MCP server signs in through it."));
+        Assert.That(store.Off, Is.Empty);
+    }
+
+    [Test]
+    public async Task Put_user_accepts_level_off()
+    {
+        McpApiUserInfo ann = ApiUser("ann");
+        var store = new FakeToolSettingsStore();
+
+        IActionResult result = await Controller(store, directory: new FakeApiUserDirectory(ann)).PutUserToolSettings(ann.Key,
+            new McpUserToolSettingsRequest(new Dictionary<string, McpProductOverrideRequest?> { ["forms"] = new([], McpToolLevel.Off) }));
+
+        Assert.That(result, Is.InstanceOf<OkObjectResult>());
+        Assert.That(store.UserOverrides[ann.Key]["forms"].Level, Is.EqualTo(McpToolLevel.Off));
+    }
+
+    [Test]
     public void Put_without_no_destructive_modules_clears_them()
     {
         var store = new FakeToolSettingsStore { NoDestructive = ["forms"] };
@@ -516,7 +575,7 @@ public class McpToolSettingsControllerTests
 
     private static IEnumerable<TestCaseData> InvalidOverrides()
     {
-        const string levelMessage = "forms: level must be \"full\", \"noDestructive\" or \"readOnly\".";
+        const string levelMessage = "forms: level must be \"full\", \"noDestructive\", \"readOnly\" or \"off\".";
         const string needsMessage = "forms: an override needs disabledCollections and level.";
         yield return new TestCaseData(null, "overrides is required.").SetName("missing overrides");
         yield return new TestCaseData(
@@ -539,6 +598,9 @@ public class McpToolSettingsControllerTests
         yield return new TestCaseData(
             Enumerable.Range(0, McpToolSettingsValidation.MaxModules + 1).ToDictionary(i => $"m{i}", _ => (McpProductOverrideRequest?)new([], McpToolLevel.Full)),
             $"At most {McpToolSettingsValidation.MaxModules} modules are allowed.").SetName("too many modules");
+        yield return new TestCaseData(
+            new Dictionary<string, McpProductOverrideRequest?> { ["cms"] = new([], McpToolLevel.Off) },
+            "cms: CMS cannot be switched off: the MCP server signs in through it.").SetName("cms off");
     }
 
     [TestCaseSource(nameof(InvalidOverrides))]

@@ -565,13 +565,13 @@ footer { margin-block-start: 72px; padding-block-start: 20px; border-top: 1px so
       <span class="k">"installed"</span>: true, <span class="k">"enabled"</span>: true,
       <span class="k">"version"</span>: <span class="v">"17.7.0"</span>, <span class="k">"issues"</span>: [],
       <span class="k">"disabledCollections"</span>: <span class="hl">null</span>,
-      <span class="k">"readOnly"</span>: false, <span class="k">"noDestructive"</span>: false,
+      <span class="k">"readOnly"</span>: false, <span class="k">"noDestructive"</span>: false, <span class="k">"off"</span>: false,
       <span class="k">"settingsScope"</span>: <span class="v">"site"</span> },
     { <span class="k">"id"</span>: <span class="v">"forms"</span>, <span class="k">"displayName"</span>: <span class="v">"Umbraco Forms"</span>,
       <span class="k">"installed"</span>: true, <span class="k">"enabled"</span>: true,
       <span class="k">"version"</span>: <span class="v">"17.6.1"</span>, <span class="k">"issues"</span>: [],
       <span class="k">"disabledCollections"</span>: <span class="hl">["licensing", "updates"]</span>,
-      <span class="k">"readOnly"</span>: false, <span class="k">"noDestructive"</span>: <span class="hl">true</span>,
+      <span class="k">"readOnly"</span>: false, <span class="k">"noDestructive"</span>: <span class="hl">true</span>, <span class="k">"off"</span>: false,
       <span class="k">"settingsScope"</span>: <span class="hl">"user"</span> },
     { <span class="k">"id"</span>: <span class="v">"engage"</span>, <span class="k">"displayName"</span>: <span class="v">"Umbraco Engage"</span>,
       <span class="k">"installed"</span>: false, <span class="k">"enabled"</span>: false,
@@ -657,7 +657,7 @@ footer { margin-block-start: 72px; padding-block-start: 20px; border-top: 1px so
     <p><code>selectModules()</code> asks four questions per module. The first answer that decides wins, and the reason is kept for <code>get-mcp-health</code>.</p>
     <figure>
       <div class="scroll">
-        <svg class="min-l" viewBox="0 0 1080 300" role="img" aria-label="Decision flow: required modules load, forced modules load, no add-on answer means skip, not installed or enabled or wrong major means skip, otherwise load.">
+        <svg class="min-l" viewBox="0 0 1080 300" role="img" aria-label="Decision flow: required modules load, modules switched off in the backoffice are skipped, forced modules load, no add-on answer means skip, not installed or enabled or wrong major means skip, otherwise load.">
           <rect class="band ok" x="20" y="20" width="1040" height="40" rx="8"/>
           <text class="lbl c-ok" x="40" y="45">LOAD</text>
           <rect class="band skip" x="20" y="240" width="1040" height="40" rx="8"/>
@@ -694,7 +694,7 @@ footer { margin-block-start: 72px; padding-block-start: 20px; border-top: 1px so
           <text class="s" x="928" y="218">no</text>
         </svg>
       </div>
-      <figcaption>Without the add-on the server still works, with CMS tools only (plus anything forced). Selected is not yet loaded: phase 1 can still skip a module whose package is missing, that brings its own nested toolkit copy, or whose <code>load()</code> throws.</figcaption>
+      <figcaption>Between the first two checks, a product switched <b>Off</b> in the backoffice is skipped, even when forced; <code>get-mcp-health</code> shows that as a note. Without the add-on the server still works, with CMS tools only (plus anything forced). Selected is not yet loaded: phase 1 can still skip a module whose package is missing, that brings its own nested toolkit copy, or whose <code>load()</code> throws.</figcaption>
     </figure>
   </section>
 
@@ -704,7 +704,7 @@ footer { margin-block-start: 72px; padding-block-start: 20px; border-top: 1px so
     <p>Each loaded module's tools pass the same gates, using the product's own unprefixed names. Environment variables live in the AI tool's config; site settings come from the dashboard via capabilities.</p>
     <figure>
       <div class="scroll">
-        <svg class="min-xl" viewBox="0 0 1080 362" role="img" aria-label="Forms tools pass four gates: switched-off tool groups, environment tool filters, read-only, and no destructive. Survivors are prefixed and registered. Which list switches groups off is the first that exists of: environment collection filter, the site's saved list, the module defaults.">
+        <svg class="min-xl" viewBox="0 0 1080 362" role="img" aria-label="Forms tools pass four gates: switched-off tool groups, environment tool filters, read-only, and no deletes. Survivors are prefixed and registered. Which list switches groups off is the first that exists of: environment collection filter, the site's saved list, the module defaults.">
           <rect class="box server" x="20" y="80" width="130" height="80" rx="8"/>
           <text class="t mid" x="85" y="112">All Forms tools</text>
           <text class="s mid" x="85" y="130">from the package's</text>
@@ -720,7 +720,7 @@ footer { margin-block-start: 72px; padding-block-start: 20px; border-top: 1px so
           <text class="t sm mid" x="640" y="114">Read-only</text>
           <text class="s mid" x="640" y="132">site OR env</text>
           <rect class="box site" x="740" y="70" width="120" height="100" rx="8"/>
-          <text class="t sm mid" x="800" y="114">No destructive</text>
+          <text class="t sm mid" x="800" y="114">No deletes</text>
           <text class="s mid" x="800" y="132">site OR env</text>
 
           <rect class="panel server" x="930" y="80" width="140" height="80" rx="8"/>
@@ -757,9 +757,9 @@ footer { margin-block-start: 72px; padding-block-start: 20px; border-top: 1px so
           <rect class="box" x="580" y="210" width="480" height="134" rx="8"/>
           <text class="lbl" x="598" y="236">Levels can only remove tools</text>
           <text class="s" x="598" y="260">Read-only keeps only read-only tools.</text>
-          <text class="s" x="598" y="280">No destructive drops tools annotated destructiveHint: true.</text>
+          <text class="s" x="598" y="280">No deletes drops tools annotated destructiveHint: true.</text>
           <text class="s" x="598" y="300">Always applied, even when env filters override the dashboard.</text>
-          <text class="s" x="598" y="320">The dashboard stores one level per product; read-only wins.</text>
+          <text class="s" x="598" y="320">One level per product. Off never gets here: the module isn't loaded.</text>
         </svg>
       </div>
       <figcaption>The env collection filter replaces the dashboard list for that product entirely, and the dashboard shows a warning. The catalogue sent back to the site is built before any of these gates, so the dashboard can show switched-off groups too.</figcaption>
@@ -941,7 +941,7 @@ If the request does not clearly match one product, or product tools seem missing
           <text class="s mid" x="1010" y="84">Settings →</text>
           <text class="s mid" x="1010" y="100">Umbrella →</text>
           <text class="s mid" x="1010" y="116">Tool Permissions</text>
-          <text class="s mid" x="1010" y="140">picker:</text>
+          <text class="s mid" x="1010" y="140">list:</text>
           <text class="s mid" x="1010" y="154">defaults, or</text>
           <text class="s mid" x="1010" y="168">one API user</text>
           <line class="ln site" x1="958" y1="78" x2="912" y2="78" marker-end="url(#ah-site)"/>
@@ -982,7 +982,7 @@ If the request does not clearly match one product, or product tools seem missing
       <figcaption>Anna and Bo call the same endpoint and get different answers because the add-on knows who signed in. The npm server only reads the booleans and the lists, so it needs no per-user logic; <code>settingsScope</code> just lets <code>get-mcp-health</code> say "for this API user". Blank rows, and rows of users that were deleted or are no longer API users, are skipped everywhere.</figcaption>
     </figure>
     <ul class="notes">
-      <li><b>Override per product, all or nothing.</b> An override holds the product's switched-off groups and its level (<code>full</code>, <code>noDestructive</code> or <code>readOnly</code>). A product without one follows the defaults, also when they change later.</li>
+      <li><b>Override per product, all or nothing.</b> An override holds the product's switched-off groups and its level (<code>full</code>, <code>noDestructive</code>, <code>readOnly</code> or <code>off</code>). A product without one follows the defaults, also when they change later.</li>
       <li><b>Every API user is selectable</b>, also one that has never connected. The user's own server picks the settings up on its next start.</li>
       <li><b>Counts per user.</b> The Tool Permissions counts come from the selected user's own report; a user without one shows its groups without counts. The defaults show the highest counts any API user reported. Forgetting a connection in the Overview clears that user's report and keeps its overrides.</li>
       <li><b>Client config per user.</b> The Overview's "Connect an AI tool" has its own API user picker. It calls <code>GET /mcp/client-setup?clientId=</code> and shows the six snippets (Claude Code, the <code>claude mcp add</code> command, Claude Desktop, VS Code, Cursor, other clients) for that user's client id. No secret, and no files written on the site.</li>

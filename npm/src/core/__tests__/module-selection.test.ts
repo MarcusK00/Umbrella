@@ -50,6 +50,39 @@ describe("selectModules", () => {
     expect(decision(ds, "forms").reason).toMatch(/unknown version/);
   });
 
+  describe("switched off in the backoffice", () => {
+    it("does not load a product that is off, with the site reason", () => {
+      const d = decision(selectModules(modules, ok(product("forms", { off: true })), []), "forms");
+      expect(d.load).toBe(false);
+      expect(d.reason).toBe("Switched off in the backoffice (Settings → Umbrella).");
+      expect(d.switchedOff).toBe(true);
+    });
+
+    it("uses the API user wording when settingsScope is user", () => {
+      const d = decision(selectModules(modules, ok(product("forms", { off: true, settingsScope: "user" })), []), "forms");
+      expect(d.reason).toBe("Switched off for this API user in the backoffice (Settings → Umbrella).");
+    });
+
+    it("off wins over UMBRACO_MCP_MODULES", () => {
+      const d = decision(selectModules(modules, ok(product("forms", { off: true })), ["forms"]), "forms");
+      expect(d.load).toBe(false);
+      expect(d.switchedOff).toBe(true);
+    });
+
+    it("still loads the required module when the payload says off", () => {
+      const d = decision(selectModules(modules, ok(product("cms", { off: true })), []), "cms");
+      expect(d.load).toBe(true);
+      expect(d.switchedOff).toBeUndefined();
+    });
+
+    // Review Focus 5: older add-ons send no off field.
+    it.each([[null], [undefined], [false]])("loads as before when off is %s", (off) => {
+      const d = decision(selectModules(modules, ok(product("forms", { off })), []), "forms");
+      expect(d.load).toBe(true);
+      expect(d.switchedOff).toBeUndefined();
+    });
+  });
+
   it("forced modules load regardless of capabilities", () => {
     const ds = selectModules(modules, { kind: "unavailable", reason: "HTTP 500" }, ["automate"]);
     expect(decision(ds, "automate").load).toBe(true);

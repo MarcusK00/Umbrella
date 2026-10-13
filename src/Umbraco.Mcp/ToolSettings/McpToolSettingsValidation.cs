@@ -1,4 +1,5 @@
 using Umbraco.Mcp.Api;
+using Umbraco.Mcp.Detection;
 
 namespace Umbraco.Mcp.ToolSettings;
 
@@ -76,7 +77,12 @@ internal static class McpToolSettingsValidation
 
             if (!McpToolLevel.IsValid(entry.Level))
             {
-                return $"{id}: level must be \"full\", \"noDestructive\" or \"readOnly\".";
+                return $"{id}: level must be \"full\", \"noDestructive\", \"readOnly\" or \"off\".";
+            }
+
+            if (entry.Level == McpToolLevel.Off && CheckRequiredNotOff([id]) is { } requiredError)
+            {
+                return $"{id}: {requiredError}";
             }
 
             string? error = TryNormalizeNames(entry.DisabledCollections, out List<string> clean);
@@ -139,11 +145,24 @@ internal static class McpToolSettingsValidation
     }
 
     /// <returns>An error message when a product is in both lists, otherwise null.</returns>
-    public static string? CheckLevelOverlap(IReadOnlyList<string> readOnly, IReadOnlyList<string> noDestructive)
+    /// <returns>An error message when a product is in more than one level list, else null.</returns>
+    public static string? CheckLevelOverlap(IReadOnlyList<string> off, IReadOnlyList<string> readOnly, IReadOnlyList<string> noDestructive)
     {
+        var offAndLimited = off.Intersect(readOnly.Concat(noDestructive), StringComparer.Ordinal).ToList();
+        if (offAndLimited.Count > 0)
+        {
+            return $"A product that is off cannot also be read-only or limited to non-destructive tools: {string.Join(", ", offAndLimited)}.";
+        }
+
         var both = readOnly.Intersect(noDestructive, StringComparer.Ordinal).ToList();
         return both.Count == 0 ? null : $"A product cannot be both read-only and limited to non-destructive tools: {string.Join(", ", both)}.";
     }
+
+    /// <returns>An error message when <paramref name="offIds"/> contains the product the npm server cannot run without, else null.</returns>
+    public static string? CheckRequiredNotOff(IEnumerable<string> offIds) =>
+        offIds.Contains(McpProducts.RequiredId, StringComparer.Ordinal)
+            ? "CMS cannot be switched off: the MCP server signs in through it."
+            : null;
 
     private static McpCollectionInfo NormalizeCounts(string name, McpCollectionInfo info)
     {
