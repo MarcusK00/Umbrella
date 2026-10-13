@@ -21,12 +21,11 @@ public class McpApiUserHealthCheckTests
             User("Second", clientIds: []),
         ]));
 
-        Assert.That(rows, Has.Count.EqualTo(3));
+        Assert.That(rows, Has.Count.EqualTo(2));
         Assert.That(rows[0].ResultType, Is.EqualTo(StatusResultType.Success));
         Assert.That(rows[0].Message, Is.EqualTo(
             "The API user &quot;First&quot; (umbraco-back-office-mcp) last connected 11-10-2026 09:05 UTC and can reach Umbraco CMS, Umbraco Forms."));
         Assert.That(rows[1].Message, Is.EqualTo("The API user &quot;Second&quot; last connected 11-10-2026 09:05 UTC."));
-        Assert.That(rows[2].Message, Is.EqualTo(McpHealthCheckRows.DashboardRow));
     }
 
     [Test]
@@ -41,11 +40,10 @@ public class McpApiUserHealthCheckTests
                 User("Good", reachable: ["Umbraco CMS"]),
             ]));
 
-        Assert.That(rows, Has.Count.EqualTo(3));
+        Assert.That(rows, Has.Count.EqualTo(2));
         Assert.That(rows[0].ResultType, Is.EqualTo(StatusResultType.Warning));
         Assert.That(rows[1].ResultType, Is.EqualTo(StatusResultType.Success));
         Assert.That(rows[1].Message, Does.StartWith("The API user &quot;Good&quot;"));
-        Assert.That(rows[2].Message, Is.EqualTo(McpHealthCheckRows.DashboardRow));
     }
 
     [Test]
@@ -54,7 +52,7 @@ public class McpApiUserHealthCheckTests
         List<HealthCheckStatus> rows = Rows(Make(
             findings: [new(McpFinding.Info, McpFindingArea.ApiUsers, "No MCP server has connected to this site yet.")]));
 
-        Assert.That(rows, Has.Count.EqualTo(2));
+        Assert.That(rows, Has.Count.EqualTo(1));
         Assert.That(rows[0].ResultType, Is.EqualTo(StatusResultType.Info));
         Assert.That(rows[0].Message, Is.EqualTo("No MCP server has connected to this site yet."));
     }
