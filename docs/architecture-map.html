@@ -1,0 +1,917 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Umbrella, End to End</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: one reading column; each mechanism gets a full-width figure, the site in indigo, the server in teal, the AI tool in amber. */
+:root {
+  --bg: #f4f5fa;
+  --surface: #ffffff;
+  --fg: #191b2b;
+  --muted: #5a5f77;
+  --line: #ccd0df;
+  --zone: #eaecf5;
+  --site: #3544b1;
+  --server: #0b7285;
+  --client: #a35400;
+  --ok: #2b7a3d;
+  --drop: #b4233c;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10111a; --surface: #191b28; --fg: #e6e8f3; --muted: #9ca1ba; --line: #353a52; --zone: #151722;
+    --site: #9ba6ff; --server: #4cc3d6; --client: #f0a44c; --ok: #66d184; --drop: #ff7b90;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10111a; --surface: #191b28; --fg: #e6e8f3; --muted: #9ca1ba; --line: #353a52; --zone: #151722;
+  --site: #9ba6ff; --server: #4cc3d6; --client: #f0a44c; --ok: #66d184; --drop: #ff7b90;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 400 16px/1.6 var(--sans); }
+.wrap { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 48px 80px; }
+header { display: grid; gap: 14px; max-width: 760px; }
+.eyebrow { font: 600 12px var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+h1 { font: 700 clamp(36px, 6vw, 60px)/1.02 var(--display); letter-spacing: -.02em; margin: 0; text-wrap: balance; }
+h1 span { color: var(--site); }
+.lede { font-size: 18px; color: var(--muted); margin: 0; max-width: 66ch; }
+.lede b { color: var(--fg); font-weight: 600; }
+nav.toc { display: flex; flex-wrap: wrap; gap: 8px; margin-block: 28px 8px; }
+nav.toc a { font: 500 13px var(--sans); color: var(--fg); text-decoration: none; padding: 5px 11px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); }
+nav.toc a:hover, nav.toc a:focus-visible { border-color: var(--site); color: var(--site); outline: none; }
+.keys { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-block: 36px 0; }
+.key { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; min-width: 0; }
+.key h3 { font: 600 14px var(--sans); margin: 0 0 6px; }
+.key p { margin: 0; font-size: 14px; color: var(--muted); }
+.key .who { font: 600 11px var(--sans); letter-spacing: .12em; text-transform: uppercase; }
+.who.site { color: var(--site); } .who.server { color: var(--server); } .who.client { color: var(--client); }
+section { margin-block-start: 72px; display: grid; gap: 16px; }
+h2 { font: 700 clamp(26px, 3.4vw, 34px)/1.1 var(--display); letter-spacing: -.01em; margin: 0; text-wrap: balance; }
+section > p, .prose { max-width: 70ch; margin: 0; }
+p code, li code, td code, .card code { font: 500 .88em var(--mono); background: var(--zone); border: 1px solid var(--line); padding: 0 4px; border-radius: 4px; }
+figure { margin: 8px 0 0; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; display: grid; gap: 12px; min-width: 0; }
+.scroll { overflow-x: auto; }
+figure svg { display: block; width: 100%; height: auto; }
+figcaption { font-size: 14px; color: var(--muted); max-width: 80ch; }
+.min-xl { min-width: 900px; } .min-l { min-width: 760px; } .min-m { min-width: 560px; }
+ol.steps, ul.notes { margin: 0; padding-left: 22px; display: grid; gap: 6px; max-width: 76ch; }
+ol.steps li::marker { font-weight: 600; color: var(--site); }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.two > * { min-width: 0; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; display: grid; gap: 10px; }
+.card h3 { font: 600 15px var(--sans); margin: 0; }
+.card p { margin: 0; font-size: 14px; color: var(--muted); }
+.card .tag { font: 600 11px var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.card.after { border-color: var(--server); }
+section h3.sub { font: 600 20px/1.2 var(--display); margin: 16px 0 0; text-wrap: balance; }
+section p a, figcaption a { color: var(--site); }
+pre { margin: 0; font: 400 12.5px/1.55 var(--mono); background: var(--zone); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; overflow-x: auto; white-space: pre; color: var(--fg); }
+pre .k { color: var(--site); } pre .v { color: var(--server); } pre .c { color: var(--muted); font-style: italic; } pre .hl { color: var(--client); font-weight: 600; }
+.split { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 860px) { .split { grid-template-columns: 1fr; } }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 600 12px var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.tablewrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+footer a { color: var(--site); }
+footer { margin-block-start: 72px; padding-block-start: 20px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+
+/* SVG vocabulary */
+.zone { fill: var(--zone); stroke: var(--line); stroke-dasharray: 6 5; }
+.box { fill: var(--surface); stroke: var(--line); stroke-width: 1.2; }
+.box.site { stroke: var(--site); } .box.server { stroke: var(--server); } .box.client { stroke: var(--client); }
+.box.ghost { stroke-dasharray: 4 4; fill: var(--zone); }
+.panel { stroke-width: 1.4; }
+.panel.site { fill: color-mix(in srgb, var(--site) 7%, var(--surface)); stroke: var(--site); }
+.panel.server { fill: color-mix(in srgb, var(--server) 7%, var(--surface)); stroke: var(--server); }
+.band { stroke-width: 1.2; }
+.band.ok { fill: color-mix(in srgb, var(--ok) 12%, var(--surface)); stroke: var(--ok); }
+.band.skip { fill: color-mix(in srgb, var(--drop) 9%, var(--surface)); stroke: var(--drop); }
+.t { font: 600 13px var(--sans); fill: var(--fg); }
+.t.m { font-family: var(--mono); font-size: 12px; }
+.t.sm { font-size: 12px; }
+.s { font: 400 11px var(--sans); fill: var(--muted); }
+.s.m { font-family: var(--mono); font-size: 10.5px; }
+.s.xs { font-size: 9.5px; }
+.lbl { font: 600 11.5px var(--sans); fill: var(--fg); }
+.lbl.m { font-family: var(--mono); font-weight: 500; }
+.eb { font: 600 10.5px var(--sans); letter-spacing: .12em; fill: var(--muted); }
+.c-site { fill: var(--site); } .c-server { fill: var(--server); } .c-client { fill: var(--client); } .c-ok { fill: var(--ok); } .c-drop { fill: var(--drop); }
+.mid { text-anchor: middle; } .end { text-anchor: end; }
+.ln { stroke: var(--fg); stroke-width: 1.4; fill: none; }
+.ln.mut { stroke: var(--muted); } .ln.dash { stroke-dasharray: 5 4; }
+.ln.site { stroke: var(--site); } .ln.server { stroke: var(--server); } .ln.client { stroke: var(--client); } .ln.ok { stroke: var(--ok); } .ln.drop { stroke: var(--drop); }
+.life { stroke: var(--line); stroke-width: 1.4; stroke-dasharray: 4 5; }
+.dot { fill: var(--server); }
+.ah { fill: var(--fg); } .ah.mut { fill: var(--muted); } .ah.site { fill: var(--site); } .ah.server { fill: var(--server); } .ah.client { fill: var(--client); } .ah.ok { fill: var(--ok); } .ah.drop { fill: var(--drop); }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L10,5 L0,9 z" class="ah"/></marker>
+    <marker id="ah-mut" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L10,5 L0,9 z" class="ah mut"/></marker>
+    <marker id="ah-site" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L10,5 L0,9 z" class="ah site"/></marker>
+    <marker id="ah-server" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L10,5 L0,9 z" class="ah server"/></marker>
+    <marker id="ah-client" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L10,5 L0,9 z" class="ah client"/></marker>
+    <marker id="ah-ok" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L10,5 L0,9 z" class="ah ok"/></marker>
+    <marker id="ah-drop" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L10,5 L0,9 z" class="ah drop"/></marker>
+  </defs>
+</svg>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Umbrella · how it works</div>
+    <h1>Umbrella, <span>end to end</span></h1>
+    <p class="lede">One MCP server per Umbraco site. The <b>add-on</b> inside the site knows which Umbraco products are installed and what the admin has switched off. The <b>npm server</b> on your machine asks it, loads only those products' tools into one process, and hands them to your AI tool under one set of names.</p>
+  </header>
+
+  <nav class="toc" aria-label="Sections">
+    <a href="#system">The whole system</a>
+    <a href="#one-server">One server, not four</a>
+    <a href="#toolkit">Why the toolkit</a>
+    <a href="#detect">What the add-on reports</a>
+    <a href="#startup">Startup in order</a>
+    <a href="#select">Which products load</a>
+    <a href="#filter">Which tools survive</a>
+    <a href="#names">What the model sees</a>
+    <a href="#calls">When a tool is called</a>
+    <a href="#loop">The settings loop</a>
+    <a href="#contract">The contract</a>
+  </nav>
+
+  <div class="keys">
+    <div class="key"><div class="who site">Add-on · in the site</div><h3>Knows the site</h3><p>Detects Forms, Automate and Engage by name, stores the dashboard's tool settings, serves them at <code>GET /mcp/capabilities</code>.</p></div>
+    <div class="key"><div class="who server">umbrella-mcp · on your machine</div><h3>Builds the tool list</h3><p>Reads capabilities once at start, imports each product's tool collections, filters them, prefixes them and registers them.</p></div>
+    <div class="key"><div class="who client">AI tool</div><h3>Sees one server</h3><p>Starts <code>npx -y umbrella-mcp@‹version›</code> over stdio, gets routing instructions plus <code>cms--</code>, <code>forms--</code>, <code>automate--</code>, <code>engage--</code> tools.</p></div>
+  </div>
+
+  <!-- 1 · system -->
+  <section id="system">
+    <h2>The whole system</h2>
+    <p>Three parties, two machines. Only four kinds of request cross from your machine to the site, numbered on the arrows.</p>
+    <figure>
+      <div class="scroll">
+        <svg class="min-xl" viewBox="0 0 1180 630" role="img" aria-label="The AI tool starts umbrella-mcp over stdio. umbrella-mcp signs in to the Umbraco site, fetches capabilities from the add-on, reports its catalogue back, and sends tool calls to each product's Management API.">
+          <rect class="zone" x="16" y="30" width="684" height="584" rx="14"/>
+          <text class="eb" x="34" y="54">YOUR MACHINE</text>
+          <rect class="zone" x="860" y="30" width="304" height="584" rx="14"/>
+          <text class="eb" x="878" y="54">WEB SERVER · UMBRACO 17 SITE</text>
+
+          <!-- AI tool column -->
+          <rect class="box client" x="40" y="80" width="200" height="96" rx="8"/>
+          <text class="t mid" x="140" y="112">AI tool</text>
+          <text class="s mid" x="140" y="134">Claude Code · VS Code · Cursor</text>
+          <text class="s mid" x="140" y="154">the MCP client</text>
+
+          <rect class="box client" x="40" y="250" width="200" height="130" rx="8"/>
+          <text class="t mid" x="140" y="274">.mcp.json / client config</text>
+          <text class="s m" x="54" y="300">npx -y umbrella-mcp@‹ver›</text>
+          <text class="s m" x="54" y="320">UMBRACO_BASE_URL</text>
+          <text class="s m" x="54" y="338">UMBRACO_CLIENT_ID</text>
+          <text class="s m" x="54" y="356">UMBRACO_CLIENT_SECRET</text>
+          <line class="ln client" x1="140" y1="250" x2="140" y2="180" marker-end="url(#ah-client)"/>
+          <text class="s" x="150" y="219">starts it with npx</text>
+
+          <rect class="box client" x="40" y="440" width="200" height="150" rx="8"/>
+          <text class="t mid" x="140" y="466">What the model sees</text>
+          <text class="s" x="56" y="494">• routing instructions</text>
+          <text class="s" x="56" y="514">• prefixed tools: forms--…</text>
+          <text class="s" x="56" y="534">• [Umbraco Forms] descriptions</text>
+          <text class="s" x="56" y="554">• get-mcp-health</text>
+
+          <line class="ln" x1="242" y1="128" x2="328" y2="128" marker-start="url(#ah)" marker-end="url(#ah)"/>
+          <text class="lbl mid" x="285" y="120">stdio</text>
+          <text class="s mid" x="285" y="146">JSON-RPC</text>
+          <line class="ln server" x1="330" y1="515" x2="244" y2="515" marker-end="url(#ah-server)"/>
+          <text class="s mid" x="286" y="506">tools +</text>
+          <text class="s mid" x="286" y="532">instructions</text>
+
+          <!-- umbrella-mcp -->
+          <rect class="panel server" x="330" y="80" width="350" height="524" rx="10"/>
+          <text class="t c-server" x="348" y="106">umbrella-mcp</text>
+          <text class="s" x="348" y="124">npm package · Node 22 · one process</text>
+
+          <rect class="box" x="346" y="140" width="318" height="150" rx="6"/>
+          <text class="t m" x="362" y="164">core/</text>
+          <text class="s" x="362" y="186">server.ts · startup order</text>
+          <text class="s" x="362" y="205">module-selection.ts · which products load</text>
+          <text class="s" x="362" y="224">filter-config.ts · which tools survive</text>
+          <text class="s" x="362" y="243">routing.ts · prefixes and descriptions</text>
+          <text class="s" x="362" y="262">tool-registrar.ts · one client per call</text>
+          <text class="s" x="362" y="281">health.ts · catalogue.ts</text>
+
+          <text class="eb" x="346" y="320">PRODUCT MODULES · IMPORTED AS LIBRARIES</text>
+          <rect class="box server" x="346" y="332" width="74" height="70" rx="6"/>
+          <text class="t m mid" x="383" y="356" style="font-size:11px">cms--</text>
+          <text class="s mid" x="383" y="374">CMS</text>
+          <text class="s xs mid" x="383" y="391">always</text>
+          <rect class="box server" x="427" y="332" width="74" height="70" rx="6"/>
+          <text class="t m mid" x="464" y="356" style="font-size:11px">forms--</text>
+          <text class="s mid" x="464" y="374">Forms</text>
+          <text class="s xs mid" x="464" y="391">if on site</text>
+          <rect class="box server" x="508" y="332" width="74" height="70" rx="6"/>
+          <text class="t m mid" x="545" y="356" style="font-size:11px">automate--</text>
+          <text class="s mid" x="545" y="374">Automate</text>
+          <text class="s xs mid" x="545" y="391">if on site</text>
+          <rect class="box server" x="590" y="332" width="74" height="70" rx="6"/>
+          <text class="t m mid" x="627" y="356" style="font-size:11px">engage--</text>
+          <text class="s mid" x="627" y="374">Engage</text>
+          <text class="s xs mid" x="627" y="391">if on site</text>
+          <line class="ln mut" x1="383" y1="402" x2="383" y2="428"/>
+          <line class="ln mut" x1="464" y1="402" x2="464" y2="428"/>
+          <line class="ln mut" x1="545" y1="402" x2="545" y2="428"/>
+          <line class="ln mut" x1="627" y1="402" x2="627" y2="428"/>
+
+          <rect class="box" x="346" y="430" width="318" height="54" rx="6"/>
+          <text class="t m mid" x="505" y="452">@umbraco-cms/mcp-server-sdk</text>
+          <text class="s mid" x="505" y="472">1.0.0-beta.46 · one copy, one shared API client</text>
+
+          <rect class="box" x="346" y="500" width="154" height="88" rx="6"/>
+          <text class="t m mid" x="423" y="530">get-mcp-health</text>
+          <text class="s mid" x="423" y="550">what loaded, and why</text>
+          <text class="s mid" x="423" y="568">only unprefixed tool</text>
+          <rect class="box" x="510" y="500" width="154" height="88" rx="6"/>
+          <text class="t mid" x="587" y="530">catalogue report</text>
+          <text class="s mid" x="587" y="550">every tool group,</text>
+          <text class="s mid" x="587" y="568">before filters</text>
+
+          <!-- site -->
+          <rect class="box site" x="876" y="80" width="272" height="50" rx="8"/>
+          <text class="t mid" x="1012" y="101">API user sign-in</text>
+          <text class="s mid" x="1012" y="119">OAuth client credentials → token</text>
+
+          <rect class="panel site" x="876" y="146" width="272" height="256" rx="10"/>
+          <text class="t c-site" x="892" y="170">Umbrella add-on</text>
+          <text class="s" x="892" y="188">NuGet · Umbraco.Community.Umbrella</text>
+          <rect class="box" x="892" y="200" width="240" height="40" rx="6"/>
+          <text class="t sm mid" x="1012" y="217">Product detectors</text>
+          <text class="s mid" x="1012" y="233">assembly loaded? API mapped?</text>
+          <rect class="box" x="892" y="248" width="240" height="32" rx="6"/>
+          <text class="t m mid" x="1012" y="268">GET /mcp/capabilities</text>
+          <rect class="box" x="892" y="288" width="240" height="32" rx="6"/>
+          <text class="t m mid" x="1012" y="308">POST /mcp/catalogue</text>
+          <rect class="box" x="892" y="328" width="240" height="62" rx="6"/>
+          <text class="t sm mid" x="1012" y="350">Settings → Umbrella</text>
+          <text class="s mid" x="1012" y="367">dashboard · GET/PUT tool-settings</text>
+          <text class="s mid" x="1012" y="382">three health checks</text>
+
+          <line class="ln site" x1="1012" y1="391" x2="1012" y2="416" marker-end="url(#ah-site)"/>
+          <text class="s" x="1022" y="410">stores</text>
+          <rect class="box site" x="876" y="418" width="272" height="56" rx="8"/>
+          <text class="t m mid" x="1012" y="441">umbracoKeyValue</text>
+          <text class="s mid" x="1012" y="459">tool settings · catalogue · connections</text>
+
+          <rect class="panel site" x="876" y="490" width="272" height="114" rx="10"/>
+          <text class="t sm" x="892" y="511">Management APIs</text>
+          <text class="s end" x="1132" y="511">Bearer token</text>
+          <rect class="box" x="892" y="522" width="114" height="34" rx="5"/>
+          <text class="t sm mid" x="949" y="537">CMS</text>
+          <text class="s m xs mid" x="949" y="550">management</text>
+          <rect class="box" x="1018" y="522" width="114" height="34" rx="5"/>
+          <text class="t sm mid" x="1075" y="537">Forms</text>
+          <text class="s m xs mid" x="1075" y="550">forms-management</text>
+          <rect class="box" x="892" y="564" width="114" height="34" rx="5"/>
+          <text class="t sm mid" x="949" y="579">Automate</text>
+          <text class="s m xs mid" x="949" y="592">automate-management</text>
+          <rect class="box" x="1018" y="564" width="114" height="34" rx="5"/>
+          <text class="t sm mid" x="1075" y="579">Engage</text>
+          <text class="s m xs mid" x="1075" y="592">engage-management</text>
+
+          <!-- crossings -->
+          <line class="ln" x1="682" y1="105" x2="874" y2="105" marker-end="url(#ah)"/>
+          <text class="lbl mid" x="778" y="97">① sign in once</text>
+          <text class="s mid" x="778" y="121">client credentials</text>
+
+          <line class="ln site" x1="682" y1="264" x2="890" y2="264" marker-start="url(#ah-site)" marker-end="url(#ah-site)"/>
+          <text class="lbl mid" x="782" y="240">② GET capabilities</text>
+          <text class="s mid" x="782" y="255">products · versions · settings</text>
+
+          <line class="ln site" x1="682" y1="304" x2="890" y2="304" marker-end="url(#ah-site)"/>
+          <text class="lbl mid" x="782" y="322">③ POST catalogue</text>
+          <text class="s mid" x="782" y="337">the tool groups it loaded</text>
+
+          <path class="ln server" d="M664 367 H760 V556 H874" marker-end="url(#ah-server)"/>
+          <text class="lbl mid" x="817" y="548">④ tool calls</text>
+          <text class="s mid" x="817" y="574">per-product client</text>
+        </svg>
+      </div>
+      <figcaption>Everything the AI tool knows about Umbraco comes through umbrella-mcp. The add-on never talks to the AI tool directly: in Development it only writes the <code>.mcp.json</code> on the left, with <code>${UMBRELLA_CLIENT_SECRET}</code> in place of the secret.</figcaption>
+    </figure>
+    <ol class="steps">
+      <li><b>Sign in.</b> The server gets a token with the API user's client id and secret. Every later request carries it.</li>
+      <li><b>Capabilities.</b> The add-on answers with each product: installed, enabled, version, issues, and the dashboard's settings for it.</li>
+      <li><b>Catalogue.</b> The server reports every tool group it loaded, so the dashboard can list groups to switch off.</li>
+      <li><b>Tool calls.</b> When the model calls <code>forms--list-forms</code>, the Forms tool code sends a normal request to the Forms Management API on the same site, with the same token.</li>
+    </ol>
+  </section>
+
+  <!-- 2 · one server -->
+  <section id="one-server">
+    <h2>One server instead of four</h2>
+    <p>Each Umbraco product already publishes its own MCP server package (<code>@umbraco-cms/mcp-dev</code>, <code>@umbraco-forms/mcp-dev</code>, <code>@umbraco-automate/mcp-dev</code>, <code>@umbraco-engage/mcp-dev</code>). Umbrella does not run them as servers. It imports their <code>./collections</code> entry point as a library and puts the tools into its own process.</p>
+    <figure>
+      <div class="scroll">
+        <svg class="min-l" viewBox="0 0 1080 340" role="img" aria-label="Without Umbrella the AI tool runs four separate MCP server processes, each signing in to the site. With Umbrella it runs one process that imports the tool collections of only the products the site has.">
+          <line class="life" x1="540" y1="10" x2="540" y2="330"/>
+          <text class="lbl" x="20" y="28">Without Umbrella</text>
+          <text class="s" x="20" y="46">one MCP server per product</text>
+          <rect class="box client" x="20" y="140" width="100" height="76" rx="8"/>
+          <text class="t mid" x="70" y="174">AI tool</text>
+          <text class="s mid" x="70" y="194">4 config entries</text>
+          <rect class="box" x="170" y="70" width="200" height="50" rx="6"/>
+          <text class="t m mid" x="270" y="92" style="font-size:11px">npx @umbraco-cms/mcp-dev</text>
+          <text class="s mid" x="270" y="109">own process · own env</text>
+          <rect class="box" x="170" y="130" width="200" height="50" rx="6"/>
+          <text class="t m mid" x="270" y="152" style="font-size:11px">npx @umbraco-forms/mcp-dev</text>
+          <text class="s mid" x="270" y="169">own process · own env</text>
+          <rect class="box" x="170" y="190" width="200" height="50" rx="6"/>
+          <text class="t m mid" x="270" y="212" style="font-size:11px">npx @umbraco-automate/mcp-dev</text>
+          <text class="s mid" x="270" y="229">own process · own env</text>
+          <rect class="box" x="170" y="250" width="200" height="50" rx="6"/>
+          <text class="t m mid" x="270" y="272" style="font-size:11px">npx @umbraco-engage/mcp-dev</text>
+          <text class="s mid" x="270" y="289">own process · own env</text>
+          <line class="ln mut" x1="120" y1="172" x2="168" y2="95" marker-end="url(#ah-mut)"/>
+          <line class="ln mut" x1="120" y1="176" x2="168" y2="155" marker-end="url(#ah-mut)"/>
+          <line class="ln mut" x1="120" y1="182" x2="168" y2="215" marker-end="url(#ah-mut)"/>
+          <line class="ln mut" x1="120" y1="186" x2="168" y2="275" marker-end="url(#ah-mut)"/>
+          <rect class="box site" x="420" y="70" width="100" height="230" rx="8"/>
+          <text class="t mid" x="470" y="180">Umbraco</text>
+          <text class="s mid" x="470" y="198">site</text>
+          <line class="ln mut" x1="370" y1="95" x2="418" y2="95" marker-end="url(#ah-mut)"/>
+          <line class="ln mut" x1="370" y1="155" x2="418" y2="155" marker-end="url(#ah-mut)"/>
+          <line class="ln mut" x1="370" y1="215" x2="418" y2="215" marker-end="url(#ah-mut)"/>
+          <line class="ln mut" x1="370" y1="275" x2="418" y2="275" marker-end="url(#ah-mut)"/>
+
+          <text class="lbl" x="560" y="28">With Umbrella</text>
+          <text class="s" x="560" y="46">one MCP server per site</text>
+          <rect class="box client" x="560" y="140" width="100" height="76" rx="8"/>
+          <text class="t mid" x="610" y="174">AI tool</text>
+          <text class="s mid" x="610" y="194">1 config entry</text>
+          <rect class="panel server" x="710" y="50" width="220" height="270" rx="10"/>
+          <text class="t c-server" x="726" y="74">umbrella-mcp</text>
+          <text class="s" x="726" y="92">one process, one token</text>
+          <rect class="box server" x="726" y="106" width="188" height="42" rx="6"/>
+          <text class="t m" x="740" y="123" style="font-size:11px">@umbraco-cms/mcp-dev</text>
+          <text class="s" x="740" y="139">./collections → cms--</text>
+          <rect class="box server" x="726" y="156" width="188" height="42" rx="6"/>
+          <text class="t m" x="740" y="173" style="font-size:11px">@umbraco-forms/mcp-dev</text>
+          <text class="s" x="740" y="189">./collections → forms--</text>
+          <rect class="box server" x="726" y="206" width="188" height="42" rx="6"/>
+          <text class="t m" x="740" y="223" style="font-size:11px">@umbraco-automate/mcp-dev</text>
+          <text class="s" x="740" y="239">./collections → automate--</text>
+          <rect class="box ghost" x="726" y="256" width="188" height="42" rx="6"/>
+          <text class="s m" x="740" y="273" style="font-size:11px">@umbraco-engage/mcp-dev</text>
+          <text class="s c-drop" x="740" y="289">not on this site · not imported</text>
+          <line class="ln" x1="662" y1="178" x2="708" y2="178" marker-start="url(#ah)" marker-end="url(#ah)"/>
+          <rect class="box site" x="980" y="70" width="90" height="230" rx="8"/>
+          <text class="t mid" x="1025" y="180">Umbraco</text>
+          <text class="s mid" x="1025" y="198">site</text>
+          <line class="ln server" x1="932" y1="185" x2="978" y2="185" marker-start="url(#ah-server)" marker-end="url(#ah-server)"/>
+        </svg>
+      </div>
+      <figcaption>Example site with Forms and Automate but no Engage. Umbrella never imports a package for a product the site doesn't have, so its tools never reach the model.</figcaption>
+    </figure>
+    <div class="two">
+      <ul class="notes">
+        <li>You decide which servers to install, and keep that in step with the site yourself.</li>
+        <li>Tool names can collide: Forms and Automate both have <code>get-server-info</code>.</li>
+        <li>Nothing tells the model which server to use for "workflow".</li>
+        <li>Each product server also starts its own copy of the CMS MCP, so you get the CMS tools more than once.</li>
+      </ul>
+      <ul class="notes">
+        <li>The site decides which products load, through capabilities.</li>
+        <li>Every name gets a product prefix; a duplicate final name stops startup.</li>
+        <li>The server's instructions route the model to a product before it picks a tool.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 2b · toolkit -->
+  <section id="toolkit">
+    <h2>Why the toolkit is needed</h2>
+    <p><code>@umbraco-cms/mcp-server-sdk</code> is the toolkit every product MCP is built on. All four product packages depend on it, so it is in <code>node_modules</code> either way. Umbrella declares it itself because it takes only the products' tools and does the server part on its own, with the same toolkit.</p>
+    <figure>
+      <div class="scroll">
+        <svg class="min-xl" viewBox="0 0 1080 312" role="img" aria-label="A product package has tool collections, which Umbrella imports, and a server entry point, which Umbrella replaces with its own core. The collections, the product server and Umbrella's core are all built from the toolkit.">
+          <rect class="box" x="20" y="20" width="380" height="190" rx="10"/>
+          <text class="t m" x="36" y="44">@umbraco-forms/mcp-dev</text>
+          <rect class="box server" x="36" y="60" width="348" height="62" rx="6"/>
+          <text class="t m" x="52" y="86">./collections</text>
+          <text class="s" x="52" y="106">tool definitions + handlers · Umbrella imports this</text>
+          <rect class="box ghost" x="36" y="134" width="348" height="62" rx="6"/>
+          <text class="t" x="52" y="160">bin · the Forms MCP server</text>
+          <text class="s" x="52" y="180">signs in, filters, registers · Umbrella doesn't run it</text>
+
+          <rect class="panel server" x="680" y="20" width="380" height="190" rx="10"/>
+          <text class="t c-server" x="696" y="44">umbrella-mcp core/</text>
+          <text class="s" x="696" y="70">does the bin's job once, for every product:</text>
+          <text class="s" x="696" y="94">• sign in once</text>
+          <text class="s" x="696" y="114">• install one API client provider</text>
+          <text class="s" x="696" y="134">• filter with the same env vars</text>
+          <text class="s" x="696" y="154">• version check, register, prefix</text>
+          <text class="s" x="696" y="174">• get-mcp-health</text>
+
+          <line class="ln server" x1="386" y1="91" x2="678" y2="91" marker-end="url(#ah-server)"/>
+          <text class="lbl mid" x="532" y="83">imported as a library</text>
+          <line class="ln mut dash" x1="678" y1="165" x2="388" y2="165" marker-end="url(#ah-mut)"/>
+          <text class="s mid" x="532" y="157">replaces</text>
+
+          <rect class="panel site" x="20" y="250" width="1040" height="52" rx="10"/>
+          <text class="t m mid c-site" x="540" y="272">@umbraco-cms/mcp-server-sdk · the toolkit</text>
+          <text class="s m mid" x="540" y="291">initializeUmbracoFetch · configureApiClient / getApiClient · shouldIncludeTool · registerToolCollection · …</text>
+
+          <line class="ln" x1="110" y1="210" x2="110" y2="248" marker-end="url(#ah)"/>
+          <text class="s m" x="118" y="234">handlers call getApiClient()</text>
+          <line class="ln mut" x1="330" y1="210" x2="330" y2="248" marker-end="url(#ah-mut)"/>
+          <text class="s" x="338" y="234">built from</text>
+          <line class="ln" x1="870" y1="210" x2="870" y2="248" marker-end="url(#ah)"/>
+          <text class="s" x="878" y="234">built from</text>
+        </svg>
+      </div>
+      <figcaption>Umbrella uses the top half of each product package and replaces the bottom half. The product's tools, the product's own server and Umbrella's core are all built from the toolkit, so Umbrella needs it to run the tools the way the product server would.</figcaption>
+    </figure>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Toolkit export</th><th>What Umbrella uses it for</th></tr></thead>
+        <tbody>
+          <tr><td><code>initializeUmbracoFetch</code></td><td>Signing in once with the client credentials</td></tr>
+          <tr><td><code>UmbracoManagementClient</code></td><td>The credentials check (<code>getUserCurrent</code>), and the capabilities and catalogue requests</td></tr>
+          <tr><td><code>configureApiClient</code></td><td>Installing the one provider that every product handler's <code>getApiClient()</code> reads from</td></tr>
+          <tr><td><code>createCollectionConfigLoader</code>, <code>shouldIncludeTool</code></td><td>Filtering, so <code>UMBRACO_TOOL_MODES</code>, <code>UMBRACO_EXCLUDE_TOOLS</code> and the rest mean what they mean in the product servers</td></tr>
+          <tr><td><code>registerToolCollection</code>, <code>createToolAnnotations</code></td><td>Registering the tools the way the toolkit expects</td></tr>
+          <tr><td><code>checkUmbracoVersion</code>, <code>configureVersionCheckHook</code></td><td>The Umbraco 17 check</td></tr>
+          <tr><td><code>useDraft202012ToolSchemas</code></td><td>Fixing up the tool schemas after registration</td></tr>
+          <tr><td><code>createToolResult</code>, <code>ToolCollectionExport</code> and other types</td><td><code>get-mcp-health</code> and type checking</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>There is also <code>@modelcontextprotocol/sdk</code>, a different library: the general MCP protocol library, which provides <code>McpServer</code> itself. The Umbraco toolkit sits on top of it and adds the Umbraco parts.</p>
+
+    <h3 class="sub">Why not run the product servers?</h3>
+    <p>That is the setup Umbrella replaces. Each product MCP starts its own copy of the CMS MCP as a child process and passes its tools through as <code>cms--*</code>. With Forms and Automate as separate servers you get the CMS tools two or three times, several Node processes, several sign-ins, nothing that picks servers from what the site has, and name clashes such as <code>get-server-info</code> twice.</p>
+    <p>A proxy that starts the product servers as child processes and forwards their tools would also work, but the duplicate CMS copies come with it, every process signs in separately, and the dashboard settings would have to be turned into env vars for each child. Loading the collections into one process avoids that. In exchange, Umbrella provides what the product servers normally provide, using the toolkit.</p>
+
+    <h3 class="sub">Why exactly one copy</h3>
+    <p>The toolkit keeps the API client provider (see <a href="#calls">When a tool is called</a>) as module-level state: one global per loaded copy of the package. Umbrella calls <code>configureApiClient</code> on its copy. A product that resolved its own nested copy would call <code>getApiClient()</code> on a copy nobody configured, and every one of its tools would fail.</p>
+    <figure>
+      <div class="scroll">
+        <svg class="min-l" viewBox="0 0 1080 220" role="img" aria-label="With one toolkit copy, Umbrella configures the provider and Forms handlers read the same provider. With two copies, Umbrella configures copy A while Forms handlers read copy B, which has no provider, so Forms calls fail.">
+          <text class="lbl c-ok" x="20" y="24">One copy · today</text>
+          <rect class="box server" x="20" y="50" width="160" height="50" rx="8"/>
+          <text class="t mid" x="100" y="80">Umbrella core</text>
+          <rect class="box" x="20" y="140" width="160" height="50" rx="8"/>
+          <text class="t mid" x="100" y="170">Forms handlers</text>
+          <rect class="band ok" x="280" y="90" width="230" height="60" rx="8"/>
+          <text class="t mid" x="395" y="116">toolkit</text>
+          <text class="s mid" x="395" y="135">provider set</text>
+          <line class="ln" x1="180" y1="75" x2="278" y2="106" marker-end="url(#ah)"/>
+          <text class="s m" x="196" y="66">configures</text>
+          <line class="ln" x1="180" y1="165" x2="278" y2="134" marker-end="url(#ah)"/>
+          <text class="s m" x="196" y="178">reads</text>
+
+          <line class="life" x1="540" y1="10" x2="540" y2="210"/>
+
+          <text class="lbl c-drop" x="560" y="24">Two copies · what the guards prevent</text>
+          <rect class="box server" x="560" y="50" width="160" height="50" rx="8"/>
+          <text class="t mid" x="640" y="80">Umbrella core</text>
+          <rect class="box" x="560" y="140" width="160" height="50" rx="8"/>
+          <text class="t mid" x="640" y="170">Forms handlers</text>
+          <rect class="band ok" x="810" y="45" width="250" height="60" rx="8"/>
+          <text class="t mid" x="935" y="71">toolkit copy A</text>
+          <text class="s mid" x="935" y="90">provider set</text>
+          <rect class="band skip" x="810" y="135" width="250" height="60" rx="8"/>
+          <text class="t mid" x="935" y="161">Forms' nested copy B</text>
+          <text class="s mid c-drop" x="935" y="180">no provider · calls fail</text>
+          <line class="ln" x1="720" y1="75" x2="808" y2="75" marker-end="url(#ah)"/>
+          <text class="s m mid" x="764" y="67">configures</text>
+          <line class="ln drop" x1="720" y1="165" x2="808" y2="165" marker-end="url(#ah-drop)"/>
+          <text class="s m mid" x="764" y="157">reads</text>
+        </svg>
+      </div>
+      <figcaption>Two copies don't share module state, so configuring one does nothing for the other.</figcaption>
+    </figure>
+    <ul class="notes">
+      <li><code>npm/package.json</code> pins the toolkit to one exact version and forces it onto every product with <code>overrides</code>.</li>
+      <li><code>overrides</code> only apply in the root project, so under <code>npx</code> one copy relies on every product package depending on a compatible version. Today they all resolve to the same one.</li>
+      <li><code>scripts/pack-check.sh</code> installs the packed package the way users do and fails if a product's tools are missing.</li>
+      <li>At runtime, <code>checkSingleSdk</code> skips a product with its own nested copy and reports it in <code>get-mcp-health</code>, so it can't break the others.</li>
+    </ul>
+
+    <h3 class="sub">Why declare it at all?</h3>
+    <p>Umbrella imports from it directly, so it belongs in <code>dependencies</code>. Without that, the import only works while npm happens to place a product's copy at the top of <code>node_modules</code>, and there would be no exact pin for the <code>overrides</code> rule to point to.</p>
+  </section>
+
+  <!-- 3 · detection -->
+  <section id="detect">
+    <h2>What the add-on reports</h2>
+    <p>The add-on takes no package dependency on any product. A detector is just a few names, checked against what the running site has loaded.</p>
+    <div class="split">
+      <figure>
+        <div class="scroll">
+          <svg class="min-m" viewBox="0 0 620 240" role="img" aria-label="A detector checks whether the product's assembly is loaded, which means installed, and whether a live controller carries the product's MapToApi name, which means enabled.">
+            <rect class="box site" x="10" y="20" width="200" height="200" rx="8"/>
+            <text class="t" x="24" y="44">FormsDetector</text>
+            <text class="s" x="24" y="70">Id</text>
+            <text class="s m" x="24" y="86">"forms"</text>
+            <text class="s" x="24" y="104">AssemblyName</text>
+            <text class="s m" x="24" y="120">"Umbraco.Forms.Core"</text>
+            <text class="s" x="24" y="138">ApiName</text>
+            <text class="s m" x="24" y="154">"forms-management"</text>
+            <text class="s" x="24" y="172">SectionAlias (for the API user check)</text>
+            <text class="s m" x="24" y="188">"Umb.Section.Forms"</text>
+
+            <rect class="box" x="260" y="30" width="190" height="80" rx="6"/>
+            <text class="t sm" x="272" y="52">Assembly loaded?</text>
+            <text class="s" x="272" y="72">looks in the AppDomain for</text>
+            <text class="s m" x="272" y="90">Umbraco.Forms.Core</text>
+            <rect class="box" x="260" y="140" width="190" height="80" rx="6"/>
+            <text class="t sm" x="272" y="162">API mapped?</text>
+            <text class="s" x="272" y="182">live MVC actions carrying</text>
+            <text class="s m" x="272" y="200" style="font-size:9.5px">MapToApi("forms-management")</text>
+            <line class="ln" x1="210" y1="70" x2="258" y2="70" marker-end="url(#ah)"/>
+            <line class="ln" x1="210" y1="180" x2="258" y2="180" marker-end="url(#ah)"/>
+
+            <rect class="box server" x="500" y="40" width="110" height="60" rx="6"/>
+            <text class="t m mid" x="555" y="66" style="font-size:11px">installed</text>
+            <text class="s mid" x="555" y="84">+ version</text>
+            <rect class="box server" x="500" y="150" width="110" height="60" rx="6"/>
+            <text class="t m mid" x="555" y="176" style="font-size:11px">enabled</text>
+            <text class="s mid" x="555" y="194">API is live</text>
+            <line class="ln" x1="450" y1="70" x2="498" y2="70" marker-end="url(#ah)"/>
+            <line class="ln" x1="450" y1="180" x2="498" y2="180" marker-end="url(#ah)"/>
+          </svg>
+        </div>
+        <figcaption>Installed and enabled are separate: a product can be on disk with its Management API switched off. A detector that throws becomes an issue on that product, never a failed endpoint.</figcaption>
+      </figure>
+      <figure>
+<pre><span class="c">// GET /umbraco/management/api/v1/mcp/capabilities (example values)</span>
+{
+  <span class="k">"addonVersion"</span>: <span class="v">"‹add-on version›"</span>,
+  <span class="k">"products"</span>: [
+    { <span class="k">"id"</span>: <span class="v">"cms"</span>, <span class="k">"displayName"</span>: <span class="v">"Umbraco CMS"</span>,
+      <span class="k">"installed"</span>: true, <span class="k">"enabled"</span>: true,
+      <span class="k">"version"</span>: <span class="v">"17.7.0"</span>, <span class="k">"issues"</span>: [],
+      <span class="k">"disabledCollections"</span>: <span class="hl">null</span>,
+      <span class="k">"readOnly"</span>: false, <span class="k">"noDestructive"</span>: false },
+    { <span class="k">"id"</span>: <span class="v">"forms"</span>, <span class="k">"displayName"</span>: <span class="v">"Umbraco Forms"</span>,
+      <span class="k">"installed"</span>: true, <span class="k">"enabled"</span>: true,
+      <span class="k">"version"</span>: <span class="v">"17.6.1"</span>, <span class="k">"issues"</span>: [],
+      <span class="k">"disabledCollections"</span>: <span class="hl">["licensing", "updates"]</span>,
+      <span class="k">"readOnly"</span>: false, <span class="k">"noDestructive"</span>: <span class="hl">true</span> },
+    { <span class="k">"id"</span>: <span class="v">"engage"</span>, <span class="k">"displayName"</span>: <span class="v">"Umbraco Engage"</span>,
+      <span class="k">"installed"</span>: false, <span class="k">"enabled"</span>: false,
+      <span class="k">"version"</span>: null, <span class="c">…</span> }
+  ]
+}</pre>
+        <figcaption><code>null</code> means "no saved list", so the module's own defaults apply. A saved <code>[]</code> means nothing is switched off. The <code>id</code> must equal the npm module's <code>id</code>.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- 4 · startup -->
+  <section id="startup">
+    <h2>Startup, in order</h2>
+    <p>All of this happens once, when the AI tool starts the server. The order matters: the server's instructions are fixed when it is created, so it can only be created after it knows which products loaded.</p>
+    <figure>
+      <div class="scroll">
+        <svg class="min-l" viewBox="0 0 980 712" role="img" aria-label="Sequence of startup steps between the AI tool, umbrella-mcp and the Umbraco site, from npx start to the tool list being served.">
+          <rect class="box client" x="40" y="20" width="140" height="40" rx="8"/>
+          <text class="t mid" x="110" y="45">AI tool</text>
+          <rect class="panel server" x="380" y="20" width="180" height="40" rx="8"/>
+          <text class="t mid c-server" x="470" y="45">umbrella-mcp</text>
+          <rect class="panel site" x="740" y="20" width="180" height="40" rx="8"/>
+          <text class="t mid c-site" x="830" y="45">Umbraco site</text>
+          <line class="life" x1="110" y1="60" x2="110" y2="700"/>
+          <line class="life" x1="470" y1="60" x2="470" y2="700"/>
+          <line class="life" x1="830" y1="60" x2="830" y2="700"/>
+
+          <g class="s">
+            <text class="s" x="20" y="104">1</text><text class="s" x="20" y="148">2</text><text class="s" x="20" y="192">3</text>
+            <text class="s" x="20" y="236">4</text><text class="s" x="20" y="280">5</text><text class="s" x="20" y="324">6</text>
+            <text class="s" x="20" y="412">7</text><text class="s" x="20" y="456">8</text><text class="s" x="20" y="500">9</text>
+            <text class="s" x="20" y="544">10</text><text class="s" x="20" y="588">11</text><text class="s" x="20" y="632">12</text>
+            <text class="s" x="20" y="676">13</text>
+          </g>
+
+          <line class="ln client" x1="112" y1="100" x2="466" y2="100" marker-end="url(#ah-client)"/>
+          <text class="lbl m mid" x="290" y="92">npx -y umbrella-mcp@‹ver›</text>
+
+          <line class="ln" x1="472" y1="144" x2="826" y2="144" marker-end="url(#ah)"/>
+          <text class="lbl mid" x="650" y="136">sign in: client credentials → token</text>
+
+          <rect class="dot" x="464" y="178" width="12" height="20" rx="2"/>
+          <text class="lbl" x="488" y="192">load the CMS module · its client is the default</text>
+
+          <line class="ln" x1="472" y1="232" x2="826" y2="232" marker-end="url(#ah)"/>
+          <text class="lbl mid" x="650" y="224">GET current user · bad credentials → exit</text>
+
+          <rect class="dot" x="464" y="266" width="12" height="20" rx="2"/>
+          <text class="lbl" x="488" y="280">Umbraco major 17? a mismatch warns, doesn't stop</text>
+
+          <line class="ln site" x1="472" y1="320" x2="826" y2="320" marker-end="url(#ah-site)"/>
+          <text class="lbl m mid c-site" x="650" y="312">GET /mcp/capabilities</text>
+          <line class="ln site dash" x1="826" y1="352" x2="474" y2="352" marker-end="url(#ah-site)"/>
+          <text class="s mid" x="650" y="372">ok · no add-on (404) · unavailable</text>
+
+          <rect class="dot" x="464" y="398" width="12" height="20" rx="2"/>
+          <text class="lbl" x="488" y="412">select modules (next section)</text>
+          <rect class="dot" x="464" y="442" width="12" height="20" rx="2"/>
+          <text class="lbl" x="488" y="456">phase 1: import each selected ./collections</text>
+          <rect class="dot" x="464" y="486" width="12" height="20" rx="2"/>
+          <text class="lbl" x="488" y="500">create McpServer with routing instructions</text>
+          <rect class="dot" x="464" y="530" width="12" height="20" rx="2"/>
+          <text class="lbl" x="488" y="544">phase 2: filter, prefix and register tools</text>
+
+          <line class="ln site" x1="472" y1="584" x2="826" y2="584" marker-end="url(#ah-site)"/>
+          <text class="lbl m mid c-site" x="650" y="576">POST /mcp/catalogue</text>
+
+          <rect class="dot" x="464" y="618" width="12" height="20" rx="2"/>
+          <text class="lbl" x="488" y="632">add get-mcp-health · Draft 2020-12 schemas last</text>
+
+          <line class="ln client" x1="112" y1="672" x2="466" y2="672" marker-start="url(#ah-client)" marker-end="url(#ah-client)"/>
+          <text class="lbl m mid" x="290" y="664">tools/list · tools/call</text>
+        </svg>
+      </div>
+      <figcaption>Failure rules: CMS always loads, and a CMS failure or a duplicate tool name stops startup. A product module that fails is skipped and shows up in <code>get-mcp-health</code>. A failed catalogue report is only a note there. With <code>--list-tools</code> the process prints the tool names after step 12 and exits.</figcaption>
+    </figure>
+  </section>
+
+  <!-- 5 · selection -->
+  <section id="select">
+    <h2>Which products load</h2>
+    <p><code>selectModules()</code> asks four questions per module. The first answer that decides wins, and the reason is kept for <code>get-mcp-health</code>.</p>
+    <figure>
+      <div class="scroll">
+        <svg class="min-l" viewBox="0 0 1080 300" role="img" aria-label="Decision flow: required modules load, forced modules load, no add-on answer means skip, not installed or enabled or wrong major means skip, otherwise load.">
+          <rect class="band ok" x="20" y="20" width="1040" height="40" rx="8"/>
+          <text class="lbl c-ok" x="40" y="45">LOAD</text>
+          <rect class="band skip" x="20" y="240" width="1040" height="40" rx="8"/>
+          <text class="lbl c-drop" x="40" y="265">SKIP · reason shown in get-mcp-health</text>
+
+          <rect class="box" x="40" y="110" width="200" height="80" rx="8"/>
+          <text class="t mid" x="140" y="144">Required?</text>
+          <text class="s mid" x="140" y="164">only CMS</text>
+          <rect class="box" x="300" y="110" width="200" height="80" rx="8"/>
+          <text class="t mid" x="400" y="144">Forced?</text>
+          <text class="s m mid" x="400" y="164">UMBRACO_MCP_MODULES</text>
+          <rect class="box site" x="560" y="110" width="200" height="80" rx="8"/>
+          <text class="t mid" x="660" y="144">Did the add-on answer?</text>
+          <text class="s mid" x="660" y="164">capabilities came back ok</text>
+          <rect class="box site" x="820" y="110" width="200" height="80" rx="8"/>
+          <text class="t mid" x="920" y="144">On the site and usable?</text>
+          <text class="s mid" x="920" y="164">installed, enabled, major 17</text>
+
+          <line class="ln ok" x1="140" y1="110" x2="140" y2="62" marker-end="url(#ah-ok)"/>
+          <text class="s" x="148" y="90">yes</text>
+          <line class="ln" x1="240" y1="150" x2="298" y2="150" marker-end="url(#ah)"/>
+          <text class="s mid" x="269" y="142">no</text>
+          <line class="ln ok" x1="400" y1="110" x2="400" y2="62" marker-end="url(#ah-ok)"/>
+          <text class="s" x="408" y="90">yes</text>
+          <line class="ln" x1="500" y1="150" x2="558" y2="150" marker-end="url(#ah)"/>
+          <text class="s mid" x="529" y="142">no</text>
+          <line class="ln" x1="760" y1="150" x2="818" y2="150" marker-end="url(#ah)"/>
+          <text class="s mid" x="789" y="142">yes</text>
+          <line class="ln drop" x1="660" y1="190" x2="660" y2="238" marker-end="url(#ah-drop)"/>
+          <text class="s" x="668" y="218">no add-on / unreachable</text>
+          <line class="ln ok" x1="920" y1="110" x2="920" y2="62" marker-end="url(#ah-ok)"/>
+          <text class="s" x="928" y="90">yes</text>
+          <line class="ln drop" x1="920" y1="190" x2="920" y2="238" marker-end="url(#ah-drop)"/>
+          <text class="s" x="928" y="218">no</text>
+        </svg>
+      </div>
+      <figcaption>Without the add-on the server still works, with CMS tools only (plus anything forced). Selected is not yet loaded: phase 1 can still skip a module whose package is missing, that brings its own nested toolkit copy, or whose <code>load()</code> throws.</figcaption>
+    </figure>
+  </section>
+
+  <!-- 6 · filters -->
+  <section id="filter">
+    <h2>Which tools survive</h2>
+    <p>Each loaded module's tools pass the same gates, using the product's own unprefixed names. Environment variables live in the AI tool's config; site settings come from the dashboard via capabilities.</p>
+    <figure>
+      <div class="scroll">
+        <svg class="min-xl" viewBox="0 0 1080 362" role="img" aria-label="Forms tools pass four gates: switched-off tool groups, environment tool filters, read-only, and no destructive. Survivors are prefixed and registered. Which list switches groups off is the first that exists of: environment collection filter, the site's saved list, the module defaults.">
+          <rect class="box server" x="20" y="80" width="130" height="80" rx="8"/>
+          <text class="t mid" x="85" y="112">All Forms tools</text>
+          <text class="s mid" x="85" y="130">from the package's</text>
+          <text class="s mid" x="85" y="146">collections</text>
+
+          <rect class="box" x="220" y="70" width="120" height="100" rx="8"/>
+          <text class="t sm mid" x="280" y="114">Tool groups</text>
+          <text class="s mid" x="280" y="132">switched off</text>
+          <rect class="box" x="410" y="70" width="120" height="100" rx="8"/>
+          <text class="t sm mid" x="470" y="114">Env tool filters</text>
+          <text class="s mid" x="470" y="132">modes · slices · tools</text>
+          <rect class="box site" x="580" y="70" width="120" height="100" rx="8"/>
+          <text class="t sm mid" x="640" y="114">Read-only</text>
+          <text class="s mid" x="640" y="132">site OR env</text>
+          <rect class="box site" x="740" y="70" width="120" height="100" rx="8"/>
+          <text class="t sm mid" x="800" y="114">No destructive</text>
+          <text class="s mid" x="800" y="132">site OR env</text>
+
+          <rect class="panel server" x="930" y="80" width="140" height="80" rx="8"/>
+          <text class="t m mid" x="1000" y="110">forms--…</text>
+          <text class="s mid" x="1000" y="128">prefixed and</text>
+          <text class="s mid" x="1000" y="144">registered</text>
+
+          <line class="ln" x1="150" y1="120" x2="218" y2="120" marker-end="url(#ah)"/>
+          <line class="ln" x1="340" y1="120" x2="408" y2="120" marker-end="url(#ah)"/>
+          <line class="ln" x1="530" y1="120" x2="578" y2="120" marker-end="url(#ah)"/>
+          <line class="ln" x1="700" y1="120" x2="738" y2="120" marker-end="url(#ah)"/>
+          <line class="ln server" x1="860" y1="120" x2="928" y2="120" marker-end="url(#ah-server)"/>
+
+          <line class="ln drop" x1="280" y1="70" x2="280" y2="36" marker-end="url(#ah-drop)"/>
+          <line class="ln drop" x1="470" y1="70" x2="470" y2="36" marker-end="url(#ah-drop)"/>
+          <line class="ln drop" x1="640" y1="70" x2="640" y2="36" marker-end="url(#ah-drop)"/>
+          <line class="ln drop" x1="800" y1="70" x2="800" y2="36" marker-end="url(#ah-drop)"/>
+          <text class="s c-drop" x="290" y="28">left out</text>
+          <text class="s c-drop" x="480" y="28">left out</text>
+          <text class="s c-drop" x="650" y="28">left out</text>
+          <text class="s c-drop" x="810" y="28">left out</text>
+
+          <line class="ln mut dash" x1="280" y1="170" x2="280" y2="198"/>
+          <text class="lbl" x="40" y="214">Which list switches groups off · the first that exists wins</text>
+          <rect class="box" x="40" y="226" width="480" height="34" rx="6"/>
+          <text class="s" x="56" y="247"><tspan class="lbl">1</tspan>   env collection filter for this product (forms:folder, forms:*, …)</text>
+          <rect class="box site" x="40" y="268" width="480" height="34" rx="6"/>
+          <text class="s" x="56" y="289"><tspan class="lbl">2</tspan>   the site's saved list from the dashboard ([] = nothing off)</text>
+          <rect class="box server" x="40" y="310" width="480" height="34" rx="6"/>
+          <text class="s" x="56" y="331"><tspan class="lbl">3</tspan>   module defaults (Forms: licensing, updates, media, …)</text>
+
+          <line class="ln mut dash" x1="640" y1="170" x2="640" y2="208"/>
+          <line class="ln mut dash" x1="800" y1="170" x2="800" y2="208"/>
+          <rect class="box" x="580" y="210" width="480" height="134" rx="8"/>
+          <text class="lbl" x="598" y="236">Levels can only remove tools</text>
+          <text class="s" x="598" y="260">Read-only keeps only read-only tools.</text>
+          <text class="s" x="598" y="280">No destructive drops tools annotated destructiveHint: true.</text>
+          <text class="s" x="598" y="300">Always applied, even when env filters override the dashboard.</text>
+          <text class="s" x="598" y="320">The dashboard stores one level per product; read-only wins.</text>
+        </svg>
+      </div>
+      <figcaption>The env collection filter replaces the dashboard list for that product entirely, and the dashboard shows a warning. The catalogue sent back to the site is built before any of these gates, so the dashboard can show switched-off groups too.</figcaption>
+    </figure>
+  </section>
+
+  <!-- 7 · names -->
+  <section id="names">
+    <h2>What the model sees</h2>
+    <p>Before registering a tool, Umbrella renames it, labels its description with the product, and points any mention of a sibling tool at that tool's registered name.</p>
+    <div class="two">
+      <div class="card">
+        <div class="tag">In the product package · illustrative</div>
+        <h3><code>get-form</code></h3>
+        <p>"Gets a form by id. Call <code>list-forms</code> first to find the id."</p>
+      </div>
+      <div class="card after">
+        <div class="tag">Registered by Umbrella</div>
+        <h3><code>forms--get-form</code></h3>
+        <p>"[Umbraco Forms] Gets a form by id. Call <code>forms--list-forms</code> first to find the id."</p>
+      </div>
+    </div>
+    <p class="prose">A mention resolves to the module's own tool first, otherwise to the only loaded product that has it. Ambiguous names such as <code>get-server-info</code> are left alone. The server's instructions, which most clients fold into the system prompt, are built from each loaded module's <code>description</code> and <code>useWhen</code>:</p>
+    <figure>
+<pre>This server exposes tools for several Umbraco products. Every product tool name starts with its product prefix.
+Pick the product from the user's request first, then only use tools with that prefix:
+
+- `cms--` Umbraco CMS: the site's content, structure, media, members and settings. Use for: <span class="c">…</span>
+- <span class="hl">`forms--`</span> Umbraco Forms: forms, their fields and the entries people submit. Use for: forms, form folders,
+  fields, pages, conditions, themes and form templates; form submissions (entries/records): searching, exporting
+  and analysing them; form workflows (actions that run after a form is submitted), data sources and prevalue
+  sources; the Forms recycle bin (deleted forms and folders).
+- `automate--` Umbraco Automate: automations that react to triggers and run steps. Use for: <span class="c">…</span>
+
+If the request does not clearly match one product, or product tools seem missing, call get-mcp-health.</pre>
+      <figcaption>Only modules that loaded appear. A contract test keeps the text for all four products under 2,000 characters. Overlapping words like "workflow" are made unambiguous inside each product's <code>useWhen</code>.</figcaption>
+    </figure>
+  </section>
+
+  <!-- 8 · calls -->
+  <section id="calls">
+    <h2>When a tool is called</h2>
+    <p>The shared toolkit has one process-wide API client provider, but Forms needs a Forms client and CMS a CMS client. Umbrella installs one provider that looks up the current product from an <code>AsyncLocalStorage</code>, and wraps every handler so the right product is set for the length of the call.</p>
+    <figure>
+      <div class="scroll">
+        <svg class="min-xl" viewBox="0 0 1080 280" role="img" aria-label="Two concurrent calls, one Forms and one CMS, each run inside bindClient with their product's client factory. Both handlers call getApiClient on the one global provider, which reads the current AsyncLocalStorage and returns the Forms client or the CMS client.">
+          <rect class="box client" x="20" y="40" width="170" height="60" rx="8"/>
+          <text class="t m mid" x="105" y="66">forms--list-forms</text>
+          <text class="s mid" x="105" y="84">call arrives</text>
+          <rect class="box client" x="20" y="180" width="170" height="60" rx="8"/>
+          <text class="t m mid" x="105" y="206">cms-- tool</text>
+          <text class="s mid" x="105" y="224">same moment</text>
+
+          <rect class="box server" x="240" y="40" width="190" height="60" rx="8"/>
+          <text class="t m mid" x="335" y="64" style="font-size:11px">bindClient(forms factory)</text>
+          <text class="s mid" x="335" y="84">sets AsyncLocalStorage</text>
+          <rect class="box server" x="240" y="180" width="190" height="60" rx="8"/>
+          <text class="t m mid" x="335" y="204" style="font-size:11px">bindClient(cms factory)</text>
+          <text class="s mid" x="335" y="224">sets AsyncLocalStorage</text>
+
+          <rect class="box" x="480" y="40" width="170" height="60" rx="8"/>
+          <text class="t mid" x="565" y="64">Forms handler</text>
+          <text class="s mid" x="565" y="84">from @umbraco-forms/mcp-dev</text>
+          <rect class="box" x="480" y="180" width="170" height="60" rx="8"/>
+          <text class="t mid" x="565" y="204">CMS handler</text>
+          <text class="s mid" x="565" y="224">from @umbraco-cms/mcp-dev</text>
+
+          <rect class="panel server" x="710" y="100" width="170" height="80" rx="8"/>
+          <text class="t mid" x="795" y="128">one global provider</text>
+          <text class="s mid" x="795" y="146">in the shared toolkit,</text>
+          <text class="s mid" x="795" y="162">reads the current context</text>
+
+          <rect class="box site" x="930" y="40" width="130" height="60" rx="8"/>
+          <text class="t mid" x="995" y="64">Forms client</text>
+          <text class="s mid" x="995" y="84">→ Forms API</text>
+          <rect class="box site" x="930" y="180" width="130" height="60" rx="8"/>
+          <text class="t mid" x="995" y="204">CMS client</text>
+          <text class="s mid" x="995" y="224">→ CMS API</text>
+
+          <line class="ln" x1="190" y1="70" x2="238" y2="70" marker-end="url(#ah)"/>
+          <line class="ln" x1="190" y1="210" x2="238" y2="210" marker-end="url(#ah)"/>
+          <line class="ln" x1="430" y1="70" x2="478" y2="70" marker-end="url(#ah)"/>
+          <line class="ln" x1="430" y1="210" x2="478" y2="210" marker-end="url(#ah)"/>
+          <line class="ln" x1="650" y1="80" x2="716" y2="106" marker-end="url(#ah)"/>
+          <line class="ln" x1="650" y1="200" x2="716" y2="174" marker-end="url(#ah)"/>
+          <text class="s m" x="652" y="122">getApiClient()</text>
+          <text class="s m" x="652" y="166">getApiClient()</text>
+          <line class="ln site" x1="880" y1="120" x2="928" y2="82" marker-end="url(#ah-site)"/>
+          <line class="ln site" x1="880" y1="160" x2="928" y2="198" marker-end="url(#ah-site)"/>
+        </svg>
+      </div>
+      <figcaption>This works only because product handlers call <code>getApiClient()</code> inside the call. So nothing else may call <code>configureApiClient</code>, and the toolkit's <code>clientFactory</code> proxy is never used; either would replace the provider.</figcaption>
+    </figure>
+    <p>This only works if every product uses the same copy of the toolkit; <a href="#toolkit">Why the toolkit is needed</a> explains why and how that is guarded.</p>
+  </section>
+
+  <!-- 9 · loop -->
+  <section id="loop">
+    <h2>The settings loop</h2>
+    <p>The dashboard can only offer tool groups the server has told it about, and the server only reads the settings when it starts. So a change goes round once.</p>
+    <figure>
+      <div class="scroll">
+        <svg class="min-xl" viewBox="0 0 1080 224" role="img" aria-label="The server reports its catalogue at start, the site stores it, the dashboard shows it, an admin saves settings, and the next server start reads them back through capabilities.">
+          <rect class="panel server" x="20" y="40" width="170" height="80" rx="8"/>
+          <text class="t mid" x="105" y="70">Server starts</text>
+          <text class="s m mid" x="105" y="90">POST /mcp/catalogue</text>
+          <text class="s mid" x="105" y="106">every group, before filters</text>
+          <rect class="box site" x="237" y="40" width="170" height="80" rx="8"/>
+          <text class="t mid" x="322" y="70">Site stores it</text>
+          <text class="s m mid" x="322" y="90">Umbraco.Mcp.Catalogue</text>
+          <text class="s mid" x="322" y="106">merged per product</text>
+          <rect class="box site" x="454" y="40" width="170" height="80" rx="8"/>
+          <text class="t mid" x="539" y="70">Admin edits</text>
+          <text class="s mid" x="539" y="90">Settings → Umbrella</text>
+          <text class="s mid" x="539" y="106">untick groups, pick a level</text>
+          <rect class="box site" x="671" y="40" width="170" height="80" rx="8"/>
+          <text class="t mid" x="756" y="70">Saved</text>
+          <text class="s m mid" x="756" y="90">PUT /mcp/tool-settings</text>
+          <text class="s mid" x="756" y="106">umbracoKeyValue rows</text>
+          <rect class="panel server" x="888" y="40" width="170" height="80" rx="8"/>
+          <text class="t mid" x="973" y="70">Next server start</text>
+          <text class="s mid" x="973" y="90">reconnect in the AI tool</text>
+          <text class="s mid" x="973" y="106">new filters apply</text>
+
+          <line class="ln" x1="190" y1="80" x2="235" y2="80" marker-end="url(#ah)"/>
+          <line class="ln" x1="407" y1="80" x2="452" y2="80" marker-end="url(#ah)"/>
+          <line class="ln" x1="624" y1="80" x2="669" y2="80" marker-end="url(#ah)"/>
+          <line class="ln" x1="841" y1="80" x2="886" y2="80" marker-end="url(#ah)"/>
+          <path class="ln site dash" d="M973 120 V176 H105 V124" marker-end="url(#ah-site)"/>
+          <text class="lbl mid c-site" x="539" y="198">GET /mcp/capabilities carries disabledCollections, readOnly and noDestructive</text>
+        </svg>
+      </div>
+      <figcaption>Before the server has started once, the dashboard has nothing to show. Settings are shared by every server of a load-balanced site, since they live in the database. They are a convenience, not a security control: the API user's groups and sections decide what it can really do.</figcaption>
+    </figure>
+  </section>
+
+  <!-- 10 · contract -->
+  <section id="contract">
+    <h2>The contract between the halves</h2>
+    <p>Both packages ship with the same version, because the add-on tells AI tools to run <code>npx -y umbrella-mcp@‹add-on version›</code>. These things must match on both sides:</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>What</th><th>Add-on (C#)</th><th>Server (TypeScript)</th><th>Guarded by</th></tr></thead>
+        <tbody>
+          <tr><td>Product ids</td><td>detector <code>Id</code></td><td>module <code>id</code></td><td><code>scripts/e2e.sh</code></td></tr>
+          <tr><td>Capabilities payload</td><td><code>McpCapabilities</code>, <code>McpProductStatus</code></td><td><code>CapabilitiesPayload</code></td><td>unit tests per side, e2e</td></tr>
+          <tr><td>Catalogue payload</td><td><code>McpCatalogueReport</code></td><td><code>CataloguePayload</code></td><td>unit tests per side, e2e</td></tr>
+          <tr><td>Package name and bin</td><td><code>McpClientConfig.NpmPackage</code></td><td><code>name</code>, <code>bin</code></td><td><code>NpmPackageContractTests</code></td></tr>
+          <tr><td>Version</td><td>csproj <code>&lt;Version&gt;</code></td><td><code>version</code></td><td><code>NpmPackageContractTests</code>; at runtime the "MCP client setup" check and <code>get-mcp-health</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>A visual companion to <a href="architecture.md">architecture.md</a>; update both when the code changes. Example JSON values and the <code>get-form</code> description are illustrative.</footer>
+</div>
+</body>
+</html>

@@ -14,6 +14,7 @@ The original design is `docs/superpowers/specs/2026-10-11-umbraco-mcp-umbrella-d
 Current docs, to keep in sync with the code:
 - `README.md`: setup, configuration, troubleshooting and known limitations, for users.
 - `docs/architecture.md`: how the code works, for contributors. It overlaps this file; update both.
+- `docs/architecture-map.html`: the same in diagrams (hand-written inline SVG). Update it with `docs/architecture.md`.
 - `docs/development.md`: setup from a fresh clone, tests, the e2e scripts.
 - `docs/adding-a-product.md`, `docs/releasing.md`, `docs/merging.md`.
 
