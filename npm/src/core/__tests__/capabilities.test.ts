@@ -32,7 +32,6 @@ describe("interpretCapabilitiesResponse", () => {
     ["disabledCollections not a string array", { addonVersion: "1", products: [{ ...payload.products[0], disabledCollections: [1] }] }],
     ["readOnly not a boolean", { addonVersion: "1", products: [{ ...payload.products[0], readOnly: "true" }] }],
     ["noDestructive not a boolean", { addonVersion: "1", products: [{ ...payload.products[0], noDestructive: "true" }] }],
-    ["settingsScope not a string", { addonVersion: "1", products: [{ ...payload.products[0], settingsScope: 1 }] }],
   ])("treats a malformed 200 (%s) as unavailable", (_label, data) => {
     const r = interpretCapabilitiesResponse({ status: 200, data });
     expect(r.kind).toBe("unavailable");
@@ -130,6 +129,12 @@ describe("siteSettingsScope", () => {
     expect(siteSettingsScope(withScope("user"), "forms")).toBe("user");
     expect(siteSettingsScope(withScope("user"), "cms")).toBe("site");
     expect(siteSettingsScope(withScope("site"), "forms")).toBe("site");
+  });
+
+  it('a non-string scope is accepted and is "site"', () => {
+    const odd = withScope(1);
+    expect(odd.kind).toBe("ok");
+    expect(siteSettingsScope(odd, "forms")).toBe("site");
   });
 
   it('missing, null or unknown scope is "site"', () => {

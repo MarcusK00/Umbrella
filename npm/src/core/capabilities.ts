@@ -15,7 +15,7 @@ export interface ProductCapability {
   readOnly?: boolean | null;
   /** No destructive tools, as set in the backoffice. Missing on older add-ons. */
   noDestructive?: boolean | null;
-  /** "user" when the settings above are an override for the calling API user, "site" for the defaults. Missing on older add-ons. */
+  /** "user" when the settings above are an override for the calling API user, "site" for the defaults. Missing on older add-ons; any other value counts as "site". */
   settingsScope?: string | null;
 }
 
@@ -45,7 +45,6 @@ const isProduct = (p: unknown): p is ProductCapability => {
       (Array.isArray(o.disabledCollections) && o.disabledCollections.every((c) => typeof c === "string"))) &&
     (o.readOnly === undefined || o.readOnly === null || typeof o.readOnly === "boolean") &&
     (o.noDestructive === undefined || o.noDestructive === null || typeof o.noDestructive === "boolean") &&
-    (o.settingsScope === undefined || o.settingsScope === null || typeof o.settingsScope === "string") &&
     Array.isArray(o.issues)
   );
 };
