@@ -14,7 +14,7 @@ internal static class McpClientConfig
     /// <summary>The key the server is listed under in the client config.</summary>
     public const string ServerName = "umbraco";
 
-    /// <summary>The environment variable a written <c>.mcp.json</c> reads the client secret from.</summary>
+    /// <summary>The environment variable the Claude Code and Cursor snippets read the client secret from.</summary>
     public const string SecretEnvironmentVariable = "UMBRELLA_CLIENT_SECRET";
 
     /// <summary>The client id suggested to AI tools when <c>Umbraco:Mcp:ClientId</c> is not set.</summary>

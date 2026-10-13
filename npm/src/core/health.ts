@@ -84,8 +84,7 @@ export function buildHealthReport(state: HealthState): HealthReport {
     const addonVersion = caps.payload.addonVersion;
     notes.push(
       `umbrella-mcp ${state.serverVersion} is running, but the site's Umbraco.Community.Umbrella add-on is ${addonVersion}. ` +
-      `The two are released together: set umbrella-mcp@${addonVersion} in your MCP client config. ` +
-      "A .mcp.json the site wrote and nobody edited is upgraded when the site next starts in Development.",
+      `The two are released together: set umbrella-mcp@${addonVersion} in your MCP client config.`,
     );
   }
 

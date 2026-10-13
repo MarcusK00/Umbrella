@@ -18,7 +18,6 @@ export class UmbrellaOverviewElement extends UmbLitElement {
     _data: { state: true },
     _error: { state: true },
     _client: { state: true },
-    _mcpJsonMessage: { state: true },
     _busy: { state: true },
   };
 
@@ -30,7 +29,6 @@ export class UmbrellaOverviewElement extends UmbLitElement {
     this._data = null;
     this._error = null;
     this._client = null;
-    this._mcpJsonMessage = null;
     this._busy = false;
     this.consumeContext(UMB_NOTIFICATION_CONTEXT, (ctx) => (this.#notifications = ctx));
     this.consumeContext(UMB_AUTH_CONTEXT, (ctx) => {
@@ -60,19 +58,6 @@ export class UmbrellaOverviewElement extends UmbLitElement {
       this.#notifications?.peek("positive", { data: { message: "Copied" } });
     } catch {
       this.#notifications?.peek("danger", { data: { message: "Could not copy. Select the text and copy it by hand." } });
-    }
-  }
-
-  async #writeMcpJson() {
-    this._busy = true;
-    try {
-      const result = await request(this.#auth, "POST", "mcp-json");
-      this._mcpJsonMessage = result?.message ?? null;
-      await this.#load();
-    } catch (error) {
-      this.#notifications?.peek("danger", { data: { headline: "Could not write .mcp.json", message: error.message } });
-    } finally {
-      this._busy = false;
     }
   }
 
@@ -118,7 +103,7 @@ export class UmbrellaOverviewElement extends UmbLitElement {
   }
 
   #renderConnect() {
-    const { apiUsers, server, findings, clients, mcpJson } = this._data;
+    const { apiUsers, server, findings, clients } = this._data;
     const open =
       apiUsers.length === 0 || server === null || findings.some((f) => f.severity === "warning" && f.area !== "products");
     const selected = clients.find((c) => c.id === this._client) ?? clients[0];
@@ -148,17 +133,6 @@ export class UmbrellaOverviewElement extends UmbLitElement {
                 </div>
                 <pre>${selected.content}</pre>
               </div>`
-          : nothing}
-        ${mcpJson.available
-          ? html`<div class="mcp-json">
-              <uui-button
-                look="primary"
-                label="Write .mcp.json"
-                ?disabled=${this._busy}
-                @click=${this.#writeMcpJson}
-              ></uui-button>
-              ${this._mcpJsonMessage ? html`<p>${this._mcpJsonMessage}</p>` : nothing}
-            </div>`
           : nothing}
       </details>
     </uui-box>`;
@@ -263,7 +237,6 @@ export class UmbrellaOverviewElement extends UmbLitElement {
         border-radius: var(--uui-border-radius);
         white-space: pre;
       }
-      .mcp-json { margin-top: var(--uui-size-space-4); }
       .row-actions { text-align: right; white-space: nowrap; }
     `,
   ];

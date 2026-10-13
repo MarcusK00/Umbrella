@@ -186,20 +186,3 @@ internal sealed class FakeApiUserDirectory(params McpApiUserInfo[] users) : IMcp
 
     public Task<McpApiUserInfo?> GetAsync(Guid key) => Task.FromResult(users.FirstOrDefault(u => u.Key == key));
 }
-
-internal sealed class FakeMcpJsonFile(bool isAvailable = false, string? path = null) : IMcpJsonFile
-{
-    public bool IsAvailable => isAvailable;
-
-    public string? Path => path;
-
-    public Exception? Throws { get; init; }
-
-    public int Writes { get; private set; }
-
-    public McpJsonResult WriteOrUpgrade()
-    {
-        Writes++;
-        return Throws is null ? new(McpJsonOutcome.Written, path ?? "", "Wrote it.") : throw Throws;
-    }
-}

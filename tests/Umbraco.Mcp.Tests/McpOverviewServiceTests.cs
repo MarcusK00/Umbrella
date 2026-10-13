@@ -79,14 +79,12 @@ public class McpOverviewServiceTests
     private static McpOverviewService Service(
         IMcpToolSettingsStore? settings = null,
         IMcpApiUserProvider? users = null,
-        IMcpCapabilitiesService? caps = null,
-        FakeMcpJsonFile? json = null) =>
+        IMcpCapabilitiesService? caps = null) =>
         new(
             caps ?? new StubCapabilities(new McpCapabilities(Addon, AllProducts)),
             settings ?? new FakeToolSettingsStore { Catalogue = Catalogue(Addon, ("cms", 1)) },
             users ?? new FakeApiUserProvider(User(UserState.Active, "Umb.Section.Forms", "Ua.Section.Automate")),
             Sections.Select(s => (IMcpProductDetector)new StubDetector(s.Key, s.Value)).ToList(),
-            json ?? new FakeMcpJsonFile(),
             new ConfigurationBuilder().Build(),
             NullLogger<McpOverviewService>.Instance);
 
@@ -138,8 +136,7 @@ public class McpOverviewServiceTests
         Assert.That(finding.Area, Is.EqualTo(McpFindingArea.Server));
         Assert.That(finding.Message, Is.EqualTo(
             "The MCP server last started as umbrella-mcp 16.9.0 on 12-10-2026 08:46 UTC, but the add-on is 17.0.0. " +
-            "The two are released together: set umbrella-mcp@17.0.0 in your AI tool's MCP configuration. " +
-            "A .mcp.json the site wrote and nobody edited is upgraded when the site next starts in Development."));
+            "The two are released together: set umbrella-mcp@17.0.0 in your AI tool's MCP configuration."));
     }
 
     [Test]
@@ -329,16 +326,6 @@ public class McpOverviewServiceTests
     }
 
     [Test]
-    public async Task Mcp_json_status_comes_from_the_file_service()
-    {
-        var service = Service(json: new FakeMcpJsonFile(true, "C:/site/.mcp.json"));
-
-        McpOverview overview = await service.GetOverviewAsync(null);
-
-        Assert.That(overview.McpJson, Is.EqualTo(new McpJsonStatus(true, "C:/site/.mcp.json")));
-    }
-
-    [Test]
     public async Task User_row_shows_its_own_report_and_access()
     {
         McpApiUser user = NamedUser("Anna");
@@ -458,8 +445,7 @@ public class McpOverviewServiceTests
         Assert.That(finding.Severity, Is.EqualTo(McpFinding.Warning));
         Assert.That(finding.Message, Is.EqualTo(
             "\"Anna\" last started umbrella-mcp 16.9.0 on 12-10-2026 08:46 UTC, but the add-on is 17.0.0. " +
-            "The two are released together: set umbrella-mcp@17.0.0 in your AI tool's MCP configuration. " +
-            "A .mcp.json the site wrote and nobody edited is upgraded when the site next starts in Development."));
+            "The two are released together: set umbrella-mcp@17.0.0 in your AI tool's MCP configuration."));
     }
 
     [Test]

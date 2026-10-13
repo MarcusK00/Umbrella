@@ -62,9 +62,6 @@ public sealed record McpOverviewApiUser(
     int? ToolCount,
     IReadOnlyList<McpOverviewAccess> Access);
 
-/// <summary>Whether the site can write a <c>.mcp.json</c>, and where.</summary>
-public sealed record McpJsonStatus(bool Available, string? Path);
-
 /// <summary>Everything the Overview dashboard and the MCP health checks show.</summary>
 public sealed record McpOverview(
     string AddonVersion,
@@ -72,5 +69,4 @@ public sealed record McpOverview(
     IReadOnlyList<McpOverviewProduct> Products,
     McpServerReport? Server,
     IReadOnlyList<McpOverviewApiUser> ApiUsers,
-    IReadOnlyList<McpClientSnippet> Clients,
-    McpJsonStatus McpJson);
+    IReadOnlyList<McpClientSnippet> Clients);
