@@ -63,7 +63,7 @@ export const engageModule: McpProductModule = {
 
 - **`description`:** one sentence starting with `<displayName>: `. The contract test checks this.
 - **`useWhen`:** short, concrete phrases for the requests this product handles. They become the routing instructions, which must stay under 2,000 characters for all modules together. If a word overlaps another product ("workflow", "analytics", "segments"), say in the phrase which meaning belongs here, as Engage does with "not form submission analytics".
-- **`defaultDisabledCollections`** (optional): groups that stay off until the site saves a list or the environment sets a collection filter, for example a duplicate of a CMS tool, a test aid or backoffice plumbing an AI has no use for. Every current module uses it: Forms and Automate for their `umbraco-server` groups, and CMS, Forms and Engage for groups such as `manifest` or `licensing`. Only a whole group can be off by default. The contract test checks that each name exists in the package.
+- **`defaultDisabledCollections`:** leave it out. Every tool group is on until the site saves a list, and the contract test checks that no module sets it.
 - **`load()`:** keep the dynamic `import()`, so the package is only loaded when the site has the product.
 
 Then:
@@ -117,7 +117,7 @@ It also compares the tools flagged `destructiveHint` with `npm/src/modules/__tes
 ## 6. Docs
 
 - `README.md`: the package table, Compatibility and Known limitations.
-- `npm/README.md` and `src/Umbraco.Mcp/README.md`: the list of supported products. `npm/README.md` also has the table of groups that are off by default, when the module sets `defaultDisabledCollections`.
+- `npm/README.md` and `src/Umbraco.Mcp/README.md`: the list of supported products.
 - `docs/architecture.md` (the module list) and `docs/architecture-map.html` (the product boxes and prefixes).
 - The `<Description>` in `src/Umbraco.Mcp/Umbraco.Mcp.csproj` (shown on NuGet).
 - `CLAUDE.md`, "Product packages".
