@@ -22,3 +22,6 @@ coverage/
 
 # local Claude Code tooling
 .claude/
+
+# design specs and plans: kept locally, not published
+docs/superpowers/
