@@ -101,7 +101,16 @@ internal sealed class FakeToolSettingsStore : IMcpToolSettingsStore
 
     public List<(McpCatalogueReport Report, DateTimeOffset At)> Merged { get; } = [];
 
+    public Dictionary<Guid, IReadOnlyDictionary<string, McpProductOverride>> UserOverrides { get; set; } = new();
+
+    public Dictionary<Guid, McpToolCatalogue> UserCatalogues { get; set; } = new();
+
+    public List<Guid> ClearedCatalogues { get; } = [];
+
     public Exception? Throws { get; init; }
+
+    /// <summary>Makes only the per-user getters throw, so tests can check the defaults still read fine.</summary>
+    public Exception? UserReadsThrow { get; init; }
 
     public IReadOnlyDictionary<string, IReadOnlyList<string>> GetDisabledCollections() => Throws is null ? Disabled : throw Throws;
 
@@ -119,6 +128,43 @@ internal sealed class FakeToolSettingsStore : IMcpToolSettingsStore
     public McpToolCatalogue GetCatalogue() => Throws is null ? Catalogue : throw Throws;
 
     public void MergeCatalogue(McpCatalogueReport report, DateTimeOffset at) => Merged.Add((report, at));
+
+    public IReadOnlyDictionary<string, McpProductOverride> GetUserOverrides(Guid userKey) =>
+        UserReadsThrow is not null
+            ? throw UserReadsThrow
+            : UserOverrides.GetValueOrDefault(userKey) ?? new Dictionary<string, McpProductOverride>();
+
+    public void SetUserOverrides(Guid userKey, IReadOnlyDictionary<string, McpProductOverride> overrides)
+    {
+        if (overrides.Count == 0)
+        {
+            UserOverrides.Remove(userKey);
+        }
+        else
+        {
+            UserOverrides[userKey] = new Dictionary<string, McpProductOverride>(overrides);
+        }
+    }
+
+    public IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, McpProductOverride>> GetAllUserOverrides() =>
+        UserReadsThrow is not null ? throw UserReadsThrow : UserOverrides.Where(x => x.Value.Count > 0).ToDictionary(x => x.Key, x => x.Value);
+
+    public McpToolCatalogue? GetUserCatalogue(Guid userKey) =>
+        UserReadsThrow is not null ? throw UserReadsThrow : UserCatalogues.GetValueOrDefault(userKey);
+
+    public void SetUserCatalogue(Guid userKey, McpCatalogueReport report, DateTimeOffset at) =>
+        UserCatalogues[userKey] = new McpToolCatalogue(
+            report.UmbrellaVersion,
+            report.Modules.ToDictionary(m => m.Id, m => new McpModuleCatalogue(at, m.SiteSettingsIgnored, m.Collections)));
+
+    public IReadOnlyDictionary<Guid, McpToolCatalogue> GetAllUserCatalogues() =>
+        UserReadsThrow is not null ? throw UserReadsThrow : new Dictionary<Guid, McpToolCatalogue>(UserCatalogues);
+
+    public void ClearUserCatalogue(Guid userKey)
+    {
+        UserCatalogues.Remove(userKey);
+        ClearedCatalogues.Add(userKey);
+    }
 }
 
 internal sealed class FakeApiUserProvider(params McpApiUser[] users) : IMcpApiUserProvider

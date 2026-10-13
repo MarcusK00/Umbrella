@@ -136,4 +136,100 @@ public class KeyValueMcpToolSettingsStoreTests
         Assert.That(store.GetReadOnlyModules(), Is.Empty);
         Assert.That(store.GetCatalogue().Modules, Is.Empty);
     }
+
+    private static readonly Guid UserA = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid UserB = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
+    [Test]
+    public void User_overrides_round_trip()
+    {
+        var store = Store(new FakeKeyValueService());
+        var overrides = new Dictionary<string, McpProductOverride>
+        {
+            ["cms"] = new(["media"], McpToolLevel.ReadOnly),
+            ["forms"] = new([], McpToolLevel.Full),
+        };
+
+        store.SetUserOverrides(UserA, overrides);
+
+        IReadOnlyDictionary<string, McpProductOverride> read = store.GetUserOverrides(UserA);
+        Assert.That(read.Keys, Is.EquivalentTo(new[] { "cms", "forms" }));
+        Assert.That(read["cms"].DisabledCollections, Is.EqualTo(new[] { "media" }));
+        Assert.That(read["cms"].Level, Is.EqualTo(McpToolLevel.ReadOnly));
+        Assert.That(read["forms"].DisabledCollections, Is.Empty);
+        Assert.That(read["forms"].Level, Is.EqualTo(McpToolLevel.Full));
+        Assert.That(store.GetUserOverrides(UserB), Is.Empty);
+    }
+
+    [Test]
+    public void Empty_user_overrides_blank_the_row()
+    {
+        var values = new FakeKeyValueService();
+        var store = Store(values);
+        store.SetUserOverrides(UserA, new Dictionary<string, McpProductOverride> { ["cms"] = new([], McpToolLevel.Full) });
+
+        store.SetUserOverrides(UserA, new Dictionary<string, McpProductOverride>());
+
+        Assert.That(values.Values[KeyValueMcpToolSettingsStore.UserOverridesKeyPrefix + UserA.ToString("D")], Is.EqualTo(""));
+        Assert.That(store.GetUserOverrides(UserA), Is.Empty);
+    }
+
+    [Test]
+    public void Get_all_user_overrides_skips_blank_invalid_and_non_guid_rows()
+    {
+        var values = new FakeKeyValueService();
+        var store = Store(values);
+        values.SetValue(KeyValueMcpToolSettingsStore.UserOverridesKeyPrefix + UserA.ToString("D"), "");
+        values.SetValue(KeyValueMcpToolSettingsStore.UserOverridesKeyPrefix + UserB.ToString("D"), "{not json");
+        values.SetValue(KeyValueMcpToolSettingsStore.UserOverridesKeyPrefix + "not-a-guid", "{\"cms\":{\"disabledCollections\":[],\"level\":\"full\"}}");
+        Guid valid = Guid.Parse("33333333-3333-3333-3333-333333333333");
+        store.SetUserOverrides(valid, new Dictionary<string, McpProductOverride> { ["cms"] = new(["media"], McpToolLevel.NoDestructive) });
+
+        IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, McpProductOverride>> all = store.GetAllUserOverrides();
+
+        Assert.That(all.Keys, Is.EqualTo(new[] { valid }));
+        Assert.That(all[valid]["cms"].Level, Is.EqualTo(McpToolLevel.NoDestructive));
+    }
+
+    [Test]
+    public void User_catalogue_is_replaced_not_merged()
+    {
+        var store = Store(new FakeKeyValueService());
+        store.SetUserCatalogue(UserA, new McpCatalogueReport("17.0.0-alpha.1", [Module("forms", "form")]), First);
+
+        store.SetUserCatalogue(UserA, new McpCatalogueReport("17.0.0-alpha.2", [Module("cms", "document")]), First.AddHours(1));
+
+        McpToolCatalogue? catalogue = store.GetUserCatalogue(UserA);
+        Assert.That(catalogue, Is.Not.Null);
+        Assert.That(catalogue!.Modules.Keys, Is.EqualTo(new[] { "cms" }));
+        Assert.That(catalogue.UmbrellaVersion, Is.EqualTo("17.0.0-alpha.2"));
+        Assert.That(catalogue.Modules["cms"].ReportedAt, Is.EqualTo(First.AddHours(1)));
+        Assert.That(store.GetAllUserCatalogues().Keys, Is.EqualTo(new[] { UserA }));
+        Assert.That(store.GetUserCatalogue(UserB), Is.Null);
+    }
+
+    [Test]
+    public void Clear_user_catalogue_blanks_it()
+    {
+        var store = Store(new FakeKeyValueService());
+        store.SetUserCatalogue(UserA, new McpCatalogueReport("1.0.0", [Module("cms", "document")]), First);
+
+        store.ClearUserCatalogue(UserA);
+
+        Assert.That(store.GetUserCatalogue(UserA), Is.Null);
+        Assert.That(store.GetAllUserCatalogues().ContainsKey(UserA), Is.False);
+    }
+
+    [Test]
+    public void User_rows_do_not_touch_the_shared_rows()
+    {
+        var store = Store(new FakeKeyValueService());
+
+        store.SetUserOverrides(UserA, new Dictionary<string, McpProductOverride> { ["cms"] = new(["media"], McpToolLevel.Full) });
+        store.SetUserCatalogue(UserA, new McpCatalogueReport("1.0.0", [Module("cms", "document")]), First);
+
+        Assert.That(store.GetCatalogue(), Is.EqualTo(McpToolCatalogue.Empty));
+        Assert.That(store.GetDisabledCollections(), Is.Empty);
+        Assert.That(store.GetAllUserOverrides().Keys, Is.EqualTo(new[] { UserA }));
+    }
 }
