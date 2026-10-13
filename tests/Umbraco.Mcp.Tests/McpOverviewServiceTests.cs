@@ -26,7 +26,7 @@ public class McpOverviewServiceTests
 
     private sealed class StubCapabilities(McpCapabilities caps) : IMcpCapabilitiesService
     {
-        public McpCapabilities GetCapabilities() => caps;
+        public McpCapabilities GetCapabilities(Guid? apiUserKey = null) => caps;
     }
 
     private sealed class StubDetector(string id, string? section) : IMcpProductDetector

@@ -28,24 +28,43 @@ public sealed class McpCapabilitiesController(
     [ProducesResponseType(typeof(McpCapabilities), StatusCodes.Status200OK)]
     public IActionResult GetCapabilities()
     {
-        RecordConnection();
-        return Ok(capabilities.GetCapabilities());
+        Guid? apiUserKey = CurrentApiUserKey();
+        RecordConnection(apiUserKey);
+        return Ok(capabilities.GetCapabilities(apiUserKey));
+    }
+
+    /// <summary>
+    /// The key of the calling API user, or null for a normal backoffice user (for example someone trying the endpoint in
+    /// Swagger), who gets the site defaults and is not the MCP server.
+    /// </summary>
+    private Guid? CurrentApiUserKey()
+    {
+        try
+        {
+            IUser? user = backOfficeSecurityAccessor.BackOfficeSecurity?.CurrentUser;
+            return user?.Kind == UserKind.Api ? user.Key : null;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not read the calling user. The default tool settings apply.");
+            return null;
+        }
     }
 
     /// <summary>
     /// The MCP server calls this endpoint once when it starts, signed in as its API user. Remembering that user lets
     /// the "MCP API user" health check report on the user the MCP really uses, whatever its name or client id.
-    /// Calls from normal backoffice users (for example Swagger) are not the MCP server and are not recorded.
     /// </summary>
-    private void RecordConnection()
+    private void RecordConnection(Guid? apiUserKey)
     {
+        if (apiUserKey is not { } key)
+        {
+            return;
+        }
+
         try
         {
-            IUser? user = backOfficeSecurityAccessor.BackOfficeSecurity?.CurrentUser;
-            if (user?.Kind == UserKind.Api)
-            {
-                connections.Record(user.Key, DateTimeOffset.UtcNow);
-            }
+            connections.Record(key, DateTimeOffset.UtcNow);
         }
         catch (Exception ex)
         {

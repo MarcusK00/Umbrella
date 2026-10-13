@@ -4,6 +4,7 @@ using NUnit.Framework;
 using Umbraco.Mcp.Capabilities;
 using Umbraco.Mcp.Detection;
 using Umbraco.Mcp.Detection.Detectors;
+using Umbraco.Mcp.ToolSettings;
 
 namespace Umbraco.Mcp.Tests;
 
@@ -16,6 +17,14 @@ public class McpCapabilitiesServiceTests
         public string DisplayName => "Broken Product";
         public string? SectionAlias => null;
         public McpProductStatus Detect() => throw new InvalidOperationException("boom");
+    }
+
+    private sealed class StubDetector(string id) : IMcpProductDetector
+    {
+        public string Id => id;
+        public string DisplayName => id;
+        public string? SectionAlias => null;
+        public McpProductStatus Detect() => new(id, id, true, true, "17.0.0", []);
     }
 
     private static McpCapabilitiesService Service(IEnumerable<IMcpProductDetector> detectors, FakeToolSettingsStore? store = null) =>
@@ -173,5 +182,148 @@ public class McpCapabilitiesServiceTests
 
         Assert.That(json, Does.Contain("\"disabledCollections\":[\"prevalue-source\"]"));
         Assert.That(json, Does.Contain("\"readOnly\":true"));
+    }
+
+    private static readonly Guid ApiUser = Guid.NewGuid();
+
+    private static McpCapabilitiesService TwoProducts(FakeToolSettingsStore store)
+    {
+        var a = new FakeAssemblies();
+        var r = new FakeApis();
+        return Service([new StubDetector("cms"), new FormsDetector(a, r)], store);
+    }
+
+    [Test]
+    public void Api_user_override_applies_to_that_product_only()
+    {
+        var store = new FakeToolSettingsStore
+        {
+            Disabled = new() { ["cms"] = ["manifest"] },
+            UserOverrides = new() { [ApiUser] = new Dictionary<string, McpProductOverride> { ["forms"] = new(["media"], McpToolLevel.ReadOnly) } },
+        };
+
+        McpCapabilities caps = TwoProducts(store).GetCapabilities(ApiUser);
+
+        McpProductStatus cms = caps.Products.Single(p => p.Id == "cms");
+        McpProductStatus forms = caps.Products.Single(p => p.Id == "forms");
+        Assert.That(forms.ReadOnly, Is.True);
+        Assert.That(forms.NoDestructive, Is.False);
+        Assert.That(forms.DisabledCollections, Is.EqualTo(new[] { "media" }));
+        Assert.That(forms.SettingsScope, Is.EqualTo("user"));
+        Assert.That(cms.DisabledCollections, Is.EqualTo(new[] { "manifest" }));
+        Assert.That(cms.SettingsScope, Is.EqualTo("site"));
+    }
+
+    [TestCase(McpToolLevel.ReadOnly, true, false)]
+    [TestCase(McpToolLevel.NoDestructive, false, true)]
+    [TestCase(McpToolLevel.Full, false, false)]
+    public void Each_level_maps_to_the_flags(string level, bool readOnly, bool noDestructive)
+    {
+        var store = new FakeToolSettingsStore
+        {
+            // The defaults say the opposite, so the override has to win in both directions.
+            ReadOnly = level == McpToolLevel.Full ? ["forms"] : [],
+            NoDestructive = level == McpToolLevel.Full ? ["forms"] : [],
+            UserOverrides = new() { [ApiUser] = new Dictionary<string, McpProductOverride> { ["forms"] = new([], level) } },
+        };
+
+        McpProductStatus forms = TwoProducts(store).GetCapabilities(ApiUser).Products.Single(p => p.Id == "forms");
+
+        Assert.That(forms.ReadOnly, Is.EqualTo(readOnly));
+        Assert.That(forms.NoDestructive, Is.EqualTo(noDestructive));
+    }
+
+    [Test]
+    public void Override_with_no_disabled_collections_gives_an_empty_list_not_null()
+    {
+        var store = new FakeToolSettingsStore
+        {
+            Disabled = new() { ["forms"] = ["media"] },
+            UserOverrides = new() { [ApiUser] = new Dictionary<string, McpProductOverride> { ["forms"] = new([], McpToolLevel.Full) } },
+        };
+
+        McpProductStatus forms = TwoProducts(store).GetCapabilities(ApiUser).Products.Single(p => p.Id == "forms");
+
+        Assert.That(forms.DisabledCollections, Is.Not.Null.And.Empty);
+    }
+
+    [Test]
+    public void Null_user_key_gets_the_defaults()
+    {
+        var store = new FakeToolSettingsStore
+        {
+            ReadOnly = ["forms"],
+            UserOverrides = new() { [ApiUser] = new Dictionary<string, McpProductOverride> { ["forms"] = new(["media"], McpToolLevel.Full) } },
+        };
+
+        McpCapabilities caps = TwoProducts(store).GetCapabilities(null);
+
+        Assert.That(caps.Products.Select(p => p.SettingsScope), Is.All.EqualTo("site"));
+        McpProductStatus forms = caps.Products.Single(p => p.Id == "forms");
+        Assert.That(forms.ReadOnly, Is.True);
+        Assert.That(forms.DisabledCollections, Is.Null);
+    }
+
+    [Test]
+    public void Default_change_does_not_reach_an_overridden_product()
+    {
+        var store = new FakeToolSettingsStore
+        {
+            UserOverrides = new() { [ApiUser] = new Dictionary<string, McpProductOverride> { ["forms"] = new(["media"], McpToolLevel.Full) } },
+        };
+        McpCapabilitiesService service = TwoProducts(store);
+
+        store.ReadOnly = ["forms"];
+        store.Disabled = new() { ["forms"] = ["licensing"], ["cms"] = ["imaging"] };
+        McpCapabilities caps = service.GetCapabilities(ApiUser);
+
+        McpProductStatus forms = caps.Products.Single(p => p.Id == "forms");
+        McpProductStatus cms = caps.Products.Single(p => p.Id == "cms");
+        Assert.That(forms.ReadOnly, Is.False);
+        Assert.That(forms.DisabledCollections, Is.EqualTo(new[] { "media" }));
+        Assert.That(cms.DisabledCollections, Is.EqualTo(new[] { "imaging" }));
+        Assert.That(cms.SettingsScope, Is.EqualTo("site"));
+    }
+
+    [Test]
+    public void Override_for_an_undetected_product_is_ignored()
+    {
+        var store = new FakeToolSettingsStore
+        {
+            UserOverrides = new() { [ApiUser] = new Dictionary<string, McpProductOverride> { ["gone"] = new(["x"], McpToolLevel.ReadOnly) } },
+        };
+
+        McpCapabilities caps = TwoProducts(store).GetCapabilities(ApiUser);
+
+        Assert.That(caps.Products.Select(p => p.Id), Is.EqualTo(new[] { "cms", "forms" }));
+        Assert.That(caps.Products.Select(p => p.SettingsScope), Is.All.EqualTo("site"));
+    }
+
+    [Test]
+    public void Override_read_failure_falls_back_to_the_defaults()
+    {
+        var store = new FakeToolSettingsStore
+        {
+            ReadOnly = ["forms"],
+            Disabled = new() { ["forms"] = ["media"] },
+            UserReadsThrow = new InvalidOperationException("database is down"),
+        };
+
+        McpCapabilities caps = TwoProducts(store).GetCapabilities(ApiUser);
+
+        Assert.That(caps.Products.Select(p => p.SettingsScope), Is.All.EqualTo("site"));
+        McpProductStatus forms = caps.Products.Single(p => p.Id == "forms");
+        Assert.That(forms.ReadOnly, Is.True);
+        Assert.That(forms.DisabledCollections, Is.EqualTo(new[] { "media" }));
+    }
+
+    [Test]
+    public void Settings_scope_serialises_as_camel_case_and_defaults_to_site()
+    {
+        McpCapabilities caps = TwoProducts(new FakeToolSettingsStore()).GetCapabilities();
+
+        string json = JsonSerializer.Serialize(caps, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        Assert.That(json, Does.Contain("\"settingsScope\":\"site\""));
     }
 }

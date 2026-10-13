@@ -18,7 +18,7 @@ public class McpToolSettingsControllerTests
 {
     private sealed class StubCapabilities(params string[] ids) : IMcpCapabilitiesService
     {
-        public McpCapabilities GetCapabilities() =>
+        public McpCapabilities GetCapabilities(Guid? apiUserKey = null) =>
             new("17.0.0", ids.Select(id => new McpProductStatus(id, id, true, true, "17.0.0", [])).ToList());
     }
 
