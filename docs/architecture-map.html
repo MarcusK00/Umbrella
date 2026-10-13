@@ -148,6 +148,7 @@ footer { margin-block-start: 72px; padding-block-start: 20px; border-top: 1px so
     <a href="#names">What the model sees</a>
     <a href="#calls">When a tool is called</a>
     <a href="#loop">The settings loop</a>
+    <a href="#per-user">Settings per API user</a>
     <a href="#contract">The contract</a>
   </nav>
 
@@ -271,7 +272,7 @@ footer { margin-block-start: 72px; padding-block-start: 20px; border-top: 1px so
           <text class="s" x="1022" y="410">stores</text>
           <rect class="box site" x="876" y="418" width="272" height="56" rx="8"/>
           <text class="t m mid" x="1012" y="441">umbracoKeyValue</text>
-          <text class="s mid" x="1012" y="459">tool settings · catalogue · connections</text>
+          <text class="s mid" x="1012" y="459">settings · catalogues · connections</text>
 
           <rect class="panel site" x="876" y="490" width="272" height="114" rx="10"/>
           <text class="t sm" x="892" y="511">Management APIs</text>
@@ -311,8 +312,8 @@ footer { margin-block-start: 72px; padding-block-start: 20px; border-top: 1px so
     </figure>
     <ol class="steps">
       <li><b>Sign in.</b> The server gets a token with the API user's client id and secret. Every later request carries it.</li>
-      <li><b>Capabilities.</b> The add-on answers with each product: installed, enabled, version, issues, and the dashboard's settings for it.</li>
-      <li><b>Catalogue.</b> The server reports every tool group it loaded, so the dashboard can list groups to switch off.</li>
+      <li><b>Capabilities.</b> The add-on answers with each product: installed, enabled, version, issues, and the dashboard's settings for it, resolved for the API user that asks.</li>
+      <li><b>Catalogue.</b> The server reports every tool group it loaded, stored per API user, so the dashboard can list groups to switch off.</li>
       <li><b>Tool calls.</b> When the model calls <code>forms--list-forms</code>, the Forms tool code sends a normal request to the Forms Management API on the same site, with the same token.</li>
     </ol>
   </section>
@@ -564,18 +565,20 @@ footer { margin-block-start: 72px; padding-block-start: 20px; border-top: 1px so
       <span class="k">"installed"</span>: true, <span class="k">"enabled"</span>: true,
       <span class="k">"version"</span>: <span class="v">"17.7.0"</span>, <span class="k">"issues"</span>: [],
       <span class="k">"disabledCollections"</span>: <span class="hl">null</span>,
-      <span class="k">"readOnly"</span>: false, <span class="k">"noDestructive"</span>: false },
+      <span class="k">"readOnly"</span>: false, <span class="k">"noDestructive"</span>: false,
+      <span class="k">"settingsScope"</span>: <span class="v">"site"</span> },
     { <span class="k">"id"</span>: <span class="v">"forms"</span>, <span class="k">"displayName"</span>: <span class="v">"Umbraco Forms"</span>,
       <span class="k">"installed"</span>: true, <span class="k">"enabled"</span>: true,
       <span class="k">"version"</span>: <span class="v">"17.6.1"</span>, <span class="k">"issues"</span>: [],
       <span class="k">"disabledCollections"</span>: <span class="hl">["licensing", "updates"]</span>,
-      <span class="k">"readOnly"</span>: false, <span class="k">"noDestructive"</span>: <span class="hl">true</span> },
+      <span class="k">"readOnly"</span>: false, <span class="k">"noDestructive"</span>: <span class="hl">true</span>,
+      <span class="k">"settingsScope"</span>: <span class="hl">"user"</span> },
     { <span class="k">"id"</span>: <span class="v">"engage"</span>, <span class="k">"displayName"</span>: <span class="v">"Umbraco Engage"</span>,
       <span class="k">"installed"</span>: false, <span class="k">"enabled"</span>: false,
       <span class="k">"version"</span>: null, <span class="c">…</span> }
   ]
 }</pre>
-        <figcaption><code>null</code> means "no saved list", so the module's own defaults apply. A saved <code>[]</code> means nothing is switched off. The <code>id</code> must equal the npm module's <code>id</code>.</figcaption>
+        <figcaption><code>null</code> means "no saved list", so the module's own defaults apply. A saved <code>[]</code> means nothing is switched off. <code>settingsScope</code> says whether the settings are the site's defaults or this API user's own (here Forms is the caller's own). The <code>id</code> must equal the npm module's <code>id</code>.</figcaption>
       </figure>
     </div>
   </section>
@@ -866,8 +869,8 @@ If the request does not clearly match one product, or product tools seem missing
           <text class="s mid" x="105" y="106">every group, before filters</text>
           <rect class="box site" x="237" y="40" width="170" height="80" rx="8"/>
           <text class="t mid" x="322" y="70">Site stores it</text>
-          <text class="s m mid" x="322" y="90">Umbraco.Mcp.Catalogue</text>
-          <text class="s mid" x="322" y="106">merged per product</text>
+          <text class="s m mid" x="322" y="90">Umbraco.Mcp.UserCatalogue</text>
+          <text class="s mid" x="322" y="106">per API user + shared row</text>
           <rect class="box site" x="454" y="40" width="170" height="80" rx="8"/>
           <text class="t mid" x="539" y="70">Admin edits</text>
           <text class="s mid" x="539" y="90">Settings → Umbrella</text>
@@ -875,7 +878,7 @@ If the request does not clearly match one product, or product tools seem missing
           <rect class="box site" x="671" y="40" width="170" height="80" rx="8"/>
           <text class="t mid" x="756" y="70">Saved</text>
           <text class="s m mid" x="756" y="90">PUT /mcp/tool-settings</text>
-          <text class="s mid" x="756" y="106">umbracoKeyValue rows</text>
+          <text class="s mid" x="756" y="106">defaults, or one user's</text>
           <rect class="panel server" x="888" y="40" width="170" height="80" rx="8"/>
           <text class="t mid" x="973" y="70">Next server start</text>
           <text class="s mid" x="973" y="90">reconnect in the AI tool</text>
@@ -886,11 +889,104 @@ If the request does not clearly match one product, or product tools seem missing
           <line class="ln" x1="624" y1="80" x2="669" y2="80" marker-end="url(#ah)"/>
           <line class="ln" x1="841" y1="80" x2="886" y2="80" marker-end="url(#ah)"/>
           <path class="ln site dash" d="M973 120 V176 H105 V124" marker-end="url(#ah-site)"/>
-          <text class="lbl mid c-site" x="539" y="198">GET /mcp/capabilities carries disabledCollections, readOnly and noDestructive</text>
+          <text class="lbl mid c-site" x="539" y="198">GET /mcp/capabilities carries disabledCollections, readOnly, noDestructive and settingsScope</text>
         </svg>
       </div>
       <figcaption>Before the server has started once, the dashboard has nothing to show. Settings are shared by every server of a load-balanced site, since they live in the database. They are a convenience, not a security control: the API user's groups and sections decide what it can really do.</figcaption>
     </figure>
+  </section>
+
+  <!-- 9b · per user -->
+  <section id="per-user">
+    <h2>Settings per API user</h2>
+    <p>A team on one site usually has one API user per developer. The tool settings you save without picking a user are <b>defaults for all API users</b>. An admin can override a product for one user, and each user's catalogue is stored on its own. The server doesn't change: the site works out which settings belong to the caller.</p>
+    <figure>
+      <div class="scroll">
+        <svg class="min-xl" viewBox="0 0 1080 360" role="img" aria-label="Two servers call GET capabilities as different API users. The site resolves each product per caller: the caller's own override with settingsScope user, otherwise the defaults with settingsScope site. Defaults and per-user overrides are separate umbracoKeyValue rows that an admin edits in the dashboard. Below, a server's catalogue report is stored twice: in that user's own row, replacing the last one, and merged into the shared row, which is the fallback for users without a report. The dashboard and Overview read the user's row.">
+          <text class="eb" x="20" y="22">SETTINGS · RESOLVED FOR THE CALLING API USER</text>
+
+          <rect class="box server" x="20" y="40" width="170" height="56" rx="8"/>
+          <text class="t mid" x="105" y="64">Anna's umbrella-mcp</text>
+          <text class="s mid" x="105" y="82">signs in as API user A</text>
+          <rect class="box server" x="20" y="130" width="170" height="56" rx="8"/>
+          <text class="t mid" x="105" y="154">Bo's umbrella-mcp</text>
+          <text class="s mid" x="105" y="172">signs in as API user B</text>
+          <line class="ln site" x1="192" y1="68" x2="288" y2="88" marker-start="url(#ah-site)" marker-end="url(#ah-site)"/>
+          <line class="ln site" x1="192" y1="158" x2="288" y2="138" marker-start="url(#ah-site)" marker-end="url(#ah-site)"/>
+          <text class="s" x="198" y="109">GET capabilities</text>
+          <text class="s" x="198" y="122">settings for the caller</text>
+
+          <rect class="panel site" x="290" y="40" width="260" height="160" rx="10"/>
+          <text class="t m c-site" x="306" y="64" style="font-size:11.5px">GetCapabilities(apiUserKey)</text>
+          <text class="s" x="306" y="88">for each product:</text>
+          <text class="s" x="306" y="108">override for this user → that override</text>
+          <text class="s m" x="320" y="124">settingsScope: "user"</text>
+          <text class="s" x="306" y="144">no override → the defaults</text>
+          <text class="s m" x="320" y="160">settingsScope: "site"</text>
+          <text class="s" x="306" y="184">non-API caller or failed read → defaults</text>
+
+          <rect class="box site" x="620" y="40" width="290" height="76" rx="8"/>
+          <text class="t sm" x="636" y="62">Defaults · all API users</text>
+          <text class="s m" x="636" y="80">Umbraco.Mcp.ToolSettings</text>
+          <text class="s m" x="636" y="96">ReadOnlyModules · NoDestructiveModules</text>
+          <rect class="box site" x="620" y="130" width="290" height="70" rx="8"/>
+          <text class="t sm" x="636" y="152">Overrides · one row per API user</text>
+          <text class="s m" x="636" y="170">Umbraco.Mcp.UserToolSettings.‹userKey›</text>
+          <text class="s" x="636" y="188">per product: disabledCollections + level</text>
+          <line class="ln site" x1="552" y1="78" x2="618" y2="78" marker-end="url(#ah-site)"/>
+          <line class="ln site" x1="552" y1="165" x2="618" y2="165" marker-end="url(#ah-site)"/>
+
+          <rect class="box site" x="960" y="40" width="100" height="160" rx="8"/>
+          <text class="t sm mid" x="1010" y="64">Admin</text>
+          <text class="s mid" x="1010" y="84">Settings →</text>
+          <text class="s mid" x="1010" y="100">Umbrella →</text>
+          <text class="s mid" x="1010" y="116">Tool groups</text>
+          <text class="s mid" x="1010" y="140">picker:</text>
+          <text class="s mid" x="1010" y="154">defaults, or</text>
+          <text class="s mid" x="1010" y="168">one API user</text>
+          <line class="ln site" x1="958" y1="78" x2="912" y2="78" marker-end="url(#ah-site)"/>
+          <line class="ln site" x1="958" y1="165" x2="912" y2="165" marker-end="url(#ah-site)"/>
+
+          <text class="eb" x="20" y="232">CATALOGUE · STORED PER API USER</text>
+
+          <rect class="panel server" x="20" y="250" width="170" height="70" rx="8"/>
+          <text class="t mid" x="105" y="276">A server starts</text>
+          <text class="s m mid" x="105" y="296">POST /mcp/catalogue</text>
+          <text class="s mid" x="105" y="312">as that API user</text>
+          <line class="ln server" x1="192" y1="285" x2="288" y2="285" marker-end="url(#ah-server)"/>
+
+          <rect class="panel site" x="290" y="250" width="260" height="70" rx="10"/>
+          <text class="t c-site" x="306" y="274">Stores the report twice</text>
+          <text class="s" x="306" y="294">replaces that user's own row,</text>
+          <text class="s" x="306" y="310">and merges into the shared row</text>
+
+          <rect class="box site" x="620" y="240" width="290" height="44" rx="8"/>
+          <text class="s m" x="636" y="258">Umbraco.Mcp.UserCatalogue.‹userKey›</text>
+          <text class="s" x="636" y="274">that user's last report, replaced each start</text>
+          <rect class="box ghost" x="620" y="292" width="290" height="44" rx="8"/>
+          <text class="s m" x="636" y="310">Umbraco.Mcp.Catalogue</text>
+          <text class="s" x="636" y="326">latest from any user, merged · the fallback</text>
+          <line class="ln site" x1="552" y1="272" x2="618" y2="262" marker-end="url(#ah-site)"/>
+          <line class="ln site" x1="552" y1="298" x2="618" y2="314" marker-end="url(#ah-site)"/>
+
+          <rect class="box site" x="960" y="240" width="100" height="96" rx="8"/>
+          <text class="t sm mid" x="1010" y="262">Dashboard</text>
+          <text class="s mid" x="1010" y="278">and Overview</text>
+          <text class="s mid" x="1010" y="298">counts, loaded,</text>
+          <text class="s mid" x="1010" y="312">version warning</text>
+          <text class="s mid" x="1010" y="326">per user</text>
+          <line class="ln site" x1="912" y1="262" x2="958" y2="262" marker-end="url(#ah-site)"/>
+          <line class="ln site dash" x1="912" y1="314" x2="958" y2="314" marker-end="url(#ah-site)"/>
+        </svg>
+      </div>
+      <figcaption>Anna and Bo call the same endpoint and get different answers because the add-on knows who signed in. The npm server only reads the booleans and the lists, so it needs no per-user logic; <code>settingsScope</code> just lets <code>get-mcp-health</code> say "for this API user". Blank rows, and rows of users that were deleted or are no longer API users, are skipped everywhere.</figcaption>
+    </figure>
+    <ul class="notes">
+      <li><b>Override per product, all or nothing.</b> An override holds the product's switched-off groups and its level (<code>full</code>, <code>noDestructive</code> or <code>readOnly</code>). A product without one follows the defaults, also when they change later.</li>
+      <li><b>Every API user is selectable</b>, also one that has never connected. The user's own server picks the settings up on its next start.</li>
+      <li><b>Counts per user.</b> The Tool groups counts come from the selected user's own report. A user without one sees the most recent other report, with a note. Forgetting a connection in the Overview clears that user's report and keeps its overrides.</li>
+      <li><b>Still guardrails.</b> The npm server applies them on each developer's machine; the API user's Umbraco permissions are the real boundary.</li>
+    </ul>
   </section>
 
   <!-- 10 · contract -->
@@ -902,7 +998,7 @@ If the request does not clearly match one product, or product tools seem missing
         <thead><tr><th>What</th><th>Add-on (C#)</th><th>Server (TypeScript)</th><th>Guarded by</th></tr></thead>
         <tbody>
           <tr><td>Product ids</td><td>detector <code>Id</code></td><td>module <code>id</code></td><td><code>scripts/e2e.sh</code></td></tr>
-          <tr><td>Capabilities payload</td><td><code>McpCapabilities</code>, <code>McpProductStatus</code></td><td><code>CapabilitiesPayload</code></td><td>unit tests per side, e2e</td></tr>
+          <tr><td>Capabilities payload (incl. <code>settingsScope</code>)</td><td><code>McpCapabilities</code>, <code>McpProductStatus</code></td><td><code>CapabilitiesPayload</code></td><td>unit tests per side, e2e</td></tr>
           <tr><td>Catalogue payload</td><td><code>McpCatalogueReport</code></td><td><code>CataloguePayload</code></td><td>unit tests per side, e2e</td></tr>
           <tr><td>Package name and bin</td><td><code>McpClientConfig.NpmPackage</code></td><td><code>name</code>, <code>bin</code></td><td><code>NpmPackageContractTests</code></td></tr>
           <tr><td>Version</td><td>csproj <code>&lt;Version&gt;</code></td><td><code>version</code></td><td><code>NpmPackageContractTests</code>; at runtime the "MCP client setup" check and <code>get-mcp-health</code></td></tr>
