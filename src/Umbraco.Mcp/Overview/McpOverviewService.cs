@@ -22,7 +22,7 @@ public sealed class McpOverviewService(
 {
     public async Task<McpOverview> GetOverviewAsync(string? siteUrl)
     {
-        McpCapabilities? caps = Read(capabilities.GetCapabilities, "the detected products");
+        McpCapabilities? caps = Read(() => capabilities.GetCapabilities(), "the detected products");
         McpToolCatalogue? catalogue = Read(toolSettings.GetCatalogue, "what the MCP server last reported");
         IReadOnlyList<McpApiUser>? users = null;
         try
