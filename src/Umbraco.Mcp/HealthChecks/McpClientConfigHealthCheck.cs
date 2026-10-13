@@ -6,7 +6,7 @@ namespace Umbraco.Mcp.HealthChecks;
 [HealthCheck(
     "0c7e5a91-2d4b-4f63-8e1a-9b5d3c7f2e48",
     "MCP client setup",
-    Description = "Checks that the MCP server the AI tool last started is the add-on's version. Setup for AI tools is in Settings → Umbrella.",
+    Description = "Checks that the MCP server the AI tool last started is the add-on's version. " + McpHealthCheckRows.DashboardPointer,
     Group = "MCP")]
 public sealed class McpClientConfigHealthCheck(IMcpOverviewService overview) : HealthCheck
 {

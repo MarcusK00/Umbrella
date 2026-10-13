@@ -14,6 +14,7 @@ The original design is `docs/superpowers/specs/2026-10-11-umbraco-mcp-umbrella-d
 Current docs, to keep in sync with the code:
 - `README.md`: setup, configuration, troubleshooting and known limitations, for users.
 - `docs/architecture.md`: how the code works, for contributors. It overlaps this file; update both.
+- `docs/architecture-map.html`: the same in diagrams (hand-written inline SVG). Update it with `docs/architecture.md`.
 - `docs/development.md`: setup from a fresh clone, tests, the e2e scripts.
 - `docs/adding-a-product.md`, `docs/releasing.md`, `docs/merging.md`.
 
@@ -130,7 +131,7 @@ This only works because product tool handlers call `getApiClient()` lazily insid
 
 - **`McpClientConfig`:** builds the `{ "mcpServers": { "umbraco": … } }` JSON. `McpClientSnippets` and `McpJsonFile.BuildJson` use it.
 - **`McpClientSnippets`:** the five snippets on the dashboard's Overview tab (Claude Code, Claude Code command, VS Code with `inputs`, Cursor, Other clients). None contains a secret.
-- **`McpOverviewService`** (`Overview/`): status, findings, products, connected API users and snippets, shared by the Overview tab and the three health checks (`McpHealthCheckRows` renders short rows that point to Settings → Umbrella). Endpoints on `McpOverviewController`, Settings section: `GET /mcp/overview`, `DELETE /mcp/connections/{userKey}`, `POST /mcp/mcp-json` (returns `{ outcome, path, message }`).
+- **`McpOverviewService`** (`Overview/`): status, findings, products, connected API users and snippets, shared by the Overview tab and the three health checks (`McpHealthCheckRows` renders short rows; the pointer to Settings → Umbrella is only in the "MCP client setup" description). Endpoints on `McpOverviewController`, Settings section: `GET /mcp/overview`, `DELETE /mcp/connections/{userKey}`, `POST /mcp/mcp-json` (returns `{ outcome, path, message }`).
 - **`McpJsonFile`:** the `.mcp.json` write/upgrade rules, used by the hosted `McpJsonWriter` at startup and by `POST /mcp/mcp-json`. In Development, once the server has started, it writes `.mcp.json` into the content root (or `Umbraco:Mcp:McpJson:Path`). Rules:
   - It never overwrites a file someone edited and never creates folders.
   - It only upgrades a file it wrote itself: when the file is exactly what it would write for the version it pins, and the add-on is newer (`Umbraco.Cms.Core.Semver`), it rewrites it for the add-on's version. Switching to an older add-on never flips it back.
