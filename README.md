@@ -33,7 +33,7 @@ sequenceDiagram
     AI->>MCP: start (stdio)
     MCP->>Site: sign in as the API user (client credentials)
     MCP->>Site: GET /mcp/capabilities
-    Site-->>MCP: installed products, tool settings
+    Site-->>MCP: installed products, tool settings for this API user
     Note over MCP: load CMS + the detected products,<br/>apply filters, prefix tool names
     MCP->>Site: POST /mcp/catalogue (tool groups, for the dashboard)
     MCP-->>AI: tools + routing instructions
@@ -184,6 +184,17 @@ The group labels show how many tools stay at the chosen level, for example `form
 
 The settings and the reported tool groups are stored in the `umbracoKeyValue` table, so they survive restarts and are shared by every server of a load-balanced site. Changing them needs access to the Settings section.
 
+### Different settings per API user
+
+When each developer has their own API user, the tool settings can differ per user. Above the products, the **API user** picker starts on **All API users (defaults)**: the settings you see and save there are the defaults every API user follows. Pick one API user to give it its own settings.
+
+- **Use defaults:** for a single API user, each product has a **Use defaults** switch, on until you change it. On, the product shows the defaults and the user follows them, also when you change the defaults later. Off, you edit that product's groups and level for this user only, starting from a copy of the current defaults. Saving stores the products with the switch off as that user's own settings; products with it on keep following the defaults.
+- **Per product, all or nothing:** an own setting holds a product's groups and level together. A user can't follow the default groups with its own level.
+- **Any API user:** every API user on the site can be picked, also one that has never connected, so you can set up a new developer before their first start. Under a default, the dashboard names the users that have their own settings for that product.
+- **When it applies:** the next time that user's MCP server starts, so they reconnect it in their AI tool. `get-mcp-health` says when the settings are the user's own ("as set in the backoffice for this API user").
+- **Counts:** the tool counts come from that API user's own last start. A user that hasn't started yet shows the most recent start by any user, with a note, because the counts can differ (the CMS tools depend on the API user's permissions).
+- **Overview:** Settings → Umbrella → **Overview** shows, per connected API user, its server version, last start, tool count and access per product, and warns about an `umbrella-mcp` version mismatch per user.
+
 ## Health checks
 
 Settings → Health Check → **MCP** has three checks:
@@ -229,6 +240,7 @@ Start with `get-mcp-health` in your AI tool and the **MCP** health checks in the
 ## Known limitations
 
 - Tool names are prefixed (`cms--get-document`), so they differ from the standalone CMS MCP's names.
+- Tool settings, per API user or for everyone, are guardrails applied by the MCP server on each developer's machine, not access control. Anyone with an API user's credentials can call the Management API directly, so the API user's Umbraco permissions (groups and sections) are the boundary.
 - `@umbraco-cms/mcp-dev/collections` does not export the CMS server's runtime setup (`setUmbracoVersion`, `setAllowFilePathUploads`). Version-gated CMS tools (for example `create-and-publish-document`, `update-and-publish-document`, `sort-document-children`, `sort-document-root-children`) are not registered, document/data type schema tools use their fallback path, and media tools do not accept local file paths. Fixing this needs the CMS package to export a setup hook from `./collections`.
 - Only `--list-tools` is supported as a CLI flag; `--describe-tool` is not implemented.
 - Collection filters do not pull in dependent collections (for example `media` does not add `temporary-file`) the way the standalone CMS MCP does.
