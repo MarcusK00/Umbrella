@@ -1,6 +1,6 @@
 # Architecture
 
-How Umbrella works inside. For setup and configuration, see the [README](../README.md). The original design and its reasoning are in [`docs/superpowers/specs/`](superpowers/specs/); this page describes the code as it is now.
+How Umbrella works inside. For setup and configuration, see the [README](../README.md). The original design and its reasoning are in [`docs/superpowers/specs/`](superpowers/specs/); this page describes the code as it is now. For the same in diagrams, open [`architecture-map.html`](architecture-map.html) in a browser.
 
 ## Two halves, one version
 
