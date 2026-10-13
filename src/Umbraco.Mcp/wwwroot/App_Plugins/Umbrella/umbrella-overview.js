@@ -165,6 +165,26 @@ export class UmbrellaOverviewElement extends UmbLitElement {
     </uui-box>`;
   }
 
+  #differingUsersSuffix(count) {
+    if (!count || count <= 0) return "";
+    return count === 1 ? " (1 API user differs)" : ` (${count} API users differ)`;
+  }
+
+  #reportLine(user) {
+    if (!user.serverVersion) return null;
+    const parts = [`umbrella-mcp ${user.serverVersion}`];
+    if (user.lastReportedAt) parts.push(`last start ${formatDate(user.lastReportedAt)}`);
+    if (user.toolCount !== null && user.toolCount !== undefined) parts.push(`${user.toolCount} tools`);
+    return parts.join(" · ");
+  }
+
+  #accessLine(user) {
+    if (!user.access || user.access.length === 0) return null;
+    return user.access
+      .map((a) => `${a.displayName}: ${ACCESS_LABELS[a.level] ?? ACCESS_LABELS.full} (${a.scope === "user" ? "own settings" : "defaults"})`)
+      .join(" · ");
+  }
+
   #renderProducts() {
     const installed = this._data.products.filter((p) => p.installed);
     const notInstalled = this._data.products.filter((p) => !p.installed);
@@ -186,7 +206,7 @@ export class UmbrellaOverviewElement extends UmbLitElement {
                 <uui-table-cell>${p.version ?? ""}</uui-table-cell>
                 <uui-table-cell class=${p.enabled ? "" : "warning"}>${p.enabled ? "Available" : "Not available"}</uui-table-cell>
                 <uui-table-cell>${p.loaded ? "Loaded" : "Not loaded"}</uui-table-cell>
-                <uui-table-cell>${ACCESS_LABELS[p.access] ?? ACCESS_LABELS.full}</uui-table-cell>
+                <uui-table-cell>${ACCESS_LABELS[p.access] ?? ACCESS_LABELS.full}${this.#differingUsersSuffix(p.usersWithOwnSettings)}</uui-table-cell>
                 <uui-table-cell>${p.loaded ? p.toolCount : ""}</uui-table-cell>
               </uui-table-row>`,
             )}
@@ -216,17 +236,23 @@ export class UmbrellaOverviewElement extends UmbLitElement {
               <uui-table-head-cell>Products</uui-table-head-cell>
               <uui-table-head-cell></uui-table-head-cell>
             </uui-table-head>
-            ${apiUsers.map(
-              (u) => html`<uui-table-row>
+            ${apiUsers.map((u) => {
+              const reportLine = this.#reportLine(u);
+              const accessLine = this.#accessLine(u);
+              return html`<uui-table-row>
                 <uui-table-cell>${u.name}</uui-table-cell>
                 <uui-table-cell>${u.clientIds.join(", ")}</uui-table-cell>
-                <uui-table-cell>Last connected ${formatDate(u.lastConnected)}</uui-table-cell>
+                <uui-table-cell>
+                  <div>Last connected ${formatDate(u.lastConnected)}</div>
+                  ${reportLine ? html`<div class="muted">${reportLine}</div>` : nothing}
+                </uui-table-cell>
                 <uui-table-cell class=${u.state === "active" ? "" : "warning"}>${STATE_LABELS[u.state] ?? u.state}</uui-table-cell>
                 <uui-table-cell>
                   ${u.reachable.length > 0 ? html`<div>Can reach ${u.reachable.join(", ")}</div>` : nothing}
                   ${u.unreachable.length > 0
                     ? html`<div class="warning">Cannot reach ${u.unreachable.join(", ")}</div>`
                     : nothing}
+                  ${accessLine ? html`<div class="muted">${accessLine}</div>` : nothing}
                 </uui-table-cell>
                 <uui-table-cell class="row-actions">
                   <uui-button
@@ -237,8 +263,8 @@ export class UmbrellaOverviewElement extends UmbLitElement {
                     @click=${() => this.#forget(u)}
                   ></uui-button>
                 </uui-table-cell>
-              </uui-table-row>`,
-            )}
+              </uui-table-row>`;
+            })}
           </uui-table>`}
     </uui-box>`;
   }
