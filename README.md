@@ -179,7 +179,7 @@ The group labels show how many tools stay at the chosen level, for example `form
 - **Environment wins for groups:** if the MCP server's environment sets `UMBRACO_INCLUDE_TOOL_COLLECTIONS` or `UMBRACO_EXCLUDE_TOOL_COLLECTIONS` for a product (including `forms:*`, or an unprefixed entry for CMS), the group settings and the off-by-default groups are ignored for that product and the dashboard shows a warning. So `forms:*` brings the default-off Forms groups back, and so does any other Forms collection filter, such as `forms:folder`. `UMBRACO_INCLUDE_TOOLS` also still includes a tool from a switched-off group.
 - **The level always applies:** it only removes tools, so the environment can't turn it off, and it applies even when environment collection filters make the group settings ignored. `UMBRACO_READONLY=true` makes every product read-only and `UMBRACO_NO_DESTRUCTIVE=true` removes destructive tools from every product, whatever the dashboard says.
 - **If the site can't be read:** when the MCP server can't read the site's settings it can't apply the dashboard level, so set `UMBRACO_NO_DESTRUCTIVE=true` (or `UMBRACO_READONLY=true`) in the AI tool's config to enforce it regardless.
-- **Older servers:** an MCP server older than the add-on ignores the No destructive level; the dashboard warns when the server that last started is older.
+- **Older servers:** an MCP server older than the add-on ignores the No destructive level; the dashboard warns when an API user's MCP server is older.
 - **Not a security control:** anyone with the API user's credentials can call the Management API directly. Use the API user's groups and sections to limit what it can do.
 
 The settings and the reported tool groups are stored in the `umbracoKeyValue` table, so they survive restarts and are shared by every server of a load-balanced site. Changing them needs access to the Settings section.
@@ -201,7 +201,7 @@ Settings → Health Check → **MCP** has three checks:
 
 - **MCP products**: which Umbraco products the add-on detected, their versions, and whether their Management APIs are available.
 - **MCP API user**: every API user the MCP server has connected as, whatever its name or client id: when it last connected, whether it can still sign in, and whether it has the sections for each detected product. The MCP server connects once when your AI tool starts it, so until then the check only says no MCP server has connected yet. A stdio MCP server has no lasting connection, so the check shows the last connection, not whether one is open right now. Connections are stored in the `umbracoKeyValue` table.
-- **MCP client setup**: whether the MCP server that last started is the add-on's version.
+- **MCP client setup**: whether each connected API user's MCP server is the add-on's version.
 
 The checks show short rows with the same findings as Settings → Umbrella → Overview, which has the details and the config to copy. The "MCP client setup" description points there, once for the whole group.
 
