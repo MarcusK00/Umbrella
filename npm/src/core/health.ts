@@ -23,6 +23,8 @@ export interface ModuleRuntimeState {
   siteReadOnly?: boolean;
   /** The site removes this module's destructive tools (from capabilities). */
   siteNoDestructive?: boolean;
+  /** Whether the backoffice settings above are the site defaults or an override for the calling API user (from capabilities). */
+  siteSettingsScope?: "site" | "user";
   /** How many destructive tools were removed from this module at registration. */
   destructiveRemoved?: number;
 }
@@ -106,12 +108,13 @@ export function buildHealthReport(state: HealthState): HealthReport {
     {
       decision, loaded, toolCount, issues,
       siteDisabledCollections = [], defaultDisabledCollections = [], siteSettingsIgnored = false, siteReadOnly = false,
-      siteNoDestructive = false, destructiveRemoved = 0,
+      siteNoDestructive = false, siteSettingsScope = "site", destructiveRemoved = 0,
     },
   ) => {
     const name = decision.module.displayName;
     // Without the add-on there is no Umbrella dashboard, so there are no backoffice settings to mention.
     const hasDashboard = caps.kind === "ok";
+    const inBackoffice = siteSettingsScope === "user" ? "in the backoffice for this API user" : "in the backoffice";
     if (defaultDisabledCollections.length > 0) {
       // `<id>:*`, not the group names: an include list keeps only the groups it names.
       const how = hasDashboard ? "Switch them on in the Umbrella dashboard." : `Set UMBRACO_INCLUDE_TOOL_COLLECTIONS=${decision.module.id}:* to switch them on.`;
@@ -120,13 +123,13 @@ export function buildHealthReport(state: HealthState): HealthReport {
     if (hasDashboard && siteSettingsIgnored) {
       notes.push(`${name}: the backoffice tool group settings are ignored because the environment sets collection filters for this module.`);
     } else if (hasDashboard && siteDisabledCollections.length > 0) {
-      notes.push(`${name}: tool groups disabled in the backoffice: ${siteDisabledCollections.join(", ")}.`);
+      notes.push(`${name}: tool groups disabled ${inBackoffice}: ${siteDisabledCollections.join(", ")}.`);
     }
     if (hasDashboard && siteReadOnly) {
-      notes.push(`${name}: only read-only tools, as set in the backoffice.`);
+      notes.push(`${name}: only read-only tools, as set ${inBackoffice}.`);
     }
     if (hasDashboard && loaded && siteNoDestructive) {
-      notes.push(`${name}: no destructive tools (${destructiveRemoved} removed), as set in the backoffice.`);
+      notes.push(`${name}: no destructive tools (${destructiveRemoved} removed), as set ${inBackoffice}.`);
     }
     const p = detected.find((d) => d.id === decision.module.id) ?? null;
     if (caps.kind === "ok" && !decision.module.required && (!p || !p.installed)) {

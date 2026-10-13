@@ -11,7 +11,7 @@ import {
   useDraft202012ToolSchemas,
   type HttpResponse,
 } from "@umbraco-cms/mcp-server-sdk";
-import { fetchCapabilities, siteDisabledCollections, siteNoDestructive, siteReadOnly } from "./capabilities.js";
+import { fetchCapabilities, siteDisabledCollections, siteNoDestructive, siteReadOnly, siteSettingsScope } from "./capabilities.js";
 import { buildCatalogue, reportCatalogue, type CatalogueReportResult } from "./catalogue.js";
 import { installClientContext } from "./client-context.js";
 import { buildEffectiveFilterInput, envNoDestructive } from "./filter-config.js";
@@ -136,6 +136,7 @@ export async function startServer(options: {
       state.siteDisabledCollections = siteDisabled ?? undefined;
       state.siteReadOnly = siteReadOnly(capabilities, module.id);
       state.siteNoDestructive = siteNoDestructive(capabilities, module.id);
+      state.siteSettingsScope = siteSettingsScope(capabilities, module.id);
       const { config, siteSettingsIgnored, defaultsApplied, excludeDestructive } = buildEffectiveFilterInput(
         env, module.id, module.required === true, siteDisabled, state.siteReadOnly, module.defaultDisabledCollections, state.siteNoDestructive,
       );

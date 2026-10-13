@@ -1,4 +1,4 @@
-import { fetchCapabilities, interpretCapabilitiesResponse, siteDisabledCollections, siteNoDestructive, siteReadOnly } from "../capabilities.js";
+import { fetchCapabilities, interpretCapabilitiesResponse, siteDisabledCollections, siteNoDestructive, siteReadOnly, siteSettingsScope } from "../capabilities.js";
 
 const payload = {
   addonVersion: "17.0.0",
@@ -32,6 +32,7 @@ describe("interpretCapabilitiesResponse", () => {
     ["disabledCollections not a string array", { addonVersion: "1", products: [{ ...payload.products[0], disabledCollections: [1] }] }],
     ["readOnly not a boolean", { addonVersion: "1", products: [{ ...payload.products[0], readOnly: "true" }] }],
     ["noDestructive not a boolean", { addonVersion: "1", products: [{ ...payload.products[0], noDestructive: "true" }] }],
+    ["settingsScope not a string", { addonVersion: "1", products: [{ ...payload.products[0], settingsScope: 1 }] }],
   ])("treats a malformed 200 (%s) as unavailable", (_label, data) => {
     const r = interpretCapabilitiesResponse({ status: 200, data });
     expect(r.kind).toBe("unavailable");
@@ -118,5 +119,28 @@ describe("siteNoDestructive", () => {
     expect(nulled.kind).toBe("ok");
     expect(siteNoDestructive(nulled, "forms")).toBe(false);
     expect(siteNoDestructive({ kind: "no-addon" }, "forms")).toBe(false);
+  });
+});
+
+describe("siteSettingsScope", () => {
+  const withScope = (settingsScope: unknown) =>
+    interpretCapabilitiesResponse({ status: 200, data: { ...payload, products: [{ ...payload.products[1], settingsScope }] } });
+
+  it('settingsScope "user" is read', () => {
+    expect(siteSettingsScope(withScope("user"), "forms")).toBe("user");
+    expect(siteSettingsScope(withScope("user"), "cms")).toBe("site");
+    expect(siteSettingsScope(withScope("site"), "forms")).toBe("site");
+  });
+
+  it('missing, null or unknown scope is "site"', () => {
+    expect(siteSettingsScope(interpretCapabilitiesResponse({ status: 200, data: payload }), "forms")).toBe("site");
+    const nulled = withScope(null);
+    expect(nulled.kind).toBe("ok");
+    expect(siteSettingsScope(nulled, "forms")).toBe("site");
+    const unknown = withScope("team");
+    expect(unknown.kind).toBe("ok");
+    expect(siteSettingsScope(unknown, "forms")).toBe("site");
+    expect(siteSettingsScope({ kind: "no-addon" }, "forms")).toBe("site");
+    expect(siteSettingsScope({ kind: "unavailable", reason: "x" }, "forms")).toBe("site");
   });
 });
