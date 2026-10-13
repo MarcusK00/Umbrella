@@ -175,16 +175,10 @@ Each product also has a tool level, with three choices:
 
 The group labels show how many tools stay at the chosen level, for example `form (6 of 14)`. Group checkboxes still apply on top of it.
 
-- **Off by default:** some groups start unticked, 18 tools in all:
-  - Umbraco CMS `manifest`, `user-data` and `imaging`: backoffice extension manifests, the backoffice's per-user settings store and image resize URLs.
-  - Umbraco Forms `umbraco-server` and `acceptance-tests`, and Umbraco Automate `umbraco-server`: `get-server-info` twice, which `cms--get-server-information` covers, and a test aid.
-  - Umbraco Forms `licensing`, `updates` and `media`: the license status, the update check and a media lookup by path.
-  - Umbraco Engage `package`, `add-ons` and `cultures`: license info, whether the Forms and Commerce integrations are on, and the tracked cultures.
-
-  Tick them to switch them on. Once you save a product, the saved list is used from then on.
+- **On by default:** every group starts ticked. Untick the ones you don't want; once you save a product, the saved list is used from then on.
 - **When it applies:** the next time the MCP server starts. Reconnect it in your AI tool after saving.
 - **Before the first start:** Tool Permissions has no tool groups until an MCP server has started once, because the server reports its tool groups when it starts.
-- **Environment wins for groups:** if the MCP server's environment sets `UMBRACO_INCLUDE_TOOL_COLLECTIONS` or `UMBRACO_EXCLUDE_TOOL_COLLECTIONS` for a product (including `forms:*`, or an unprefixed entry for CMS), the group settings and the off-by-default groups are ignored for that product and the dashboard shows a warning. So `forms:*` brings the default-off Forms groups back, and so does an exclude filter such as `UMBRACO_EXCLUDE_TOOL_COLLECTIONS=forms:folder`. An include filter such as `forms:folder` keeps only the groups it names. `UMBRACO_INCLUDE_TOOLS` also still includes a tool from a switched-off group.
+- **Environment wins for groups:** if the MCP server's environment sets `UMBRACO_INCLUDE_TOOL_COLLECTIONS` or `UMBRACO_EXCLUDE_TOOL_COLLECTIONS` for a product (including `forms:*`, or an unprefixed entry for CMS), the group settings are ignored for that product and the dashboard shows a warning. So `forms:*` brings back every Forms group switched off in the dashboard, and an exclude filter such as `UMBRACO_EXCLUDE_TOOL_COLLECTIONS=forms:folder` leaves out only the groups it names. An include filter such as `forms:folder` keeps only the groups it names. `UMBRACO_INCLUDE_TOOLS` also still includes a tool from a switched-off group.
 - **The level always applies:** it only removes tools, so the environment can't turn it off, and it applies even when environment collection filters make the group settings ignored. `UMBRACO_READONLY=true` makes every product read-only and `UMBRACO_NO_DESTRUCTIVE=true` removes destructive tools from every product, whatever the dashboard says.
 - **If the site can't be read:** when the MCP server can't read the site's settings it can't apply the dashboard level, so set `UMBRACO_NO_DESTRUCTIVE=true` (or `UMBRACO_READONLY=true`) in the AI tool's config to enforce it regardless.
 - **Older servers:** an MCP server from before the No destructive level ignores it. When the last report has no counts for that level, the product warns that the MCP server still includes destructive tools.
