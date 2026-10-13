@@ -20,8 +20,14 @@ export class UmbrellaDashboardElement extends UmbLitElement {
     this._tab = "overview";
   }
 
-  #show(tab) {
+  async #show(tab) {
     if (tab === this._tab) return;
+    // Leaving Tool Permissions with unsaved changes asks first.
+    if (this._tab === "tool-groups" && (await this.shadowRoot?.querySelector("umbrella-tool-groups")?.confirmLeave()) === false) {
+      // The tab group already marked the clicked tab active; put the marker back on the tab still shown.
+      this.shadowRoot.querySelectorAll("uui-tab").forEach((t, i) => (t.active = TABS[i].id === this._tab));
+      return;
+    }
     this._tab = tab;
     // Settings changed on Tool Permissions show in the Overview's MCP Users table.
     if (tab === "overview") this.shadowRoot?.querySelector("umbrella-overview")?.reload();
