@@ -163,6 +163,31 @@ public class McpCapabilitiesServiceTests
     }
 
     [Test]
+    public void Off_comes_from_the_defaults()
+    {
+        var a = new FakeAssemblies();
+        var r = new FakeApis();
+        var store = new FakeToolSettingsStore { Off = ["forms"] };
+
+        McpCapabilities caps = Service([new FormsDetector(a, r), new AutomateDetector(a, r)], store).GetCapabilities();
+
+        Assert.That(caps.Products[0].Off, Is.True);
+        Assert.That(caps.Products[0].ReadOnly || caps.Products[0].NoDestructive, Is.False);
+        Assert.That(caps.Products[1].Off, Is.False);
+        Assert.That(JsonSerializer.Serialize(caps, new JsonSerializerOptions(JsonSerializerDefaults.Web)), Does.Contain("\"off\":true"));
+    }
+
+    [Test]
+    public void Off_is_false_when_nothing_is_stored_or_the_store_fails()
+    {
+        var detector = new FormsDetector(new FakeAssemblies(), new FakeApis());
+
+        Assert.That(Service([detector]).GetCapabilities().Products.Single().Off, Is.False);
+        var failing = new FakeToolSettingsStore { Throws = new InvalidOperationException("db down") };
+        Assert.That(Service([detector], failing).GetCapabilities().Products.Single().Off, Is.False);
+    }
+
+    [Test]
     public void No_destructive_store_failure_means_false()
     {
         var store = new FakeToolSettingsStore { Throws = new InvalidOperationException("db down") };
@@ -214,16 +239,18 @@ public class McpCapabilitiesServiceTests
         Assert.That(cms.SettingsScope, Is.EqualTo("site"));
     }
 
-    [TestCase(McpToolLevel.ReadOnly, true, false)]
-    [TestCase(McpToolLevel.NoDestructive, false, true)]
-    [TestCase(McpToolLevel.Full, false, false)]
-    public void Each_level_maps_to_the_flags(string level, bool readOnly, bool noDestructive)
+    [TestCase(McpToolLevel.ReadOnly, true, false, false)]
+    [TestCase(McpToolLevel.NoDestructive, false, true, false)]
+    [TestCase(McpToolLevel.Full, false, false, false)]
+    [TestCase(McpToolLevel.Off, false, false, true)]
+    public void Each_level_maps_to_the_flags(string level, bool readOnly, bool noDestructive, bool off)
     {
         var store = new FakeToolSettingsStore
         {
             // The defaults say the opposite, so the override has to win in both directions.
             ReadOnly = level == McpToolLevel.Full ? ["forms"] : [],
             NoDestructive = level == McpToolLevel.Full ? ["forms"] : [],
+            Off = level == McpToolLevel.Off ? [] : ["forms"],
             UserOverrides = new() { [ApiUser] = new Dictionary<string, McpProductOverride> { ["forms"] = new([], level) } },
         };
 
@@ -231,6 +258,8 @@ public class McpCapabilitiesServiceTests
 
         Assert.That(forms.ReadOnly, Is.EqualTo(readOnly));
         Assert.That(forms.NoDestructive, Is.EqualTo(noDestructive));
+        Assert.That(forms.Off, Is.EqualTo(off));
+        Assert.That(forms.SettingsScope, Is.EqualTo("user"));
     }
 
     [Test]

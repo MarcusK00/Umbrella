@@ -17,7 +17,7 @@ The site only needs the NuGet package, but installing it doesn't connect your AI
 - [Get started](#get-started)
 - [Teams, editors and hosted sites](#teams-editors-and-hosted-sites)
 - [Configuration](#configuration)
-- [Turning tool groups off](#turning-tool-groups-off)
+- [Tool permissions](#tool-permissions)
 - [Health checks](#health-checks)
 - [Troubleshooting](#troubleshooting)
 - [Compatibility](#compatibility)
@@ -147,7 +147,7 @@ Tool settings are guardrails, not access control: see [Known limitations](#known
 |---|---|
 | `UMBRACO_BASE_URL`, `UMBRACO_CLIENT_ID`, `UMBRACO_CLIENT_SECRET` | The site (`https://`) and the API user to sign in as. Required: the server exits without them |
 | `UMBRACO_MCP_MODULES` | Force modules on without detection, for example `forms,automate` |
-| `UMBRACO_TOOL_MODES`, `UMBRACO_INCLUDE_/EXCLUDE_TOOL_COLLECTIONS`, `UMBRACO_INCLUDE_/EXCLUDE_TOOLS` | Toolkit filters. Unprefixed entries apply to CMS; `forms:<value>` targets a module; `forms:*` means no restriction for that module. In the two `*_TOOLS` lists you can also use the visible name, for example `cms--delete-document` or `forms--list-forms`. Collection filters set here for a product override the Umbrella dashboard and the [off-by-default groups](#turning-tool-groups-off) for that product |
+| `UMBRACO_TOOL_MODES`, `UMBRACO_INCLUDE_/EXCLUDE_TOOL_COLLECTIONS`, `UMBRACO_INCLUDE_/EXCLUDE_TOOLS` | Toolkit filters. Unprefixed entries apply to CMS; `forms:<value>` targets a module; `forms:*` means no restriction for that module. In the two `*_TOOLS` lists you can also use the visible name, for example `cms--delete-document` or `forms--list-forms`. Collection filters set here for a product override the [Umbrella dashboard's tool groups](#tool-permissions) for that product |
 | `UMBRACO_READONLY` | `true` registers only read-only tools, for every module. To do this for one product, use the Umbrella dashboard |
 | `UMBRACO_NO_DESTRUCTIVE` | `true` leaves out the destructive tools, for every module. To do this for one product, use the Umbrella dashboard |
 | `UMBRACO_INCLUDE_SLICES`, `UMBRACO_EXCLUDE_SLICES` | Apply to every module |
@@ -163,39 +163,39 @@ Filters match the products' own tool names, before the prefix is added. For exam
 
 The command `npx -y umbrella-mcp@<version> --list-tools`, run with the same environment variables, prints the tool names the server would register and exits.
 
-## Turning tool groups off
+## Tool permissions
 
-Settings → **Umbrella** → **Tool Permissions** lists each product the site has installed (and any the MCP server reported), with one checkbox per tool group (for example Umbraco Forms → `prevalue-source`). Untick a group and save to stop exposing its tools. Fewer tools means less context for the AI and better tool choice.
+Settings → **Umbrella** → **Tool Permissions** sets which tools the MCP server exposes. On the left you pick whose settings you edit: **Defaults** (every API user) or one API user. On the right, each product the site has installed (and any the MCP server reported) has a card with an **access** setting, four steps from least to most:
 
-Each product also has a tool level, with three choices:
-
-- **Full access:** every tool, the default.
-- **No destructive tools:** leaves out the tools the product marks as destructive (`destructiveHint`), so the AI can create and edit but not delete. That is mostly deletes, emptying recycle bins and terminating runs, plus removing and disconnecting Automate steps, Automate version rollback, running a Forms record action, and a few Engage switches and permission changes. Unpublishing, moving to the recycle bin, and CMS and Forms version rollback are not flagged, so they stay available.
+- **Off:** the MCP server doesn't load the product at all. Your AI tool sees none of its tools, and the server's instructions don't mention it. `get-mcp-health` notes that it was switched off in the backoffice. Umbraco CMS can't be switched off, because the MCP server signs in through it.
 - **Read-only:** only tools marked read-only (the ones that list and fetch), so the AI can look at that product but not change it.
+- **No deletes:** leaves out the tools the product marks as destructive (`destructiveHint`), so the AI can create and edit but not delete. That is mostly deletes, emptying recycle bins and terminating runs, plus removing and disconnecting Automate steps, Automate version rollback, running a Forms record action, and a few Engage switches and permission changes. Unpublishing, moving to the recycle bin, and CMS and Forms version rollback are not flagged, so they stay available.
+- **Full:** every tool in the groups that are switched on, the default.
 
-The group labels show how many tools stay at the chosen level, for example `form (6 of 14)`. Group checkboxes still apply on top of it.
+Under the access setting, **Tool groups: X of Y on** opens one checkbox per tool group (for example Umbraco Forms → `prevalue-source`). Untick a group to stop exposing its tools. Fewer tools means less context for the AI and better tool choice. The group labels show how many tools stay at the chosen access, for example `form (6 of 14)`, and the card's header shows the total.
 
+- **Unsaved changes:** while the page differs from what is saved, a bar at the top says **Unsaved changes** with **Discard** and **Save**. Changing something back makes the page clean again. Leaving with unsaved changes (another tab, another API user, another part of the backoffice) asks first; closing or reloading the browser tab gets the browser's own prompt.
 - **On by default:** every group starts ticked. Untick the ones you don't want; once you save a product, the saved list is used from then on.
 - **When it applies:** the next time the MCP server starts. Reconnect it in your AI tool after saving.
 - **Before the first start:** Tool Permissions has no tool groups until an MCP server has started once, because the server reports its tool groups when it starts.
-- **Environment wins for groups:** if the MCP server's environment sets `UMBRACO_INCLUDE_TOOL_COLLECTIONS` or `UMBRACO_EXCLUDE_TOOL_COLLECTIONS` for a product (including `forms:*`, or an unprefixed entry for CMS), the group settings are ignored for that product and the dashboard shows a warning. So `forms:*` brings back every Forms group switched off in the dashboard, and an exclude filter such as `UMBRACO_EXCLUDE_TOOL_COLLECTIONS=forms:folder` leaves out only the groups it names. An include filter such as `forms:folder` keeps only the groups it names. `UMBRACO_INCLUDE_TOOLS` also still includes a tool from a switched-off group.
-- **The level always applies:** it only removes tools, so the environment can't turn it off, and it applies even when environment collection filters make the group settings ignored. `UMBRACO_READONLY=true` makes every product read-only and `UMBRACO_NO_DESTRUCTIVE=true` removes destructive tools from every product, whatever the dashboard says.
-- **If the site can't be read:** when the MCP server can't read the site's settings it can't apply the dashboard level, so set `UMBRACO_NO_DESTRUCTIVE=true` (or `UMBRACO_READONLY=true`) in the AI tool's config to enforce it regardless.
-- **Older servers:** an MCP server from before the No destructive level ignores it. When the last report has no counts for that level, the product warns that the MCP server still includes destructive tools.
+- **Environment wins for groups:** if the MCP server's environment sets `UMBRACO_INCLUDE_TOOL_COLLECTIONS` or `UMBRACO_EXCLUDE_TOOL_COLLECTIONS` for a product (including `forms:*`, or an unprefixed entry for CMS), the group settings are ignored for that product and the card says so. So `forms:*` brings back every Forms group switched off in the dashboard, and an exclude filter such as `UMBRACO_EXCLUDE_TOOL_COLLECTIONS=forms:folder` leaves out only the groups it names. An include filter such as `forms:folder` keeps only the groups it names. `UMBRACO_INCLUDE_TOOLS` also still includes a tool from a switched-off group.
+- **The access setting always applies:** it only removes tools, so the environment can't undo it, and it applies even when environment collection filters make the group settings ignored. A product switched off stays off even when `UMBRACO_MCP_MODULES` forces it on. `UMBRACO_READONLY=true` makes every product read-only and `UMBRACO_NO_DESTRUCTIVE=true` removes destructive tools from every product, whatever the dashboard says.
+- **If the site can't be read:** when the MCP server can't read the site's settings it can't apply the dashboard's access settings, so set `UMBRACO_NO_DESTRUCTIVE=true` (or `UMBRACO_READONLY=true`) in the AI tool's config to enforce it regardless.
+- **Older servers:** an MCP server from before the No deletes step ignores it, and one from before Off loads the product anyway. The version warnings on the Overview and in `get-mcp-health` flag a server that isn't the add-on's version. When the last report has no counts for No deletes, the card warns that the MCP server still includes destructive tools.
 - **Not a security control:** anyone with the API user's credentials can call the Management API directly. Use the API user's groups and sections to limit what it can do.
 
 The settings and the reported tool groups are stored in the `umbracoKeyValue` table, so they survive restarts and are shared by every server of a load-balanced site. Changing them needs access to the Settings section.
 
 ### Different settings per API user
 
-When each developer has their own API user, the tool settings can differ per user. Above the products, the **API user** picker starts on **All API users (defaults)**: the settings you see and save there are the defaults every API user follows. Pick one API user to give it its own settings.
+When each developer has their own API user, the tool settings can differ per user. The list on the left starts on **Defaults**: the settings you see and save there are the defaults every API user follows. Pick one API user to give it its own settings. Users with their own settings for at least one product are tagged **custom**.
 
-- **Use defaults:** for a single API user, each product has a **Use defaults** switch, on until you change it. On, the product shows the defaults and the user follows them, also when you change the defaults later. Off, you edit that product's groups and level for this user only, starting from a copy of the current defaults. Saving stores the products with the switch off as that user's own settings; products with it on keep following the defaults.
-- **Per product, all or nothing:** an own setting holds a product's groups and level together. A user can't follow the default groups with its own level.
-- **Any API user:** every API user on the site can be picked, also one that has never connected, so you can set up a new developer before their first start. Under a default, the dashboard names the users that have their own settings for that product.
-- **When it applies:** the next time that user's MCP server starts, so they reconnect it in their AI tool. `get-mcp-health` says when the settings are the user's own ("as set in the backoffice for this API user").
-- **Counts:** for a single API user, the tool counts come from that user's own last start. A user whose MCP server hasn't started yet shows its groups and levels without counts until it has, because the counts depend on each API user's permissions (the CMS tools in particular). Under **All API users (defaults)**, each group shows the highest count any API user's MCP server reported.
-- **Overview:** the **MCP Users** table on Settings → Umbrella → **Overview** shows, per connected API user, when it last connected, which products it can reach, and under **Tools** its level per product (own settings or defaults) with the number of tools its last start got with those settings. **Edit permissions** opens Tool Permissions with that user picked. An `umbrella-mcp` version mismatch is a warning per user at the top of the Overview, which only shows when something needs attention.
+- **Customise:** for a single API user, a product that follows the defaults is shown dimmed with a **Follows defaults** tag and a **Customise for {name}** button. Customising starts that user's own access and groups for the product from a copy of the current defaults, tagged **Custom for {name}**. **Reset to defaults** drops them again. Saving stores the customised products as that user's own settings; the others keep following the defaults, also when you change the defaults later.
+- **Per product, all or nothing:** an own setting holds a product's groups and access together. A user can't follow the default groups with its own access.
+- **Any API user:** every API user on the site can be picked, also one that has never connected, so you can set up a new developer before their first start. Under a default, the card names the users that have their own settings for that product.
+- **When it applies:** the next time that user's MCP server starts, so they reconnect it in their AI tool. `get-mcp-health` says when the settings are the user's own ("for this API user").
+- **Counts:** for a single API user, the tool counts come from that user's own last start. A user whose MCP server hasn't started yet shows its groups and access without counts until it has, because the counts depend on each API user's permissions (the CMS tools in particular). A product that was off for the user isn't in its last report, so its groups come from the defaults until the user's server starts with it on. Under **Defaults**, each group shows the highest count any API user's MCP server reported.
+- **Overview:** the **MCP Users** table on Settings → Umbrella → **Overview** shows, per connected API user, when it last connected, which products it can reach, and under **Tools** its access per product (own settings or defaults) with the number of tools its last start got with those settings. **Edit permissions** opens Tool Permissions with that user picked. An `umbrella-mcp` version mismatch is a warning per user at the top of the Overview, which only shows when something needs attention.
 
 ## Health checks
 
@@ -221,6 +221,7 @@ Start with `get-mcp-health` in your AI tool and the **MCP** health checks in the
 | The server exits with `Error: UMBRACO_BASE_URL is required.` (or another variable) | The MCP client config has no `env` entry for it | Use the config from Settings → Umbrella → Overview |
 | TLS errors such as `self-signed certificate` | Node does not trust the site's certificate. The config from the Overview only turns checks off for `localhost` | Trust the certificate with `NODE_EXTRA_CA_CERTS=<path to the .pem>`, or for a local development host only, add `NODE_TLS_REJECT_UNAUTHORIZED=0` to `env` |
 | Only `cms--` tools are listed | The add-on is not installed or not reachable, or a product is not installed, not enabled, or not on major version 17 | `get-mcp-health` gives the reason per product. "MCP products" in the backoffice shows what the site detected |
+| One product's tools are missing although it is installed | It is switched **Off** in Settings → Umbrella → Tool Permissions, in the defaults or for this API user | `get-mcp-health` notes "Switched off in the backoffice". Set its access to another step and reconnect |
 | A product's tools return permission errors | The API user's groups don't grant that product's section | The "MCP API user" check names the missing section |
 | "MCP client setup", the dashboard or `get-mcp-health` says the versions differ | Your AI tool's config still pins the `umbrella-mcp` of an earlier add-on | Set `umbrella-mcp@<add-on version>` in the config |
 | Tool Permissions shows "No tool groups reported yet" | No MCP server has started against this site yet | Start it once from your AI tool, then reload the dashboard. If it stays empty, `get-mcp-health` notes why the tool groups could not be reported |

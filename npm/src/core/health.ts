@@ -130,6 +130,10 @@ export function buildHealthReport(state: HealthState): HealthReport {
     if (hasDashboard && loaded && siteNoDestructive) {
       notes.push(`${name}: no destructive tools (${destructiveRemoved} removed), as set ${inBackoffice}.`);
     }
+    // Switched off on purpose: a note, not an issue.
+    if (decision.switchedOff) {
+      notes.push(`${name}: ${decision.reason}`);
+    }
     const p = detected.find((d) => d.id === decision.module.id) ?? null;
     if (caps.kind === "ok" && !decision.module.required && (!p || !p.installed)) {
       notes.push(`There is a module for ${decision.module.displayName}, but it is not installed on this site.`);
@@ -145,7 +149,7 @@ export function buildHealthReport(state: HealthState): HealthReport {
       loaded,
       toolCount,
       destructiveRemoved: loaded ? destructiveRemoved : 0,
-      issues: [...(p?.issues ?? []), ...issues, ...(decision.load ? [] : [decision.reason])],
+      issues: [...(p?.issues ?? []), ...issues, ...(decision.load || decision.switchedOff ? [] : [decision.reason])],
     };
   });
 

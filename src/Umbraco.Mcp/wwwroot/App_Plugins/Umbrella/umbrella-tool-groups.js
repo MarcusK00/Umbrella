@@ -1,57 +1,57 @@
 import { css, html, nothing } from "@umbraco-cms/backoffice/external/lit";
 import { UmbLitElement } from "@umbraco-cms/backoffice/lit-element";
 import { UMB_AUTH_CONTEXT } from "@umbraco-cms/backoffice/auth";
+import { umbConfirmModal } from "@umbraco-cms/backoffice/modal";
 import { UMB_NOTIFICATION_CONTEXT } from "@umbraco-cms/backoffice/notification";
 import { UmbTextStyles } from "@umbraco-cms/backoffice/style";
 import { request } from "./umbrella-api.js";
+import "./umbrella-product-card.js";
+import { UmbrellaUnsavedGuard } from "./umbrella-unsaved-guard.js";
 
-/** The picker's value for the defaults; an API user's value is its key (a GUID). */
-const DEFAULTS = "defaults";
-const STATE_SUFFIX = { disabled: " – disabled", lockedOut: " – locked out" };
-const LEVEL_LABELS = { full: "Full access", noDestructive: "No destructive tools", readOnly: "Read-only" };
+/** The product the MCP server signs in through; the add-on refuses to switch it off. */
+const REQUIRED_PRODUCT = "cms";
+const STATE_TAGS = { disabled: "disabled", lockedOut: "locked out" };
 
 /**
- * Settings → Umbrella → Tool Permissions: switch the MCP server's tool groups (collections) on or off, and set a tool level
- * (full access, no destructive tools or read-only) per product. The defaults apply to every API user; each API user can
- * override a product, all-or-nothing, with its own groups and level.
+ * Settings → Umbrella → Tool Permissions. On the left, who is being edited: the defaults (every API user) or one API
+ * user. On the right, one card per product with its access level (off, read-only, no deletes or full) and its tool
+ * groups. An API user can override a product, all-or-nothing, with its own level and groups.
+ *
+ * Unsaved changes are what differs from the last saved state, so changing something back makes the page clean again.
+ * Every way of leaving with unsaved changes asks first (`confirmLeave`).
  */
 export class UmbrellaToolGroupsElement extends UmbLitElement {
   static properties = {
     _data: { state: true },
-    _disabled: { state: true },
-    _levels: { state: true },
     _error: { state: true },
     _saving: { state: true },
+    _busy: { state: true },
     _selected: { state: true },
     _user: { state: true },
-    _overrides: { state: true },
-    _dirty: { state: true },
-    _busy: { state: true },
-    _switchTo: { state: true },
+    _edit: { state: true },
   };
 
   #auth;
   #notifications;
   // An API user the Overview asked to open before the settings had loaded.
   #pendingUser = null;
+  // The PUT body of the state as last saved; `dirty` compares the current edits with it.
+  #snapshot = "";
 
   constructor() {
     super();
     this._data = null;
-    // The defaults: the groups switched off and the level per product, as saved on the site.
-    this._disabled = {};
-    this._levels = {};
     this._error = null;
     this._saving = false;
+    this._busy = false;
     // "" is the defaults view; otherwise the key of the API user being edited.
     this._selected = "";
-    // The user's GET response, and its overrides as { [productId]: { disabled: Set, level } } (the products whose switch is off).
+    // The user's GET response in the user view.
     this._user = null;
-    this._overrides = {};
-    this._dirty = false;
-    this._busy = false;
-    // The picker value the user asked for while there were unsaved changes ("" = the defaults); null when no prompt is showing.
-    this._switchTo = null;
+    // Defaults view: { disabled: { [id]: Set }, levels: { [id]: level } }.
+    // User view: { overrides: { [id]: { disabled: Set, level } } } for the products the user overrides.
+    this._edit = { disabled: {}, levels: {} };
+    new UmbrellaUnsavedGuard(this, { isDirty: () => this.dirty, confirm: () => this.confirmLeave() });
     this.consumeContext(UMB_NOTIFICATION_CONTEXT, (ctx) => (this.#notifications = ctx));
     this.consumeContext(UMB_AUTH_CONTEXT, (ctx) => {
       if (!ctx) return;
@@ -60,23 +60,16 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     });
   }
 
+  /** Whether the page differs from what is saved. */
+  get dirty() {
+    return !!this._data && JSON.stringify(this.#body()) !== this.#snapshot;
+  }
+
   async #load() {
     try {
       this._data = await request(this.#auth, "GET", "tool-settings");
-      // A product without a saved list starts from the groups its module keeps off by default.
-      const saved = this._data.disabledCollections ?? {};
-      this._disabled = Object.fromEntries(
-        Object.entries(this._data.catalogue?.modules ?? {})
-          .filter(([id]) => !(id in saved))
-          .map(([id, m]) => [id, new Set((m.collections ?? []).filter((c) => c.disabledByDefault).map((c) => c.name))])
-          .concat(Object.entries(saved).map(([id, names]) => [id, new Set(names)])),
-      );
-      // Read-only wins when a product is somehow in both lists.
-      const levels = {};
-      for (const id of this._data.noDestructiveModules ?? []) levels[id] = "noDestructive";
-      for (const id of this._data.readOnlyModules ?? []) levels[id] = "readOnly";
-      this._levels = levels;
       this._error = null;
+      if (!this._selected) this.#showDefaults();
     } catch (error) {
       this._error = error.message;
     }
@@ -87,117 +80,154 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     }
   }
 
-  /**
-   * Opens an API user's settings as if it was picked (the Overview's "Edit permissions"). With unsaved changes the
-   * usual notice asks first.
-   */
-  async selectUser(key) {
-    if (!this._data) {
-      this.#pendingUser = key;
-      return;
+  /** The saved defaults, as editable state. */
+  #savedDefaults() {
+    const modules = this._data.catalogue?.modules ?? {};
+    const saved = this._data.disabledCollections ?? {};
+    const disabled = {};
+    // A product without a saved list starts from the groups its module keeps off by default.
+    for (const [id, m] of Object.entries(modules)) {
+      disabled[id] = new Set(id in saved ? saved[id] : (m.collections ?? []).filter((c) => c.disabledByDefault).map((c) => c.name));
     }
-    if (key === this._selected) return;
-    if (this._dirty) {
-      this._switchTo = key;
-      return;
-    }
-    this._switchTo = null;
-    await this.#switchTo(key, this.#picker());
+    for (const [id, names] of Object.entries(saved)) disabled[id] ??= new Set(names);
+    // One level per product; off wins, then read-only.
+    const levels = {};
+    for (const id of this._data.noDestructiveModules ?? []) levels[id] = "noDestructive";
+    for (const id of this._data.readOnlyModules ?? []) levels[id] = "readOnly";
+    for (const id of this._data.offModules ?? []) levels[id] = "off";
+    return { disabled, levels };
   }
 
-  /**
-   * Counts belong to the user being shown only when its own MCP server reported them; another user's report would show
-   * that user's permissions. The defaults always show the highest counts any API user's server reported.
-   */
-  #showCounts() {
-    return this._selected === "" || this._user?.catalogueSource?.kind === "user";
+  /** The saved defaults for one product: what a user follows, and what "Customise" starts from. */
+  #defaultsFor(id) {
+    const { disabled, levels } = this.#savedDefaults();
+    return { disabled: disabled[id] ?? new Set(), level: levels[id] ?? "full" };
   }
 
-  #fetchUser(key) {
-    return request(this.#auth, "GET", `tool-settings/users/${key}`);
+  #showDefaults() {
+    this._selected = "";
+    this._user = null;
+    this._edit = this.#savedDefaults();
+    this.#snapshot = JSON.stringify(this.#body());
   }
 
   /** Shows an API user's settings, with nothing unsaved. */
   #showUser(key, user) {
     this._selected = key;
     this._user = user;
-    this._overrides = Object.fromEntries(
-      Object.entries(user.overrides ?? {}).map(([id, o]) => [id, { disabled: new Set(o.disabledCollections ?? []), level: o.level ?? "full" }]),
-    );
-    this._dirty = false;
-    this._switchTo = null;
+    this._edit = {
+      overrides: Object.fromEntries(
+        Object.entries(user.overrides ?? {}).map(([id, o]) => [id, { disabled: new Set(o.disabledCollections ?? []), level: o.level ?? "full" }]),
+      ),
+    };
+    this.#snapshot = JSON.stringify(this.#body());
   }
 
-  #picker() {
-    return this.shadowRoot?.querySelector("uui-select");
+  /** Puts the saved state back. */
+  #discard() {
+    if (this._selected && this._user) this.#showUser(this._selected, this._user);
+    else this.#showDefaults();
   }
 
   /**
-   * The picker changed. With unsaved changes nothing is switched: the picker goes back to the current view and an inline
-   * notice asks first. A native select fires `change` on every arrow key, so a modal opened here would take the Return
-   * that commits the choice as its own confirmation; the notice's buttons are not focused, so that keystroke does nothing.
+   * Resolves true when there is nothing unsaved, or when the user chose to discard it (it is then discarded); false when
+   * the user wants to keep editing.
    */
-  async #pick(e) {
-    const select = e.target;
-    const value = select.value === DEFAULTS ? "" : select.value;
-    if (value === this._selected) {
-      this._switchTo = null; // Back on the current view: nothing left to ask.
-      return;
+  async confirmLeave() {
+    if (!this.dirty) return true;
+    const name = this._data.apiUsers?.find((u) => u.key === this._selected)?.name;
+    try {
+      await umbConfirmModal(this, {
+        headline: "Discard unsaved changes?",
+        content: `Your changes to ${this._selected ? `${name ?? "this API user"}'s settings` : "the defaults"} haven't been saved.`,
+        confirmLabel: "Discard changes",
+        cancelLabel: "Keep editing",
+        color: "danger",
+      });
+    } catch {
+      return false;
     }
-    if (this._dirty) {
-      this._switchTo = value;
-      // uui-select only writes `value` to its native select when it differs from the last value it rendered. Put back
-      // before that render, the old value counts as unchanged and the native select keeps showing the new choice.
-      await select.updateComplete;
-      select.value = this._selected || DEFAULTS;
-      return;
-    }
-    this._switchTo = null;
-    await this.#switchTo(value, select);
+    this.#discard();
+    return true;
   }
 
-  /** "Discard and switch": the unsaved changes are given up and the view the user asked for is shown. */
-  async #discardAndSwitch() {
-    const value = this._switchTo;
-    this._switchTo = null;
-    if (value === null || value === this._selected) return;
-    const select = this.#picker();
-    // The picker was put back when the notice appeared, so show the choice again.
-    if (select) select.value = value || DEFAULTS;
-    await this.#switchTo(value, select);
-  }
-
-  async #switchTo(value, select) {
-    // The picker already shows the new value, so a failure puts the old one back.
-    const keep = () => {
-      if (select) select.value = this._selected || DEFAULTS;
-    };
+  /** Opens an API user's settings, or the defaults for "" (the side list, and the Overview's "Edit permissions"). */
+  async selectUser(key) {
+    if (!this._data) {
+      this.#pendingUser = key;
+      return;
+    }
+    if (key === this._selected || this._busy) return;
+    if (!(await this.confirmLeave())) return;
+    if (key === "") {
+      this.#showDefaults();
+      return;
+    }
     this._busy = true;
     try {
-      if (value === "") {
-        this._selected = "";
-        this._user = null;
-        this._overrides = {};
-        this._dirty = false;
-        this._switchTo = null;
-        return;
-      }
-      let user;
-      try {
-        user = await this.#fetchUser(value);
-      } catch (error) {
-        this.#notifications?.peek("danger", { data: { headline: "Could not load the API user's tool settings", message: error.message } });
-        return keep();
-      }
-      // Unsaved edits to the defaults are gone, so the defaults the user view shows must be the saved ones.
-      if (!this._selected && this._dirty) await this.#load();
-      this.#showUser(value, user);
+      this.#showUser(key, await request(this.#auth, "GET", `tool-settings/users/${key}`));
+    } catch (error) {
+      this.#notifications?.peek("danger", { data: { headline: "Could not load the API user's tool settings", message: error.message } });
     } finally {
       this._busy = false;
     }
   }
 
-  #toggle(moduleId, name, enabled) {
+  /** The catalogue entry to show for a product: in the user view the user's own report, else the defaults' one. */
+  #moduleFor(id) {
+    const own = this._selected ? this._user?.catalogue?.modules?.[id] : null;
+    return own ?? this._data.catalogue?.modules?.[id] ?? null;
+  }
+
+  /**
+   * Counts belong to the user being shown only when its own MCP server reported them for this product; another user's
+   * report would show that user's permissions. The defaults always show the highest counts any API user reported.
+   */
+  #showCounts(id) {
+    if (!this._selected) return true;
+    return this._user?.catalogueSource?.kind === "user" && !!this._user.catalogue?.modules?.[id];
+  }
+
+  /** The PUT body for the current edits. Built the same way for the snapshot, so equal state gives an equal body. */
+  #body() {
+    const detected = this._data.products.map((p) => p.id);
+    // Only names the MCP reported: a name it no longer reports is dropped.
+    const names = (id, disabled) => {
+      const module = this.#moduleFor(id);
+      return module ? module.collections.map((c) => c.name).filter((n) => disabled.has(n)) : [...disabled].sort();
+    };
+    if (this._selected) {
+      const overrides = this._edit.overrides ?? {};
+      return {
+        overrides: Object.fromEntries(
+          detected.filter((id) => overrides[id]).map((id) => [id, { disabledCollections: names(id, overrides[id].disabled), level: overrides[id].level }]),
+        ),
+      };
+    }
+    const { disabled = {}, levels = {} } = this._edit;
+    const reported = this._data.catalogue?.modules ?? {};
+    // A level only removes tools, so it is kept for every product the site detects, reported or not.
+    return {
+      disabledCollections: Object.fromEntries(detected.filter((id) => reported[id]).map((id) => [id, names(id, disabled[id] ?? new Set())])),
+      readOnlyModules: detected.filter((id) => levels[id] === "readOnly"),
+      noDestructiveModules: detected.filter((id) => levels[id] === "noDestructive"),
+      offModules: detected.filter((id) => levels[id] === "off"),
+    };
+  }
+
+  #setLevel(id, level) {
+    if (this._busy) return;
+    if (this._selected) {
+      const override = this._edit.overrides[id];
+      if (!override) return;
+      this._edit = { overrides: { ...this._edit.overrides, [id]: { ...override, level } } };
+    } else {
+      this._edit = { ...this._edit, levels: { ...this._edit.levels, [id]: level } };
+    }
+  }
+
+  #setGroup(id, name, enabled) {
+    if (this._busy) return;
     const edit = (current) => {
       const set = new Set(current ?? []);
       if (enabled) set.delete(name);
@@ -205,102 +235,45 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
       return set;
     };
     if (this._selected) {
-      const override = this._overrides[moduleId];
+      const override = this._edit.overrides[id];
       if (!override) return;
-      this._overrides = { ...this._overrides, [moduleId]: { ...override, disabled: edit(override.disabled) } };
+      this._edit = { overrides: { ...this._edit.overrides, [id]: { ...override, disabled: edit(override.disabled) } } };
     } else {
-      this._disabled = { ...this._disabled, [moduleId]: edit(this._disabled[moduleId]) };
-    }
-    this._dirty = true;
-  }
-
-  #setLevel(moduleId, level) {
-    if (this._selected) {
-      const override = this._overrides[moduleId];
-      if (!override) return;
-      this._overrides = { ...this._overrides, [moduleId]: { ...override, level } };
-    } else {
-      this._levels = { ...this._levels, [moduleId]: level };
-    }
-    this._dirty = true;
-  }
-
-  /** The default groups switched off for a product: the saved list, or the module's off-by-default groups when there is none. */
-  #defaultDisabled(moduleId, module) {
-    return this._disabled[moduleId] ?? new Set((module?.collections ?? []).filter((c) => c.disabledByDefault).map((c) => c.name));
-  }
-
-  /** Turning "Use defaults" off starts an override from a copy of the current defaults; turning it on drops the override. */
-  #setUseDefaults(product, module, useDefaults) {
-    const overrides = { ...this._overrides };
-    if (useDefaults) delete overrides[product.id];
-    else overrides[product.id] = { disabled: new Set(this.#defaultDisabled(product.id, module)), level: this._levels[product.id] ?? "full" };
-    this._overrides = overrides;
-    this._dirty = true;
-  }
-
-  #save() {
-    return this._selected ? this.#saveUser() : this.#saveDefaults();
-  }
-
-  async #saveDefaults() {
-    this._saving = true;
-    // Only modules and names the MCP reported: a name it no longer reports is dropped here.
-    const modules = this._data.catalogue.modules;
-    const disabledCollections = Object.fromEntries(
-      this.#visibleProducts(modules)
-        .filter((p) => modules[p.id])
-        .map((p) => [p.id, modules[p.id].collections.map((c) => c.name).filter((n) => this._disabled[p.id]?.has(n))]),
-    );
-    // A level only removes tools, so it is kept for every product the site detects, reported or not.
-    // Each product has one level, so it can never be in both lists.
-    const ids = this._data.products.map((p) => p.id);
-    const readOnlyModules = ids.filter((id) => this._levels[id] === "readOnly");
-    const noDestructiveModules = ids.filter((id) => this._levels[id] === "noDestructive");
-    try {
-      await request(this.#auth, "PUT", "tool-settings", { disabledCollections, readOnlyModules, noDestructiveModules });
-      this.#notifications?.peek("positive", {
-        data: { headline: "Tool settings saved", message: "Reconnect the MCP server in your AI tool to apply the change." },
-      });
-      this._dirty = false;
-      this._switchTo = null;
-      await this.#load();
-    } catch (error) {
-      this.#notifications?.peek("danger", { data: { headline: "Could not save tool settings", message: error.message } });
-    } finally {
-      this._saving = false;
+      this._edit = { ...this._edit, disabled: { ...this._edit.disabled, [id]: edit(this._edit.disabled[id]) } };
     }
   }
 
-  async #saveUser() {
+  /** "Customise for …" starts an override from a copy of the saved defaults; "Reset to defaults" drops it. */
+  #setOverride(id, customise) {
+    if (this._busy) return;
+    const overrides = { ...this._edit.overrides };
+    if (customise) overrides[id] = this.#defaultsFor(id);
+    else delete overrides[id];
+    this._edit = { overrides };
+  }
+
+  async #save() {
+    // While another user loads, the page is about to be replaced: nothing is edited or saved then.
+    if (!this.dirty || this._saving || this._busy) return;
     const key = this._selected;
     const name = this._data.apiUsers?.find((u) => u.key === key)?.name ?? "This API user";
     this._saving = true;
-    // Every product whose switch is off. Names the MCP no longer reports are dropped, as for the defaults. A product the
-    // catalogue does not list has no card to edit, so its override stays as it was: the PUT replaces them all.
-    const modules = this._user.catalogue.modules;
-    const detected = new Set(this._data.products.map((p) => p.id));
-    const overrides = Object.fromEntries(
-      Object.entries(this._overrides)
-        .filter(([id]) => detected.has(id))
-        .map(([id, o]) => [
-          id,
-          {
-            disabledCollections: modules[id] ? modules[id].collections.map((c) => c.name).filter((n) => o.disabled.has(n)) : [...o.disabled],
-            level: o.level,
-          },
-        ]),
-    );
     try {
-      await request(this.#auth, "PUT", `tool-settings/users/${key}`, { overrides });
-      this.#notifications?.peek("positive", {
-        data: { headline: "Tool settings saved", message: `${name}'s MCP server picks this up on its next start.` },
-      });
-      this._dirty = false;
-      this._switchTo = null;
-      // The defaults view names the users that differ, so refresh that list too.
-      await this.#load();
-      this.#showUser(key, await this.#fetchUser(key));
+      if (key) {
+        await request(this.#auth, "PUT", `tool-settings/users/${key}`, this.#body());
+        this.#notifications?.peek("positive", {
+          data: { headline: "Tool settings saved", message: `${name}'s MCP server picks this up on its next start. Reconnect it in the AI tool.` },
+        });
+        // The side list tags the users with their own settings, so refresh that too.
+        await this.#load();
+        this.#showUser(key, await request(this.#auth, "GET", `tool-settings/users/${key}`));
+      } else {
+        await request(this.#auth, "PUT", "tool-settings", this.#body());
+        this.#notifications?.peek("positive", {
+          data: { headline: "Tool settings saved", message: "Changes apply the next time the MCP server starts. Reconnect it in your AI tool." },
+        });
+        await this.#load();
+      }
     } catch (error) {
       this.#notifications?.peek("danger", { data: { headline: "Could not save tool settings", message: error.message } });
     } finally {
@@ -308,158 +281,103 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     }
   }
 
-  /** The products to show: those the site detects, and those the MCP reported (`modules` is the catalogue being shown). */
-  #visibleProducts(modules) {
-    return (this._data?.products ?? []).filter((p) => p.installed || modules[p.id]);
+  /** The products to show: those the site detects, and those an MCP server reported. */
+  #visibleProducts() {
+    return (this._data?.products ?? []).filter((p) => p.installed || this.#moduleFor(p.id));
   }
 
   /** In the defaults view: the API users that override a product and so don't follow these defaults. */
   #overrideNote(product) {
     const names = (this._data.apiUsers ?? []).filter((u) => u.overriddenProducts?.includes(product.id)).map((u) => u.name);
-    if (names.length === 0) return nothing;
-    const who = names.length === 1 ? "1 API user has its own" : `${names.length} API users have their own`;
-    const follow = names.length === 1 ? "doesn't" : "don't";
-    return html`<p>${who} ${product.displayName} settings and ${follow} follow these defaults: ${names.join(", ")}.</p>`;
+    if (names.length === 0) return null;
+    return names.length === 1
+      ? `1 API user has its own ${product.displayName} settings: ${names[0]}.`
+      : `${names.length} API users have their own ${product.displayName} settings: ${names.join(", ")}.`;
   }
 
-  /** One product card, for the defaults view and the user view alike. */
-  #renderProduct(product, modules) {
-    const module = modules[product.id];
-    const user = this._selected !== "";
-    const note = user ? nothing : this.#overrideNote(product);
-    if (!module) {
-      return html`<uui-box headline=${product.displayName}>
-        ${note}
-        <p>Not reported yet. Start the MCP server once; if it has started, call get-mcp-health in your AI tool to see why this product did not load.</p>
-      </uui-box>`;
+  #notesFor(product, module, level) {
+    const notes = [];
+    if (!this._selected) notes.push(this.#overrideNote(product));
+    if (this._selected && module && !this._user?.catalogue?.modules?.[product.id] && this._user?.catalogueSource?.kind === "user") {
+      notes.push(`Counts appear after this user's MCP server starts with ${product.displayName} on.`);
     }
-    // In the user view a product without an override shows the defaults, dimmed and read-only.
-    const override = user ? this._overrides[product.id] : null;
-    const editable = !user || !!override;
-    const disabled = override ? override.disabled : user ? this.#defaultDisabled(product.id, module) : (this._disabled[product.id] ?? new Set());
-    const level = (override ? override.level : this._levels[product.id]) ?? "full";
-    const total = module.collections.reduce((sum, c) => sum + c.toolCount, 0);
-    // A switched-off group loses all its tools; a switched-on one loses those the level removes.
-    const off = module.collections.reduce(
-      (sum, c) => sum + (disabled.has(c.name) ? c.toolCount : c.toolCount - (this.#keptCount(c, level) ?? c.toolCount)),
-      0,
-    );
-    const suffix = level === "readOnly" ? " · read-only" : level === "noDestructive" ? " · no destructive tools" : "";
-    const counts = this.#showCounts();
+    if (module?.siteSettingsIgnored) {
+      notes.push(
+        `Your MCP server's environment sets collection filters for ${product.displayName}, so the groups are ignored there. The access level still applies.`,
+      );
+    }
     const olderServer =
-      counts &&
+      this.#showCounts(product.id) &&
       level === "noDestructive" &&
-      module.collections.length > 0 &&
+      module?.collections?.length > 0 &&
       !module.collections.some((c) => typeof c.nonDestructiveToolCount === "number");
-    return html`<uui-box headline=${product.displayName}>
-      <span slot="header-actions">${counts ? `${off} of ${total} tools off${suffix}` : (LEVEL_LABELS[level] ?? LEVEL_LABELS.full)}</span>
-      ${note}
-      ${user
-        ? html`<uui-toggle
-            label="Use defaults"
-            ?checked=${!override}
-            ?disabled=${this._saving}
-            @change=${(e) => this.#setUseDefaults(product, module, e.target.checked)}
-          ></uui-toggle>`
-        : nothing}
-      ${module.siteSettingsIgnored
-        ? html`<p class="warning">
-            Your MCP server's environment sets collection filters for this product, so the group settings are ignored there.
-            The tool level still applies.
-          </p>`
-        : nothing}
-      <div class=${editable ? "" : "dimmed"}>
-        <uui-radio-group
-          class="level"
-          .value=${level}
-          ?disabled=${!editable}
-          @change=${(e) => this.#setLevel(product.id, e.target.value)}
-        >
-          <uui-radio value="full" label="Full access"></uui-radio>
-          <uui-radio value="noDestructive" label="No destructive tools"></uui-radio>
-          <uui-radio value="readOnly" label="Read-only"></uui-radio>
-        </uui-radio-group>
-        ${olderServer
-          ? html`<p class="warning">
-              The MCP server that last started is older and still includes destructive tools. Update umbrella-mcp to apply this level.
-            </p>`
-          : nothing}
-        <div class="groups">
-          ${module.collections.map(
-            (c) => html`<uui-checkbox
-              label=${counts ? `${c.name} (${this.#toolCount(c, level)})` : c.name}
-              ?checked=${!disabled.has(c.name)}
-              ?disabled=${!editable}
-              @change=${(e) => this.#toggle(product.id, c.name, e.target.checked)}
-            ></uui-checkbox>`,
-          )}
-        </div>
-      </div>
-    </uui-box>`;
+    if (olderServer) notes.push("The MCP server that last started is older and still includes destructive tools.");
+    return notes.filter(Boolean);
   }
 
-  /** "12", or "4 of 12" under read-only or no destructive tools; reports from older MCP servers lack those counts. */
-  #toolCount(collection, level) {
-    const kept = this.#keptCount(collection, level);
-    return kept === null ? `${collection.toolCount}` : `${kept} of ${collection.toolCount}`;
+  #renderCard(product) {
+    const id = product.id;
+    const module = this.#moduleFor(id);
+    const userName = this._data.apiUsers?.find((u) => u.key === this._selected)?.name ?? "this API user";
+    let state;
+    let mode = "defaults";
+    if (this._selected) {
+      const override = this._edit.overrides?.[id];
+      mode = override ? "custom" : "follows";
+      state = override ?? this.#defaultsFor(id);
+    } else {
+      state = { disabled: this._edit.disabled[id] ?? new Set(), level: this._edit.levels[id] ?? "full" };
+    }
+    return html`<umbrella-product-card
+      .product=${product}
+      .module=${module}
+      .level=${state.level}
+      .disabled=${state.disabled}
+      .editable=${mode !== "follows" && !this._saving && !this._busy}
+      .showCounts=${this.#showCounts(id)}
+      .mode=${mode}
+      .userName=${userName}
+      .isRequired=${id === REQUIRED_PRODUCT}
+      .notes=${this.#notesFor(product, module, state.level)}
+    ></umbrella-product-card>`;
   }
 
-  /** The group's tools left under read-only or no destructive tools; null at full access or when an older MCP server did not report the count. */
-  #keptCount(collection, level) {
-    const kept =
-      level === "readOnly" ? collection.readOnlyToolCount : level === "noDestructive" ? collection.nonDestructiveToolCount : null;
-    return typeof kept === "number" ? kept : null;
-  }
-
-  #pickerLabel(user) {
-    const ids = user.clientIds?.length ? ` (${user.clientIds.join(", ")})` : "";
-    return `${user.name}${ids}${STATE_SUFFIX[user.state] ?? ""}`;
-  }
-
-  #renderPicker() {
+  #renderList() {
     const users = this._data.apiUsers ?? [];
-    if (users.length === 0) return nothing;
-    const options = [
-      { name: "All API users (defaults)", value: DEFAULTS, selected: this._selected === "" },
-      ...users.map((u) => ({ name: this.#pickerLabel(u), value: u.key, selected: this._selected === u.key })),
-    ];
-    return html`<uui-select
-      label="API user"
-      .options=${options}
+    const entry = (key, name, sub, tags) => html`<button
+      class="entry"
+      aria-current=${this._selected === key ? "true" : "false"}
       ?disabled=${this._saving || this._busy}
-      @change=${this.#pick}
-    ></uui-select>`;
+      @click=${() => this.selectUser(key)}
+    >
+      <span class="entry-name">${name} ${tags.map((t) => html`<uui-tag look="secondary">${t}</uui-tag>`)}</span>
+      ${sub ? html`<span class="entry-sub">${sub}</span>` : nothing}
+    </button>`;
+    return html`<nav class="list" aria-label="Whose tool permissions">
+      ${entry("", "Defaults", "All API users", [])}
+      ${users.length
+        ? html`<h4 class="list-heading">API users</h4>
+            ${users.map((u) =>
+              entry(
+                u.key,
+                u.name,
+                u.clientIds?.join(", "),
+                [...(u.overriddenProducts?.length ? ["custom"] : []), ...(STATE_TAGS[u.state] ? [STATE_TAGS[u.state]] : [])],
+              ),
+            )}`
+        : nothing}
+    </nav>`;
   }
 
-  /** Shown instead of switching view while there are unsaved changes. Neither button takes focus. */
-  #renderDiscardNotice() {
-    if (this._switchTo === null || !this._dirty) return nothing;
-    return html`<div class="discard-notice" role="alert">
-      <strong>Discard changes?</strong>
-      <p>You have unsaved changes. Discard them?</p>
-      <uui-button
-        look="primary"
-        color="danger"
-        label="Discard and switch"
-        ?disabled=${this._saving || this._busy}
-        @click=${this.#discardAndSwitch}
-      ></uui-button>
-      <uui-button look="secondary" label="Keep editing" @click=${() => (this._switchTo = null)}></uui-button>
-    </div>`;
-  }
-
-  /**
-   * Where the counts come from. In the user view, also the version that user's server ran: versions are per user, so
-   * the defaults view has none.
-   */
-  #renderCatalogueNotes() {
-    const addonVersion = this._data.addonVersion;
-    if (this._selected === "") {
+  /** Where the counts come from; in the user view also the version that user's server ran. */
+  #renderCatalogueNote() {
+    if (!this._selected) {
       return html`<p class="muted">Tool counts are the highest any API user's MCP server reported. Each user's own counts depend on its Umbraco permissions.</p>`;
     }
     if (this._user?.catalogueSource?.kind !== "user") {
       return html`<p class="muted">Counts appear after this user's MCP server has started once.</p>`;
     }
+    const addonVersion = this._data.addonVersion;
     const umbrellaVersion = this._user.catalogue?.umbrellaVersion;
     return addonVersion && umbrellaVersion && umbrellaVersion !== addonVersion
       ? html`<p class="warning">
@@ -472,37 +390,41 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
   render() {
     if (this._error) return html`<uui-box headline="Umbrella"><p>Could not load the tool permissions: ${this._error}</p></uui-box>`;
     if (!this._data) return html`<uui-loader></uui-loader>`;
-
-    const reported = Object.values(this._data.catalogue.modules);
-    if (reported.length === 0) {
-      return html`<uui-box headline="Umbrella – MCP tool permissions">
+    if (Object.keys(this._data.catalogue?.modules ?? {}).length === 0) {
+      return html`<uui-box headline="Tool permissions">
         <p>No tool groups reported yet. Start your MCP client once (it runs umbrella-mcp), then reload this page.</p>
       </uui-box>`;
     }
-    const user = this._selected !== "";
-    const modules = (user ? this._user?.catalogue?.modules : this._data.catalogue.modules) ?? {};
-    const userName = this._data.apiUsers?.find((u) => u.key === this._selected)?.name;
-
+    const dirty = this.dirty;
     return html`
-      <uui-box headline="Umbrella – MCP tool permissions">
-        ${this.#renderPicker()}
-        ${this.#renderDiscardNotice()}
-        ${this.#renderCatalogueNotes()}
-        <p>
-          ${user
-            ? `Settings for ${userName ?? "this API user"}. Changes apply the next time this API user's MCP server starts. Reconnect it in the AI tool.`
-            : "Changes apply the next time the MCP server starts. Reconnect it in your AI tool."}
-        </p>
-      </uui-box>
-      ${this.#visibleProducts(modules).map((p) => this.#renderProduct(p, modules))}
-      <div class="actions">
+      <header class="bar">
+        <h3>Tool permissions</h3>
+        ${dirty
+          ? html`<span class="unsaved" role="status"><span class="dot"></span>Unsaved changes</span>
+              <uui-button look="secondary" label="Discard" ?disabled=${this._saving || this._busy} @click=${this.#discard}></uui-button>`
+          : nothing}
         <uui-button
           look="primary"
           color="positive"
           label="Save"
-          ?disabled=${this._saving || this._busy}
+          .state=${this._saving ? "waiting" : undefined}
+          ?disabled=${!dirty || this._saving || this._busy}
           @click=${this.#save}
         ></uui-button>
+      </header>
+      <div class="layout">
+        ${this.#renderList()}
+        <div
+          class="cards"
+          @level-change=${(e) => this.#setLevel(e.detail.productId, e.detail.level)}
+          @group-change=${(e) => this.#setGroup(e.detail.productId, e.detail.name, e.detail.enabled)}
+          @customise=${(e) => this.#setOverride(e.detail.productId, true)}
+          @reset=${(e) => this.#setOverride(e.detail.productId, false)}
+        >
+          ${this._busy ? html`<uui-loader-bar></uui-loader-bar>` : nothing}
+          ${this.#renderCatalogueNote()}
+          ${this.#visibleProducts().map((p) => this.#renderCard(p))}
+        </div>
       </div>
     `;
   }
@@ -510,18 +432,33 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
   static styles = [
     UmbTextStyles,
     css`
-      :host { display: block; padding: var(--uui-size-layout-1); }
-      uui-box { margin-bottom: var(--uui-size-space-5); }
-      uui-select { min-width: 20rem; max-width: 100%; margin-bottom: var(--uui-size-space-4); }
-      uui-toggle { display: block; margin-bottom: var(--uui-size-space-4); }
-      .groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: var(--uui-size-space-3); }
-      .discard-notice { margin-bottom: var(--uui-size-space-4); padding: var(--uui-size-space-4); border: 1px solid var(--uui-color-danger); border-radius: var(--uui-border-radius); }
-      .discard-notice p { margin: var(--uui-size-space-2) 0 var(--uui-size-space-3); }
-      .warning { color: var(--uui-color-warning-standalone); }
-      .muted { color: var(--uui-color-text-alt); }
-      .level { display: flex; flex-direction: column; margin-bottom: var(--uui-size-space-4); }
-      .dimmed { opacity: 0.55; }
-      .actions { display: flex; justify-content: flex-end; }
+      :host { display: block; padding: 0 var(--uui-size-layout-1) var(--uui-size-layout-1); }
+      .bar {
+        position: sticky; top: 0; z-index: 1;
+        display: flex; align-items: center; gap: var(--uui-size-space-4); flex-wrap: wrap;
+        padding: var(--uui-size-space-4) 0; margin-bottom: var(--uui-size-space-4);
+        background: var(--uui-color-background); border-bottom: 1px solid var(--uui-color-divider-standalone);
+      }
+      .bar h3 { margin: 0; margin-right: auto; }
+      .unsaved { display: inline-flex; align-items: center; gap: var(--uui-size-space-2); color: var(--uui-color-warning-standalone); font-weight: 600; }
+      .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+      .layout { display: grid; grid-template-columns: 16rem minmax(0, 1fr); gap: var(--uui-size-layout-1); align-items: start; }
+      @media (max-width: 48rem) { .layout { grid-template-columns: minmax(0, 1fr); } }
+      .list { display: flex; flex-direction: column; gap: var(--uui-size-space-1); }
+      .list-heading { margin: var(--uui-size-space-4) 0 var(--uui-size-space-1); padding: 0 var(--uui-size-space-3); font-size: var(--uui-type-small-size); color: var(--uui-color-text-alt); text-transform: uppercase; letter-spacing: 0.04em; }
+      .entry {
+        display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%;
+        padding: var(--uui-size-space-3); border: 0; border-radius: var(--uui-border-radius);
+        background: none; font: inherit; color: inherit; text-align: left; cursor: pointer;
+      }
+      .entry:hover { background: var(--uui-color-surface-emphasis); }
+      .entry[aria-current="true"] { background: var(--uui-color-current); color: var(--uui-color-current-contrast); }
+      .entry:disabled { cursor: default; }
+      .entry-name { display: flex; align-items: center; gap: var(--uui-size-space-2); flex-wrap: wrap; font-weight: 600; }
+      .entry-sub { font-size: var(--uui-type-small-size); opacity: 0.75; overflow-wrap: anywhere; }
+      .cards { display: flex; flex-direction: column; gap: var(--uui-size-space-5); min-width: 0; }
+      .muted { color: var(--uui-color-text-alt); margin: 0; }
+      .warning { color: var(--uui-color-warning-standalone); margin: 0; }
     `,
   ];
 }

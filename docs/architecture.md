@@ -58,15 +58,15 @@ All under `/umbraco/management/api/v1/mcp/`, in the Management API's "MCP" Swagg
 
 | Endpoint | Who may call it | What it does |
 |---|---|---|
-| `GET capabilities` | any backoffice user | Returns `{ addonVersion, products: [{ id, displayName, installed, enabled, version, issues, disabledCollections, readOnly, noDestructive, settingsScope }] }`. `disabledCollections` is `null` for a product without a saved list. For an API caller the settings are resolved per product: that user's override if it has one (`settingsScope: "user"`), else the defaults (`"site"`). Non-API callers get the defaults. When the caller is an API user, records the connection for the "MCP API user" check |
+| `GET capabilities` | any backoffice user | Returns `{ addonVersion, products: [{ id, displayName, installed, enabled, version, issues, disabledCollections, readOnly, noDestructive, off, settingsScope }] }`. `disabledCollections` is `null` for a product without a saved list. `off` means the server must not load the product; the other settings are still sent as stored. For an API caller the settings are resolved per product: that user's override if it has one (`settingsScope: "user"`), else the defaults (`"site"`). Non-API callers get the defaults. When the caller is an API user, records the connection for the "MCP API user" check |
 | `POST catalogue` | API users only (403 otherwise) | The server reports every tool group it loaded: `{ umbrellaVersion, modules: [{ id, siteSettingsIgnored, collections: [{ name, toolCount, readOnlyToolCount, nonDestructiveToolCount, disabledByDefault? }] }] }`. Stored per caller (replacing that user's previous report) and merged per module into the shared catalogue |
-| `GET overview` | Settings section | What the Overview tab and the health checks show (`McpOverviewService`): findings, products and connected API users. Each API user row has its server version, last start and access per product (full access, no destructive tools or read-only, with `scope` `site` or `user`, and `toolCount`: the tools its last start got with those settings, `McpToolCounts.Effective`; 0 for a product it did not load, null without a report or when its environment sets its own collection filters), plus their sum. The dashboard shows only the warnings, and the API users as "MCP Users" |
+| `GET overview` | Settings section | What the Overview tab and the health checks show (`McpOverviewService`): findings, products and connected API users. Each API user row has its server version, last start and access per product (`full`, `noDestructive`, `readOnly` or `off`, with `scope` `site` or `user`, and `toolCount`: the tools its last start got with those settings, `McpToolCounts.Effective`; 0 for a product it did not load or that is off, null without a report or when its environment sets its own collection filters), plus their sum. A product that is off (for the user, else in the defaults) raises no missing-section finding for that user. The dashboard shows only the warnings, and the API users as "MCP Users" |
 | `DELETE connections/{userKey}` | Settings section | Forgets an API user's stored connection and its stored catalogue (404 if unknown); its tool overrides are kept. The connection returns the next time the server signs in |
 | `GET client-setup?clientId=` | Settings section | The Overview's "Connect an AI tool": `{ clientId, configuredClientId, apiUsers: [{ key, name, clientIds }], clients }`. `clients` are the snippets filled in with `clientId` (default: `Umbraco:Mcp:ClientId`, else `umbraco-back-office-mcp`) and the address the request came in on. `apiUsers` are the API users with at least one client id (`IMcpApiUserDirectory`); a failing read logs a warning and leaves the list empty. 404 for a client id that is neither the configured one nor an API user's |
-| `GET tool-settings` | Settings section | What the dashboard shows: the add-on version, products, the catalogue for the defaults view (per group the highest counts any existing API user reported, `McpCatalogueFallback.Highest`; the shared catalogue before any user has its own report), and the defaults for all API users (disabled groups, read-only products, no-destructive products), plus `apiUsers: [{ key, name, clientIds, state, lastReportedAt, overriddenProducts }]` for every API user (`IMcpApiUserDirectory`) |
-| `PUT tool-settings` | Settings section | Replaces the defaults: `disabledCollections` (module id → group names), `readOnlyModules` and `noDestructiveModules`. Unknown product ids are refused, and a product in both level lists is a 400 (nothing stored) |
+| `GET tool-settings` | Settings section | What the dashboard shows: the add-on version, products, the catalogue for the defaults view (per group the highest counts any existing API user reported, `McpCatalogueFallback.Highest`; the shared catalogue before any user has its own report, and for a module no user reported, such as one that is off for everyone), and the defaults for all API users (disabled groups, read-only, no-destructive and off products), plus `apiUsers: [{ key, name, clientIds, state, lastReportedAt, overriddenProducts }]` for every API user (`IMcpApiUserDirectory`) |
+| `PUT tool-settings` | Settings section | Replaces the defaults: `disabledCollections` (module id → group names), `readOnlyModules`, `noDestructiveModules` and `offModules`. Unknown product ids are refused, a product in more than one level list is a 400, and so is `cms` in `offModules` (`McpProducts.RequiredId`: the server signs in through CMS); nothing is stored then |
 | `GET tool-settings/users/{userKey}` | Settings section | One API user's `overrides`, its `catalogue` and `catalogueSource` (`{ kind: "user" or "latest" or "none", reportedAt, userName }`). Without a report of its own, the catalogue is the most recent other user's, else the shared one; the dashboard then shows the groups without counts. 404 for an unknown or non-API user |
-| `PUT tool-settings/users/{userKey}` | Settings section | Replaces that user's overrides, `{ overrides: { <productId>: { disabledCollections, level } } }` with `level` `full`, `noDestructive` or `readOnly`. An empty map makes the user follow the defaults. 404 for an unknown or non-API user (checked first); 400 (nothing stored) for an unknown product id, a missing or invalid level, or names failing the rules below |
+| `PUT tool-settings/users/{userKey}` | Settings section | Replaces that user's overrides, `{ overrides: { <productId>: { disabledCollections, level } } }` with `level` `full`, `noDestructive`, `readOnly` or `off` (`off` for `cms` is a 400). An empty map makes the user follow the defaults. 404 for an unknown or non-API user (checked first); 400 (nothing stored) for an unknown product id, a missing or invalid level, or names failing the rules below |
 
 The store has no delete (`IKeyValueService` has none), so removing a row blanks it, and every reader skips blank or invalid values. Rows of users that no longer exist or are no longer API users are ignored everywhere: not listed, never the fallback catalogue, not counted.
 
@@ -81,6 +81,7 @@ Everything is kept in Umbraco's `umbracoKeyValue` table, so it survives restarts
 | `Umbraco.Mcp.ToolSettings` | Default disabled tool groups per module, for all API users |
 | `Umbraco.Mcp.ReadOnlyModules` | Default products limited to read-only tools |
 | `Umbraco.Mcp.NoDestructiveModules` | Default products whose destructive tools are left out |
+| `Umbraco.Mcp.OffModules` | Default products the server does not load. The three level rows are exclusive |
 | `Umbraco.Mcp.UserToolSettings.<user key>` | One API user's overrides, `{ "<productId>": { disabledCollections, level } }`. A product present is overridden in full; absent means it follows the defaults |
 | `Umbraco.Mcp.Catalogue` | The most recent report from any user, merged per module, with when it was reported. The fallback for a user without a report |
 | `Umbraco.Mcp.UserCatalogue.<user key>` | That API user's last report, replaced on each start |
@@ -90,11 +91,12 @@ Everything is kept in Umbraco's `umbracoKeyValue` table, so it survives restarts
 
 A team can give each developer an API user, and the settings can differ per user without any change in the server:
 
-- **Defaults and overrides.** The three default rows apply to every API user. An override is per product and all-or-nothing: it holds that product's groups and level, so a product the user does not override keeps following the defaults, including later changes to them.
-- **Resolved per caller.** `McpCapabilitiesService.GetCapabilities(apiUserKey)` takes the key of the API user that called `GET capabilities`, and fills `disabledCollections`, `readOnly` and `noDestructive` for each product from that user's override (the level maps to the two booleans), with `settingsScope` `"user"`, or from the defaults with `"site"`. An override for a product the site no longer detects is ignored. A failing read of the overrides is logged and the caller gets the defaults.
+- **Defaults and overrides.** The default rows apply to every API user. An override is per product and all-or-nothing: it holds that product's groups and level, so a product the user does not override keeps following the defaults, including later changes to them.
+- **Resolved per caller.** `McpCapabilitiesService.GetCapabilities(apiUserKey)` takes the key of the API user that called `GET capabilities`, and fills `disabledCollections`, `readOnly`, `noDestructive` and `off` for each product from that user's override (the level maps to the three booleans), with `settingsScope` `"user"`, or from the defaults with `"site"`. An override for a product the site no longer detects is ignored. A failing read of the overrides is logged and the caller gets the defaults.
 - **Catalogue per caller.** The report of every start is kept per user, so the dashboard's counts and the version warning no longer depend on who started last. Tool Permissions shows a user's counts only from its own report; the defaults show the highest counts any API user reported. The shared row stays for sites where no user has reported yet.
 - **Overview.** The version-mismatch finding is one per connected user that has its own report, and the shared-row finding applies only when none has.
-- **Dashboard.** Tool Permissions has a picker ("All API users (defaults)" first, then each API user). For a user, each product has a "Use defaults" switch; switched off, that product's groups and level are that user's override.
+- **Dashboard.** Tool Permissions (`umbrella-tool-groups.js`) has a list on the left: "Defaults" first, then each API user, tagged `custom` when it overrides a product. Each product is an `umbrella-product-card.js` with the access ladder (Off · Read-only · No deletes · Full) and its tool groups behind a disclosure; the card holds no settings and sends events to the page. For a user, a product that follows the defaults shows them dimmed with "Customise for {name}", which copies the saved defaults into an override; "Reset to defaults" drops it. A product missing from the user's own report (for example because it was off) shows the defaults catalogue's groups without counts.
+- **Unsaved changes.** The page keeps the PUT body of the saved state and compares the current edits with it, so an undo is clean again. A sticky bar shows "Unsaved changes" with Discard and Save. `confirmLeave()` asks with Umbraco's confirm modal before switching user, leaving the tab (`umbrella-dashboard.js`) or navigating elsewhere in the backoffice: `umbrella-unsaved-guard.js` cancels the router's `willchangestate` event, asks, and replays the navigation, like Umbraco's own workspaces. A browser close or reload gets `beforeunload`.
 
 ### Client config
 
@@ -129,10 +131,11 @@ Failure rules: CMS always loads, and a CMS registration failure or a duplicate t
 `selectModules()` decides per module, first match wins:
 
 1. `required` (CMS) → load.
-2. Listed in `UMBRACO_MCP_MODULES` → load.
-3. No add-on, or capabilities unavailable → skip.
-4. Not installed, not enabled, unknown version, or a major other than the module's `expectedMajor` → skip.
-5. Otherwise → load.
+2. Switched off in the backoffice (`off` in capabilities) → skip, with `switchedOff` set. This wins over forcing, as the site's restrictions always apply. `get-mcp-health` shows the reason as a note, not an issue.
+3. Listed in `UMBRACO_MCP_MODULES` → load.
+4. No add-on, or capabilities unavailable → skip.
+5. Not installed, not enabled, unknown version, or a major other than the module's `expectedMajor` → skip.
+6. Otherwise → load.
 
 The reason is kept and shown in `get-mcp-health`.
 
@@ -174,6 +177,7 @@ The shared provider only exists once if every product uses the same toolkit copy
 | Dashboard: disabled groups (`disabledCollections`) | Become `excludeToolCollections` for that module, **unless** the environment sets any collection filter for it; then the site list is ignored (`siteSettingsIgnored`). A saved `[]` means nothing is off |
 | Module: `defaultDisabledCollections` | Become `excludeToolCollections` only when the site has no saved list for the module (`disabledCollections` is `null` or missing, no add-on, or capabilities unavailable) and the environment sets no collection filter for it. `get-mcp-health` then names them. No module sets it: every tool group is on by default, and the contract test checks that |
 | Dashboard: read-only (`readOnly`) | Always applied, ORed with `UMBRACO_READONLY`, since it can only remove tools |
+| Dashboard: off (`off`) | Not a filter: `selectModules()` does not load the module at all (see Module selection) |
 | Dashboard: no destructive tools (`noDestructive`) | Always applied, ORed with `UMBRACO_NO_DESTRUCTIVE`, and it survives env collection filters. Removes tools where `isDestructive(tool)` (`npm/src/core/destructive.ts`: `annotations.destructiveHint === true`) holds. Read-only is the stricter level and wins in the stored levels. Umbrella keeps no list of its own |
 
 `buildEffectiveFilterInput` combines these: environment, then the saved site list, then the module's defaults. The catalogue sent back to the site is built before filters, so the dashboard can also show groups that are switched off; it marks default-off groups with `disabledByDefault: true`, and the dashboard starts a product without a saved list from them.
@@ -189,7 +193,8 @@ These must match on both sides:
 | What | C# | npm |
 |---|---|---|
 | Product ids | detector `Id` | module `id` |
-| Capabilities payload (camelCase) | `McpCapabilities`, `McpProductStatus` | `CapabilitiesPayload` (`disabledCollections`, `readOnly`, `noDestructive` and `settingsScope` optional, for older add-ons; a missing or unknown `settingsScope` is `"site"`) |
+| Capabilities payload (camelCase) | `McpCapabilities`, `McpProductStatus` | `CapabilitiesPayload` (`disabledCollections`, `readOnly`, `noDestructive`, `off` and `settingsScope` optional, for older add-ons; a missing or null `off` is `false`, a missing or unknown `settingsScope` is `"site"`) |
+| The product that can't be off | `McpProducts.RequiredId` | the module with `required: true` (`NpmPackageContractTests`) |
 | Catalogue payload | `McpCatalogueReport` (accepts a null `readOnlyToolCount` and `nonDestructiveToolCount` and a missing `disabledByDefault` from older servers) | `CataloguePayload` |
 | npm package name and bin | `McpClientConfig.NpmPackage` | `name`, `bin` |
 | Version | csproj `<Version>` | `version` |

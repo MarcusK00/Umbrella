@@ -36,7 +36,7 @@ node -e "
   const forms = s.catalogue.modules.forms;
   if (!forms || !forms.collections.some((c) => c.name === 'prevalue-source')) { console.error('forms not reported'); process.exit(1); }" <<<"$SETTINGS" \
   || fail "catalogue does not list forms/prevalue-source (excerpt: ${SETTINGS:0:300})"
-ORIGINAL=$(node -e "const s = JSON.parse(require('fs').readFileSync(0, 'utf8')); console.log(JSON.stringify({ disabledCollections: s.disabledCollections, readOnlyModules: s.readOnlyModules, noDestructiveModules: s.noDestructiveModules || [] }));" <<<"$SETTINGS")
+ORIGINAL=$(node -e "const s = JSON.parse(require('fs').readFileSync(0, 'utf8')); console.log(JSON.stringify({ disabledCollections: s.disabledCollections, readOnlyModules: s.readOnlyModules, noDestructiveModules: s.noDestructiveModules || [], offModules: s.offModules || [] }));" <<<"$SETTINGS")
 put_settings() {
   curl -sfk -X PUT -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d "$1" "$API/tool-settings" >/dev/null
 }
@@ -78,6 +78,12 @@ grep -qx "forms--list-forms" <<<"$TOOLS_ND" || fail "no-destructive forms lost i
 if grep -qx "forms--delete-form" <<<"$TOOLS_ND"; then fail "no-destructive forms still lists forms--delete-form"; fi
 grep -qx "cms--delete-document" <<<"$TOOLS_ND" || fail "no-destructive forms also affected CMS"
 echo "   no-destructive forms kept list-forms and dropped delete-form"
+put_settings '{"disabledCollections":{},"offModules":["forms"]}' || fail "PUT off tool-settings failed"
+TOOLS_SO=$(node dist/index.js --list-tools)
+LEFT=$(grep "^forms--" <<<"$TOOLS_SO" || true)
+[ -z "$LEFT" ] || fail "forms switched off but still lists: ${LEFT:0:200}"
+grep -qx "cms--delete-document" <<<"$TOOLS_SO" || fail "switching forms off also affected CMS"
+echo "   switching forms off removed all its tools"
 put_settings '{"disabledCollections":{}}' || fail "PUT empty tool-settings failed"
 TOOLS_DEF=$(node dist/index.js --list-tools)
 for tool in forms--get-server-info automate--get-server-info forms--get-acceptance-tests-system-info cms--get-manifest-manifest; do

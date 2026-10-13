@@ -51,7 +51,8 @@ internal static class McpCatalogueFallback
     /// <summary>
     /// The catalogue for "All API users": per group, the highest counts any existing API user's MCP server reported, so
     /// the defaults show what the best-permitted user gets. Counts depend on each user's permissions, and a user whose
-    /// server never started adds nothing yet. Before any API user has a report of its own, the shared row is used.
+    /// server never started adds nothing yet. Before any API user has a report of its own, the shared row is used, and a
+    /// module no user reported (for example one switched off for everyone) comes from the shared row.
     /// The result has no version: versions are per user.
     /// </summary>
     public static McpToolCatalogue Highest(
@@ -72,6 +73,12 @@ internal static class McpCatalogueFallback
         foreach ((string id, McpModuleCatalogue module) in reports.SelectMany(r => r.Modules))
         {
             modules[id] = modules.TryGetValue(id, out McpModuleCatalogue? seen) ? Higher(seen, module) : module;
+        }
+
+        // A product every API user has switched off is in no user's report; the shared row still has its last groups.
+        foreach ((string id, McpModuleCatalogue module) in shared.Modules)
+        {
+            modules.TryAdd(id, module);
         }
 
         return new McpToolCatalogue(null, modules);

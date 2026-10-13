@@ -97,6 +97,8 @@ internal sealed class FakeToolSettingsStore : IMcpToolSettingsStore
 
     public List<string> NoDestructive { get; set; } = [];
 
+    public List<string> Off { get; set; } = [];
+
     public McpToolCatalogue Catalogue { get; set; } = McpToolCatalogue.Empty;
 
     public List<(McpCatalogueReport Report, DateTimeOffset At)> Merged { get; } = [];
@@ -124,6 +126,10 @@ internal sealed class FakeToolSettingsStore : IMcpToolSettingsStore
     public IReadOnlyList<string> GetNoDestructiveModules() => Throws is null ? NoDestructive : throw Throws;
 
     public void SetNoDestructiveModules(IReadOnlyList<string> moduleIds) => NoDestructive = [.. moduleIds];
+
+    public IReadOnlyList<string> GetOffModules() => Throws is null ? Off : throw Throws;
+
+    public void SetOffModules(IReadOnlyList<string> moduleIds) => Off = [.. moduleIds];
 
     public McpToolCatalogue GetCatalogue() => Throws is null ? Catalogue : throw Throws;
 
