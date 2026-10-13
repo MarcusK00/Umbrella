@@ -19,8 +19,7 @@ public static class McpFindingArea
 
 /// <summary>
 /// A detected product, and whether and with how many tools the MCP server has loaded it. <paramref name="Access"/> is
-/// "full", "noDestructive" or "readOnly" (the site's defaults). <paramref name="UsersWithOwnSettings"/> counts the API
-/// users that have their own settings for it and so don't follow the defaults.
+/// "full", "noDestructive" or "readOnly" (the site's defaults).
 /// </summary>
 public sealed record McpOverviewProduct(
     string Id,
@@ -31,8 +30,7 @@ public sealed record McpOverviewProduct(
     IReadOnlyList<string> Issues,
     bool Loaded,
     int ToolCount,
-    string Access,
-    int UsersWithOwnSettings);
+    string Access);
 
 /// <summary>What the MCP server last reported, and whether it is the add-on's version.</summary>
 public sealed record McpServerReport(string Version, DateTimeOffset ReportedAt, bool MatchesAddon);
@@ -40,13 +38,16 @@ public sealed record McpServerReport(string Version, DateTimeOffset ReportedAt, 
 /// <summary>
 /// What an API user's MCP server gets from one product. <paramref name="Level"/> is "full", "noDestructive" or
 /// "readOnly"; <paramref name="Scope"/> is "site" (the defaults) or "user" (the user's own settings).
+/// <paramref name="ToolCount"/> is how many tools its last start got with these settings: 0 when it did not load the
+/// product, null without a report of its own or when its environment sets its own collection filters.
 /// </summary>
-public sealed record McpOverviewAccess(string ProductId, string DisplayName, string Level, string Scope);
+public sealed record McpOverviewAccess(string ProductId, string DisplayName, string Level, string Scope, int? ToolCount);
 
 /// <summary>
 /// An API user the MCP server has connected as. <paramref name="State"/> is "active", "disabled" or "lockedOut".
 /// The reach lists hold product display names. The report fields are from this user's own last start and are null when
-/// it has none; <paramref name="Access"/> lists the installed and enabled products.
+/// it has none; <paramref name="Access"/> lists the installed and enabled products, and <paramref name="ToolCount"/> is
+/// the sum of their tool counts (null when one of them is unknown).
 /// </summary>
 public sealed record McpOverviewApiUser(
     Guid Key,

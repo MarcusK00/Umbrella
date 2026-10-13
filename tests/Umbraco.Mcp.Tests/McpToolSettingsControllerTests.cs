@@ -370,6 +370,23 @@ public class McpToolSettingsControllerTests
     }
 
     [Test]
+    public async Task Get_shows_the_highest_counts_any_api_user_reported()
+    {
+        McpApiUserInfo editor = ApiUser("Editor"), admin = ApiUser("Admin");
+        McpToolCatalogue Forms(DateTimeOffset at, int tools) =>
+            new("17.0.0", new Dictionary<string, McpModuleCatalogue> { ["forms"] = new(at, false, [new McpCollectionInfo("form", tools)]) });
+        var store = new FakeToolSettingsStore
+        {
+            Catalogue = Forms(T2, 3),
+            UserCatalogues = new() { [editor.Key] = Forms(T2, 3), [admin.Key] = Forms(T1, 33), [Guid.NewGuid()] = Forms(T1, 99) },
+        };
+
+        var body = (McpToolSettingsResponse)((OkObjectResult)await Controller(store, directory: new FakeApiUserDirectory(editor, admin)).GetToolSettings()).Value!;
+
+        Assert.That(body.Catalogue.Modules["forms"].Collections.Single().ToolCount, Is.EqualTo(33));
+    }
+
+    [Test]
     public async Task Get_still_returns_the_defaults_when_the_api_user_directory_fails()
     {
         var store = new FakeToolSettingsStore { Disabled = new() { ["forms"] = ["prevalue-source"] }, ReadOnly = ["cms"], NoDestructive = ["forms"] };
@@ -379,6 +396,7 @@ public class McpToolSettingsControllerTests
 
         var body = (McpToolSettingsResponse)((OkObjectResult)result).Value!;
         Assert.That(body.ApiUsers, Is.Empty);
+        Assert.That(body.Catalogue, Is.SameAs(store.Catalogue));
         Assert.That(body.Products.Select(p => p.Id), Is.EqualTo(new[] { "cms", "forms" }));
         Assert.That(body.DisabledCollections["forms"], Is.EqualTo(new[] { "prevalue-source" }));
         Assert.That(body.ReadOnlyModules, Is.EqualTo(new[] { "cms" }));

@@ -157,7 +157,7 @@ The command `npx -y umbrella-mcp@<version> --list-tools`, run with the same envi
 
 ## Turning tool groups off
 
-Settings → **Umbrella** → **Tool groups** lists every product the MCP server loaded, with one checkbox per tool group (for example Umbraco Forms → `prevalue-source`). Untick a group and save to stop exposing its tools. Fewer tools means less context for the AI and better tool choice.
+Settings → **Umbrella** → **Tool Permissions** lists every product the MCP server loaded, with one checkbox per tool group (for example Umbraco Forms → `prevalue-source`). Untick a group and save to stop exposing its tools. Fewer tools means less context for the AI and better tool choice.
 
 Each product also has a tool level, with three choices:
 
@@ -192,8 +192,8 @@ When each developer has their own API user, the tool settings can differ per use
 - **Per product, all or nothing:** an own setting holds a product's groups and level together. A user can't follow the default groups with its own level.
 - **Any API user:** every API user on the site can be picked, also one that has never connected, so you can set up a new developer before their first start. Under a default, the dashboard names the users that have their own settings for that product.
 - **When it applies:** the next time that user's MCP server starts, so they reconnect it in their AI tool. `get-mcp-health` says when the settings are the user's own ("as set in the backoffice for this API user").
-- **Counts:** the tool counts come from that API user's own last start. A user that hasn't started yet shows the most recent start by any user, with a note, because the counts can differ (the CMS tools depend on the API user's permissions).
-- **Overview:** Settings → Umbrella → **Overview** shows, per connected API user, its server version, last start, tool count and access per product, and warns about an `umbrella-mcp` version mismatch per user.
+- **Counts:** for a single API user, the tool counts come from that user's own last start. A user whose MCP server hasn't started yet shows its groups and levels without counts until it has, because the counts depend on each API user's permissions (the CMS tools in particular). Under **All API users (defaults)**, each group shows the highest count any API user's MCP server reported.
+- **Overview:** the **MCP Users** table on Settings → Umbrella → **Overview** shows, per connected API user, when it last connected, which products it can reach, and under **Tools** its level per product (own settings or defaults) with the number of tools its last start got with those settings. **Edit permissions** opens Tool Permissions with that user picked. An `umbrella-mcp` version mismatch is a warning per user at the top of the Overview, which only shows when something needs attention.
 
 ## Health checks
 

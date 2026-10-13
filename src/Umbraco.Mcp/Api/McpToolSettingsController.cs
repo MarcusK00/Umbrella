@@ -87,11 +87,11 @@ public sealed class McpToolSettingsController(
     public async Task<IActionResult> GetToolSettings()
     {
         McpCapabilities caps = capabilities.GetCapabilities();
-        var users = await ReadApiUsersAsync();
+        (List<McpToolSettingsApiUser> users, McpToolCatalogue catalogue) = await ReadApiUsersAsync();
         return Ok(new McpToolSettingsResponse(
             caps.AddonVersion,
             caps.Products,
-            store.GetCatalogue(),
+            catalogue,
             store.GetDisabledCollections(),
             store.GetReadOnlyModules(),
             store.GetNoDestructiveModules(),
@@ -99,16 +99,19 @@ public sealed class McpToolSettingsController(
     }
 
     /// <summary>
-    /// The picker's API users with their reports and overrides. A failing read must not stop the defaults from loading,
-    /// so it logs a warning and the dashboard shows no per-user picker.
+    /// The picker's API users with their reports and overrides, and the catalogue the defaults show: the highest counts
+    /// any of them reported. A failing read must not stop the defaults from loading, so it logs a warning and the
+    /// dashboard shows no per-user picker and the shared catalogue.
     /// </summary>
-    private async Task<List<McpToolSettingsApiUser>> ReadApiUsersAsync()
+    private async Task<(List<McpToolSettingsApiUser> Users, McpToolCatalogue Catalogue)> ReadApiUsersAsync()
     {
         try
         {
             IReadOnlyDictionary<Guid, McpToolCatalogue> userCatalogues = store.GetAllUserCatalogues();
             IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, McpProductOverride>> userOverrides = store.GetAllUserOverrides();
-            return (await apiUsers.GetAllAsync())
+            IReadOnlyList<McpApiUserInfo> existing = await apiUsers.GetAllAsync();
+            McpToolCatalogue highest = McpCatalogueFallback.Highest(userCatalogues, store.GetCatalogue(), existing.Select(u => u.Key).ToHashSet());
+            List<McpToolSettingsApiUser> users = existing
                 .Select(u => new McpToolSettingsApiUser(
                     u.Key,
                     u.Name,
@@ -121,11 +124,12 @@ public sealed class McpToolSettingsController(
                         ? overrides.Keys.Order(StringComparer.Ordinal).ToList()
                         : []))
                 .ToList();
+            return (users, highest);
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Umbrella could not read the API users' tool settings; showing the defaults only");
-            return [];
+            return ([], store.GetCatalogue());
         }
     }
 

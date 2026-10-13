@@ -15,7 +15,6 @@ public sealed class McpOverviewService(
     IMcpCapabilitiesService capabilities,
     IMcpToolSettingsStore toolSettings,
     IMcpApiUserProvider apiUsers,
-    IMcpApiUserDirectory apiUserDirectory,
     IEnumerable<IMcpProductDetector> detectors,
     IMcpJsonFile mcpJson,
     IConfiguration configuration,
@@ -36,7 +35,6 @@ public sealed class McpOverviewService(
         }
 
         IReadOnlyDictionary<Guid, McpToolCatalogue> userCatalogues = ReadConnectedCatalogues(users);
-        IReadOnlyDictionary<string, int> ownSettings = await ReadOwnSettingsCountsAsync();
 
         string addonVersion = caps?.AddonVersion ?? McpAddon.Version;
         IReadOnlyList<McpProductStatus> products = caps?.Products ?? [];
@@ -45,7 +43,7 @@ public sealed class McpOverviewService(
         return new McpOverview(
             addonVersion,
             BuildFindings(caps, catalogue, users, sectionByProduct, addonVersion, userCatalogues),
-            products.Select(p => BuildProduct(p, catalogue, userCatalogues, ownSettings.GetValueOrDefault(p.Id))).ToList(),
+            products.Select(p => BuildProduct(p, catalogue, userCatalogues)).ToList(),
             BuildServer(catalogue, addonVersion),
             (users ?? []).Select(u => BuildUser(
                 u,
@@ -94,29 +92,6 @@ public sealed class McpOverviewService(
         return result;
     }
 
-    /// <summary>
-    /// How many existing API users have their own settings for each product. Rows of users that are gone, or no longer API
-    /// users, are not counted. Empty when reading failed.
-    /// </summary>
-    private async Task<IReadOnlyDictionary<string, int>> ReadOwnSettingsCountsAsync()
-    {
-        try
-        {
-            IReadOnlyList<McpApiUserInfo> existing = await apiUserDirectory.GetAllAsync();
-            IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, McpProductOverride>> overrides = toolSettings.GetAllUserOverrides();
-            return existing
-                .Where(u => overrides.ContainsKey(u.Key))
-                .SelectMany(u => overrides[u.Key].Keys)
-                .GroupBy(productId => productId)
-                .ToDictionary(g => g.Key, g => g.Count());
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Could not read which API users have their own tool settings. The overview leaves them out.");
-            return new Dictionary<string, int>();
-        }
-    }
-
     /// <summary>A catalogue counts as a report only with a version and at least one module.</summary>
     private static bool HasReport(McpToolCatalogue? catalogue) =>
         catalogue is not null && !string.IsNullOrEmpty(catalogue.UmbrellaVersion) && catalogue.Modules.Count > 0;
@@ -144,15 +119,14 @@ public sealed class McpOverviewService(
     private static McpOverviewProduct BuildProduct(
         McpProductStatus p,
         McpToolCatalogue? catalogue,
-        IReadOnlyDictionary<Guid, McpToolCatalogue> userCatalogues,
-        int usersWithOwnSettings)
+        IReadOnlyDictionary<Guid, McpToolCatalogue> userCatalogues)
     {
         McpModuleCatalogue? module = userCatalogues.Count > 0
             ? userCatalogues.Values.Select(c => FindLoadedModule(c, p.Id)).OfType<McpModuleCatalogue>().MaxBy(m => m.ReportedAt)
             : FindLoadedModule(catalogue, p.Id);
         int toolCount = module?.Collections.Sum(c => c.ToolCount) ?? 0;
         return new McpOverviewProduct(
-            p.Id, p.DisplayName, p.Installed, p.Enabled, p.Version, p.Issues, module is not null, toolCount, AccessLevel(p), usersWithOwnSettings);
+            p.Id, p.DisplayName, p.Installed, p.Enabled, p.Version, p.Issues, module is not null, toolCount, AccessLevel(p));
     }
 
     private static McpServerReport? BuildServer(McpToolCatalogue? catalogue, string addonVersion)
@@ -184,7 +158,7 @@ public sealed class McpOverviewService(
 
         List<McpOverviewAccess> access = (userCapabilities?.Products ?? [])
             .Where(p => p.Installed && p.Enabled)
-            .Select(p => new McpOverviewAccess(p.Id, p.DisplayName, AccessLevel(p), p.SettingsScope))
+            .Select(p => new McpOverviewAccess(p.Id, p.DisplayName, AccessLevel(p), p.SettingsScope, ToolCount(ownCatalogue, p)))
             .ToList();
         return new McpOverviewApiUser(
             user.Key,
@@ -196,9 +170,18 @@ public sealed class McpOverviewService(
             unreachable,
             ownCatalogue?.UmbrellaVersion,
             ownCatalogue is null ? null : LatestReportedAt(ownCatalogue),
-            ownCatalogue?.Modules.Values.Sum(m => m.Collections.Sum(c => c.ToolCount)),
+            access.Count == 0 || access.Any(a => a.ToolCount is null) ? null : access.Sum(a => a.ToolCount),
             access);
     }
+
+    /// <summary>
+    /// The tools a user's last start got from a product with the settings the site now resolves for it. A catalogue is
+    /// replaced on every start, so a product missing from it was not loaded: none.
+    /// </summary>
+    private static int? ToolCount(McpToolCatalogue? ownCatalogue, McpProductStatus product) =>
+        ownCatalogue is null ? null
+        : ownCatalogue.Modules.TryGetValue(product.Id, out McpModuleCatalogue? module) ? McpToolCounts.Effective(module, product)
+        : 0;
 
     /// <summary>Installed and enabled products whose tools need a backoffice section. CMS needs none.</summary>
     private static IEnumerable<(McpProductStatus Product, string Section)> ProductsWithSection(
