@@ -192,7 +192,7 @@ Settings → Health Check → **MCP** has three checks:
 - **MCP API user**: every API user the MCP server has connected as, whatever its name or client id: when it last connected, whether it can still sign in, and whether it has the sections for each detected product. The MCP server connects once when your AI tool starts it, so until then the check only says no MCP server has connected yet. A stdio MCP server has no lasting connection, so the check shows the last connection, not whether one is open right now. Connections are stored in the `umbracoKeyValue` table.
 - **MCP client setup**: whether the MCP server that last started is the add-on's version.
 
-The checks show short rows with the same findings as Settings → Umbrella → Overview, which has the details and the config to copy.
+The checks show short rows with the same findings as Settings → Umbrella → Overview, which has the details and the config to copy. The "MCP client setup" description points there, once for the whole group.
 
 In your AI tool, the `get-mcp-health` tool shows what the server loaded and why: the add-on's status, the Umbraco version check, each product with its tool count and issues, and notes on what to fix, including when the server is not the add-on's version.
 
