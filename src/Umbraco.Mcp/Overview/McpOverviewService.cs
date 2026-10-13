@@ -155,7 +155,9 @@ public sealed class McpOverviewService(
     {
         var reachable = new List<string>();
         var unreachable = new List<string>();
-        foreach ((McpProductStatus p, string section) in ProductsWithSection(products, sectionByProduct))
+        // A product switched off for the user (its own settings, else the defaults) needs no section.
+        IReadOnlyList<McpProductStatus> loadable = (userCapabilities?.Products ?? products).Where(p => !p.Off).ToList();
+        foreach ((McpProductStatus p, string section) in ProductsWithSection(loadable, sectionByProduct))
         {
             (user.AllowedSections.Contains(section, StringComparer.OrdinalIgnoreCase) ? reachable : unreachable).Add(p.DisplayName);
         }

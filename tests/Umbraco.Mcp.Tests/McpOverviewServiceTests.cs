@@ -196,6 +196,23 @@ public class McpOverviewServiceTests
     }
 
     [Test]
+    public async Task Reach_lists_leave_out_a_product_off_for_that_user()
+    {
+        McpApiUser anna = new(Guid.NewGuid(), "Anna", UserState.Active, ["Ua.Section.Automate"], ["a"], Reported);
+        McpProductStatus[] annaOwn = AllProducts.Select(p => p.Id == "forms" ? p with { Off = true, SettingsScope = McpSettingsScope.User } : p).ToArray();
+        var service = Service(
+            users: new FakeApiUserProvider(anna),
+            caps: new StubCapabilities(
+                new McpCapabilities(Addon, AllProducts),
+                new Dictionary<Guid, McpCapabilities> { [anna.Key] = new McpCapabilities(Addon, annaOwn) }));
+
+        McpOverviewApiUser row = (await service.GetOverviewAsync()).ApiUsers.Single();
+
+        Assert.That(row.Reachable, Is.EqualTo(new[] { "Umbraco Automate" }));
+        Assert.That(row.Unreachable, Is.Empty);
+    }
+
+    [Test]
     public async Task Access_level_is_off_with_no_tools()
     {
         McpApiUser user = NamedUser("Anna");
