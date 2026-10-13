@@ -9,7 +9,7 @@ Umbrella: "one MCP server per Umbraco site", a personal project (not under the U
 - **`src/Umbraco.Mcp`** (NuGet **`Umbraco.Community.Umbrella`**): an add-on installed in the Umbraco 17 site. It detects which Umbraco HQ products are installed, serves `GET /umbraco/management/api/v1/mcp/capabilities`, adds an "MCP" backoffice health check group, and the "Umbrella" dashboard with the client config per API user.
 - **`npm/`** (npm **`umbrella-mcp`**): a stdio MCP server that AI tools start with `npx`. It loads the CMS, Forms, Automate and Engage tool collections in one process, but only for the products the site reports, and prefixes every tool `<module-id>--`.
 
-The original design is `docs/superpowers/specs/2026-10-11-umbraco-mcp-umbrella-design.md`. The plan it was built from, including its spec deltas and global constraints, is `docs/superpowers/plans/2026-10-11-umbraco-mcp-umbrella.md`. Specs and plans under `docs/superpowers/` are dated records and are not updated afterwards.
+The original design is `docs/superpowers/specs/2026-10-11-umbraco-mcp-umbrella-design.md`. The plan it was built from, including its spec deltas and global constraints, is `docs/superpowers/plans/2026-10-11-umbraco-mcp-umbrella.md`. Specs and plans under `docs/superpowers/` are dated records and are not updated afterwards. That folder is gitignored and exists only in the maintainer's local checkout; a fresh clone does not have it, so the docs below must stand on their own.
 
 Current docs, to keep in sync with the code:
 - `README.md`: setup, configuration, troubleshooting and known limitations, for users.
