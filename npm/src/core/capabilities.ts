@@ -15,6 +15,8 @@ export interface ProductCapability {
   readOnly?: boolean | null;
   /** No destructive tools, as set in the backoffice. Missing on older add-ons. */
   noDestructive?: boolean | null;
+  /** Switched off in the backoffice: the server does not load this product. Missing on older add-ons. */
+  off?: boolean | null;
   /** "user" when the settings above are an override for the calling API user, "site" for the defaults. Missing on older add-ons; any other value counts as "site". */
   settingsScope?: string | null;
 }
@@ -45,6 +47,7 @@ const isProduct = (p: unknown): p is ProductCapability => {
       (Array.isArray(o.disabledCollections) && o.disabledCollections.every((c) => typeof c === "string"))) &&
     (o.readOnly === undefined || o.readOnly === null || typeof o.readOnly === "boolean") &&
     (o.noDestructive === undefined || o.noDestructive === null || typeof o.noDestructive === "boolean") &&
+    (o.off === undefined || o.off === null || typeof o.off === "boolean") &&
     Array.isArray(o.issues)
   );
 };
@@ -95,6 +98,12 @@ export function siteReadOnly(caps: CapabilitiesResult, moduleId: string): boolea
 export function siteNoDestructive(caps: CapabilitiesResult, moduleId: string): boolean {
   if (caps.kind !== "ok") return false;
   return caps.payload.products.find((p) => p.id === moduleId)?.noDestructive === true;
+}
+
+/** Whether the site switched a module off; false without the add-on or on add-ons that predate the field. */
+export function siteOff(caps: CapabilitiesResult, moduleId: string): boolean {
+  if (caps.kind !== "ok") return false;
+  return caps.payload.products.find((p) => p.id === moduleId)?.off === true;
 }
 
 /** "user" when the module's backoffice settings are an override for the calling API user; "site" otherwise, also for a missing, null or unknown value. */

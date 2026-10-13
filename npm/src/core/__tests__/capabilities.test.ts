@@ -1,4 +1,4 @@
-import { fetchCapabilities, interpretCapabilitiesResponse, siteDisabledCollections, siteNoDestructive, siteReadOnly, siteSettingsScope } from "../capabilities.js";
+import { fetchCapabilities, interpretCapabilitiesResponse, siteDisabledCollections, siteNoDestructive, siteOff, siteReadOnly, siteSettingsScope } from "../capabilities.js";
 
 const payload = {
   addonVersion: "17.0.0",
@@ -32,6 +32,7 @@ describe("interpretCapabilitiesResponse", () => {
     ["disabledCollections not a string array", { addonVersion: "1", products: [{ ...payload.products[0], disabledCollections: [1] }] }],
     ["readOnly not a boolean", { addonVersion: "1", products: [{ ...payload.products[0], readOnly: "true" }] }],
     ["noDestructive not a boolean", { addonVersion: "1", products: [{ ...payload.products[0], noDestructive: "true" }] }],
+    ["off not a boolean", { addonVersion: "1", products: [{ ...payload.products[0], off: "yes" }] }],
   ])("treats a malformed 200 (%s) as unavailable", (_label, data) => {
     const r = interpretCapabilitiesResponse({ status: 200, data });
     expect(r.kind).toBe("unavailable");
@@ -99,6 +100,30 @@ describe("siteReadOnly", () => {
     expect(siteReadOnly(nulled, "forms")).toBe(false);
     expect(siteReadOnly({ kind: "no-addon" }, "forms")).toBe(false);
     expect(siteReadOnly({ kind: "unavailable", reason: "x" }, "forms")).toBe(false);
+  });
+});
+
+describe("siteOff", () => {
+  const withOff = (off: unknown) =>
+    interpretCapabilitiesResponse({ status: 200, data: { ...payload, products: [{ ...payload.products[1], off }] } });
+
+  it("accepts off true, false, null and missing", () => {
+    expect(withOff(true).kind).toBe("ok");
+    expect(withOff(false).kind).toBe("ok");
+    expect(withOff(null).kind).toBe("ok");
+    expect(interpretCapabilitiesResponse({ status: 200, data: payload }).kind).toBe("ok");
+  });
+
+  it("is true only for the product the site switched off", () => {
+    expect(siteOff(withOff(true), "forms")).toBe(true);
+    expect(siteOff(withOff(true), "cms")).toBe(false);
+    expect(siteOff(withOff(false), "forms")).toBe(false);
+  });
+
+  it("is false without the add-on, for null and for missing", () => {
+    expect(siteOff({ kind: "no-addon" }, "forms")).toBe(false);
+    expect(siteOff(withOff(null), "forms")).toBe(false);
+    expect(siteOff(interpretCapabilitiesResponse({ status: 200, data: payload }), "forms")).toBe(false);
   });
 });
 
