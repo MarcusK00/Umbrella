@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/images/umbrella-icon.png" alt="Umbrella logo" width="128" height="128"></p>
+
 # Umbrella
 
 One MCP server for your Umbraco 17 site. Umbrella detects which Umbraco products the site has installed and gives your AI tool (Claude Code, VS Code, Cursor, Claude Desktop) the tools for exactly those products.
