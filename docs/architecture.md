@@ -83,7 +83,7 @@ Everything is kept in Umbraco's `umbracoKeyValue` table, so it survives restarts
 
 `McpClientConfig` builds the `{ "mcpServers": { "umbraco": … } }` JSON. `McpClientSnippets` and `McpJsonFile.BuildJson` use it. `McpClientSnippets` builds the five snippets on the Overview tab (Claude Code `.mcp.json`, the `claude mcp add` command, VS Code with `inputs`, Cursor with `${env:...}`, other clients). None contains a secret.
 
-`McpOverviewService` (`Overview/`) gathers the status, findings, products, API users and snippets once. The three health checks render the same findings through `McpHealthCheckRows` as short rows that point to Settings → Umbrella, and the dashboard renders them in full.
+`McpOverviewService` (`Overview/`) gathers the status, findings, products, API users and snippets once. The three health checks render the same findings through `McpHealthCheckRows` as short rows, and the dashboard renders them in full. The pointer to Settings → Umbrella (`McpHealthCheckRows.DashboardPointer`) is only in the "MCP client setup" description, so it shows once when the group runs.
 
 `McpJsonFile` holds the `.mcp.json` rules. `McpJsonWriter` is a hosted service that calls it at startup, and `POST mcp-json` calls it on request. In Development, once the server has started (only then are its addresses known), it writes `.mcp.json` to the content root or `Umbraco:Mcp:McpJson:Path`. It:
 

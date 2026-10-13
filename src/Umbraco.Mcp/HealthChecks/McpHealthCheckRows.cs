@@ -7,11 +7,15 @@ namespace Umbraco.Mcp.HealthChecks;
 
 /// <summary>
 /// Turns the overview's findings for one area into health check rows. The wording lives in
-/// <see cref="McpOverviewService"/>; this only picks the rows, encodes them and ends with a pointer to the dashboard.
+/// <see cref="McpOverviewService"/>; this only picks the rows and encodes them.
 /// </summary>
 internal static class McpHealthCheckRows
 {
-    internal const string DashboardRow = "Details and setup for AI tools: Settings → Umbrella.";
+    /// <summary>
+    /// The pointer to the dashboard. The backoffice runs all checks of a group together, so it lives once, in the
+    /// "MCP client setup" description, instead of as a row in every check.
+    /// </summary>
+    internal const string DashboardPointer = "Details and setup for AI tools: Settings → Umbrella.";
 
     /// <summary>
     /// The backoffice renders health check messages as HTML, so every message is encoded here, once.
@@ -49,7 +53,6 @@ internal static class McpHealthCheckRows
             }
         }
 
-        rows.Add(Row(StatusResultType.Info, DashboardRow));
         return rows;
     }
 
