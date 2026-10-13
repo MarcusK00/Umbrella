@@ -11,7 +11,7 @@ Install this package in your site, and Claude Code, VS Code, Cursor or Claude De
 ## ✨ What you get
 
 - **One server for every product.** Umbraco CMS tools always, plus Umbraco Forms, Automate and Engage tools when the site has them installed.
-- **Zero-config locally.** Run the site in Development and it writes a ready-to-use `.mcp.json` for Claude Code, with no secret in it. VS Code, Cursor and other clients get their own snippet in Settings → Umbrella → Overview.
+- **Config to copy, per person.** Settings → Umbrella → Overview has the config for Claude Code, Claude Desktop, VS Code, Cursor and other clients, filled in with the site's address and the client id of the API user you pick. No secret in it, so you can send it to an editor who has no access to the code.
 - **You stay in control.** The **Umbrella** dashboard (Settings section) has an **Overview** tab (what needs attention, config to copy for your AI tool, the API users MCP servers connected as) and a **Tool Permissions** tab that switches tool groups off, or sets a product's level: full access, no destructive tools (the tools the products flag `destructiveHint`: deletes, emptying recycle bins, terminating runs and a few Engage switches; unpublishing, the recycle bin and version rollback stay available), or read-only tools only.
 - **Easy to check.** Backoffice health checks show which products were found and which API user the AI signed in as. In the AI tool, `get-mcp-health` explains what loaded and why.
 
@@ -26,32 +26,12 @@ dotnet add package Umbraco.Community.Umbrella
 ```
 
 **2. Create an API user** in the backoffice (Users → Create → API user). Add client credentials with:
-- client id: `umbraco-back-office-mcp`
+- a client id, for example `umbraco-back-office-mcp`
 - a secret of your choice. Copy it now: Umbraco only keeps a hash.
 
-Give the user's groups the sections the AI should work in (Content, Media, Settings, Forms, …).
+Give the user's groups the sections the AI should work in (Content, Media, Settings, Forms, …). Each person who uses an AI tool gets an API user of their own.
 
-**3. Store the secret** on your machine:
-
-```bash
-# macOS / Linux
-export UMBRELLA_CLIENT_SECRET="<the client secret>"
-```
-
-```powershell
-# Windows (PowerShell)
-setx UMBRELLA_CLIENT_SECRET "<the client secret>"
-```
-
-Then restart your AI tool, so it picks the variable up.
-
-**4. Open the site's folder** in Claude Code while the site runs in Development. Approve the `umbraco` server when asked. For VS Code, Cursor or another client, copy its snippet from Settings → Umbrella → Overview.
-
-**5. Say hello.** Ask the AI to *"call get-mcp-health"*. It lists each product and how many tools it loaded.
-
-### Using another AI tool, or a site that isn't local?
-
-Copy the config for your client from **Settings → Umbrella → Overview** ("Connect an AI tool"). The plain version looks like this, with your site's address filled in:
+**3. Copy the config.** In **Settings → Umbrella → Overview** ("Connect an AI tool"), pick the API user and your AI tool: Claude Code, Claude Desktop, VS Code, Cursor or another client. The plain version looks like this, with your site's address and the client id filled in:
 
 ```json
 {
@@ -69,7 +49,21 @@ Copy the config for your client from **Settings → Umbrella → Overview** ("Co
 }
 ```
 
-The address must be `https://`. This config contains the secret, so keep it out of source control.
+**4. Add the secret.** Replace the placeholder with the client secret. The Claude Code `.mcp.json` and Cursor configs read it from an environment variable instead:
+
+```bash
+# macOS / Linux
+export UMBRELLA_CLIENT_SECRET="<the client secret>"
+```
+
+```powershell
+# Windows (PowerShell)
+setx UMBRELLA_CLIENT_SECRET "<the client secret>"
+```
+
+Then restart your AI tool and approve the `umbraco` server when asked. A config with the secret in it stays out of source control. The address must be `https://`.
+
+**5. Say hello.** Ask the AI to *"call get-mcp-health"*. It lists each product and how many tools it loaded.
 
 ## 🧩 How it fits together
 

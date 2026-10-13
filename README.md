@@ -6,7 +6,7 @@ One MCP server for your Umbraco 17 site. Umbrella detects which Umbraco products
 
 | Package | Where it runs | What it does |
 |---|---|---|
-| [`Umbraco.Community.Umbrella`](https://www.nuget.org/packages/Umbraco.Community.Umbrella) (NuGet) | In your Umbraco site | Detects installed products, serves `GET /umbraco/management/api/v1/mcp/capabilities`, adds **MCP** health checks and the **Umbrella** dashboard, and writes a ready-to-use `.mcp.json` in Development |
+| [`Umbraco.Community.Umbrella`](https://www.nuget.org/packages/Umbraco.Community.Umbrella) (NuGet) | In your Umbraco site | Detects installed products, serves `GET /umbraco/management/api/v1/mcp/capabilities`, adds **MCP** health checks, and the **Umbrella** dashboard with the config for each AI tool |
 | [`umbrella-mcp`](https://www.npmjs.com/package/umbrella-mcp) (npm) | On your machine, started by your AI tool | Stdio MCP server: CMS tools always, Forms, Automate and Engage tools when the site has them. Tools are prefixed `cms--`, `forms--`, `automate--`, `engage--`; `get-mcp-health` explains what loaded and why |
 
 You only install the NuGet package. Your AI tool starts `umbrella-mcp` with `npx`, which downloads it the first time.
@@ -15,6 +15,7 @@ You only install the NuGet package. Your AI tool starts `umbrella-mcp` with `npx
 
 - [How it works](#how-it-works)
 - [Get started](#get-started)
+- [Teams, editors and hosted sites](#teams-editors-and-hosted-sites)
 - [Configuration](#configuration)
 - [Turning tool groups off](#turning-tool-groups-off)
 - [Health checks](#health-checks)
@@ -58,11 +59,27 @@ You need Umbraco 17, and Node.js 22 or later on the machine that runs your AI to
    dotnet add package Umbraco.Community.Umbrella
    ```
 
-2. **Create an API user** in the backoffice (Users → Create → API user) and add client credentials with the client id `umbraco-back-office-mcp` and a secret of your choice. Keep a copy of the secret: Umbraco stores only its hash. Give the user's groups access to the sections of the products you want the AI to use (Content, Media, Settings, Forms, Automate, Engage, …). If you choose a different client id, set `Umbraco:Mcp:ClientId` to it (see [Configuration](#configuration)).
+2. **Create an API user** in the backoffice (Users → Create → API user) and add client credentials with a client id and a secret of your choice, for example `umbraco-back-office-mcp`. Keep a copy of the secret: Umbraco stores only its hash. Give the user's groups access to the sections of the products you want the AI to use (Content, Media, Settings, Forms, Automate, Engage, …). Each person who uses an AI tool with the site gets an API user of their own: see [Teams, editors and hosted sites](#teams-editors-and-hosted-sites).
 
-3. **Set the secret** as an environment variable on your machine.
+3. **Copy the config for your AI tool.** In the backoffice, open Settings → **Umbrella** → **Overview** → **Connect an AI tool**, pick the API user to sign in as, and pick your tool:
 
-   macOS / Linux (add it to your shell profile to keep it):
+   | Tab | Where it goes |
+   |---|---|
+   | Claude Code | `.mcp.json` in the folder you open in Claude Code |
+   | Claude Code (command) | a `claude mcp add` command to run in that folder; Claude Code keeps it in your own settings |
+   | Claude Desktop | `claude_desktop_config.json` (Claude Desktop: Settings → Developer → Edit Config) |
+   | VS Code | `.vscode/mcp.json` |
+   | Cursor | `.cursor/mcp.json` |
+   | Other clients | the generic `mcpServers` config |
+
+   The config is filled in with the address you opened the backoffice on and the API user's client id.
+
+4. **Supply the secret.** The config never contains the secret, only a way to supply it:
+   - **VS Code** asks for it when the server starts.
+   - **Claude Code (`.mcp.json`) and Cursor** read it from the `UMBRELLA_CLIENT_SECRET` environment variable.
+   - **The `claude mcp add` command, Claude Desktop and other clients** have a placeholder: replace it with the secret. That config then contains the secret, so keep it out of source control.
+
+   To set the environment variable on macOS / Linux (add it to your shell profile to keep it):
 
    ```bash
    export UMBRELLA_CLIENT_SECRET="<the client secret>"
@@ -76,13 +93,13 @@ You need Umbraco 17, and Node.js 22 or later on the machine that runs your AI to
 
    Restart your AI tool afterwards: it only sees variables that were set before it started.
 
-4. **Open the site's folder in your AI tool.** When the site runs in Development, the add-on writes a `.mcp.json` next to it, filled in with the site's HTTPS address and the API user's client id. Claude Code reads this file. VS Code, Cursor and other clients get their own snippet in Settings → **Umbrella** → **Overview**. Approve the `umbraco` server when your tool asks, and `npx` downloads and starts `umbrella-mcp`. In the backoffice, Settings → **Umbrella** → **Overview** shows the status of this setup, and can write the file for you.
+5. **Start it.** Restart or reload your AI tool and approve the `umbraco` server when it asks. `npx` downloads and starts `umbrella-mcp`.
 
-5. **Check it works.** Ask the AI to call `get-mcp-health`. It lists each product, whether its tools loaded, and how many. In the backoffice, Settings → **Umbrella** → **Overview** shows the API user the server connected as, whether it can reach each product, and what to fix if not.
+6. **Check it works.** Ask the AI to call `get-mcp-health`. It lists each product, whether its tools loaded, and how many. In the backoffice, Settings → **Umbrella** → **Overview** shows the API user the server connected as, whether it can reach each product, and what to fix if not.
 
-### Other AI tools, or a site that is not running locally
+### The config
 
-Settings → **Umbrella** → **Overview** has config to copy for Claude Code (`.mcp.json` or a `claude mcp add` command), VS Code, Cursor and other clients, filled in with the site's URL. Replace the secret placeholder with your client secret. The generic config looks like this:
+Every tab on the Overview is a variant of this config:
 
 ```json
 {
@@ -100,9 +117,21 @@ Settings → **Umbrella** → **Overview** has config to copy for Claude Code (`
 }
 ```
 
-The config pins `umbrella-mcp` to the add-on's version: the two packages are released together with the same version number.
+- **Version:** the config pins `umbrella-mcp` to the add-on's version: the two packages are released together with the same version number. After upgrading the add-on, change the version in your config; the Overview, the "MCP client setup" check and `get-mcp-health` say when they differ.
+- **HTTPS:** `UMBRACO_BASE_URL` must be `https://`, because the Management API token endpoint rejects plain HTTP. Open the backoffice over HTTPS to get the right address in the config.
+- **Local sites:** for a site on `localhost` the config sets `NODE_TLS_REJECT_UNAUTHORIZED=0`, because Node does not trust the ASP.NET Core development certificate. This turns off certificate checks for the MCP server process only, and only when the site is on the local machine.
 
-This config contains the secret itself, so keep it out of source control. `UMBRACO_BASE_URL` must be `https://`: the Management API token endpoint rejects plain HTTP.
+## Teams, editors and hosted sites
+
+Give each person who connects an AI tool their own API user:
+
+- **Why one each:** the Overview's **MCP Users** table shows each API user that connected, and [Tool Permissions](#different-settings-per-api-user) can give each one their own settings. People who share an API user share its settings and show up as one user.
+- **Setting someone up:** create their API user with its own client id, and give its groups the sections they need. On Settings → **Umbrella** → **Overview** → **Connect an AI tool**, pick that user, copy the config for their AI tool, and send it to them. Send the client secret separately.
+- **Editors:** an editor doesn't need the site's source code. They need Node.js 22 or later and an AI tool, for example Claude Desktop. The Umbrella dashboard is in the Settings section, so someone with access to it sets them up.
+- **Hosted sites, such as Umbraco Cloud:** the MCP server runs on each person's machine and connects to the site over HTTPS, so it works with any environment. Open the dashboard on the environment the AI tools should use, so the config gets its address. Tool settings and the connection list are stored in that environment's database, so each environment has its own; create the API users on the environment the AI tools connect to.
+- **Shared repositories:** a `.mcp.json` committed to a repository holds one client id, so everyone who uses it signs in as the same API user. Use the `claude mcp add` command instead, which Claude Code keeps in each person's own settings, or keep `.mcp.json` out of the repository.
+
+Tool settings are guardrails, not access control: see [Known limitations](#known-limitations).
 
 ## Configuration
 
@@ -110,28 +139,7 @@ This config contains the secret itself, so keep it out of source control. `UMBRA
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `Umbraco:Mcp:ClientId` | `umbraco-back-office-mcp` | The client id put in the written `.mcp.json` and in the config snippets on Settings → Umbrella → Overview. The "MCP API user" check does not use it: it reports on whichever API user the MCP server connected as |
-| `Umbraco:Mcp:McpJson:Enabled` | `true` | Set to `false` to never write `.mcp.json` |
-| `Umbraco:Mcp:McpJson:Path` | the site's content root | Folder to write `.mcp.json` to, relative to the content root (or absolute). Use `..` if you open the solution folder in your AI tool. The folder must exist: it is never created |
-| `Umbraco:Mcp:McpJson:Command`, `Umbraco:Mcp:McpJson:Args` | `npx`, `["-y", "umbrella-mcp@<version>"]` | Override how the server is started, for example to run a local build |
-
-For example, to write `.mcp.json` to the solution folder one level up:
-
-```json
-{
-  "Umbraco": {
-    "Mcp": {
-      "McpJson": { "Path": ".." }
-    }
-  }
-}
-```
-
-About the written `.mcp.json`:
-- It is only written when the site runs in **Development**, once it has started, and **never overwrites a file you edited**. The file pins `umbrella-mcp` to the add-on's version, so after you upgrade the add-on the site updates that version in a file it wrote and nobody changed. If you edited the file, change the version yourself, or delete the file to have it written again.
-- It contains no secret. It reads `${UMBRELLA_CLIENT_SECRET}` from your environment (Claude Code expands `${VAR}` in `.mcp.json`), so it is safe to commit.
-- It needs an HTTPS address, because the Management API token endpoint rejects plain HTTP. It uses the site's first HTTPS address; if the site only listens on HTTP, nothing is written.
-- For a site on `localhost` it sets `NODE_TLS_REJECT_UNAUTHORIZED=0`, because Node does not trust the ASP.NET Core development certificate. This turns off certificate checks for the MCP server process only, and only when the site is on the local machine.
+| `Umbraco:Mcp:ClientId` | `umbraco-back-office-mcp` | The client id the config on Settings → Umbrella → Overview starts with when no API user is picked yet. The "MCP API user" check does not use it: it reports on whichever API user the MCP server connected as |
 
 ### MCP server (environment variables)
 
@@ -215,12 +223,12 @@ Start with `get-mcp-health` in your AI tool and the **MCP** health checks in the
 |---|---|---|
 | The server exits with `Could not authenticate against Umbraco` | Wrong URL, client id or secret; the API user is disabled; or `UMBRACO_BASE_URL` is `http://` | Check the three `UMBRACO_*` values. The URL must be `https://`. The "MCP API user" check shows whether the user can still sign in |
 | Authentication fails although the secret is right | `UMBRELLA_CLIENT_SECRET` was not set when your AI tool started, so the server received the literal text `${UMBRELLA_CLIENT_SECRET}` | Set the variable, then restart the AI tool (not just the MCP server) |
-| The server exits with `Error: UMBRACO_BASE_URL is required.` (or another variable) | The MCP client config has no `env` entry for it | Use the config from Settings → Umbrella → Overview, or let the site write `.mcp.json` |
-| TLS errors such as `self-signed certificate` | Node does not trust the site's certificate. `.mcp.json` only turns checks off for `localhost` | Trust the certificate with `NODE_EXTRA_CA_CERTS=<path to the .pem>`, or for a local development host only, add `NODE_TLS_REJECT_UNAUTHORIZED=0` to `env` |
+| The Overview's config has the wrong client id | The API user picker is on another user, or no API user has a client id yet | Pick the API user under **Connect an AI tool**. Only API users with client credentials are listed |
+| The server exits with `Error: UMBRACO_BASE_URL is required.` (or another variable) | The MCP client config has no `env` entry for it | Use the config from Settings → Umbrella → Overview |
+| TLS errors such as `self-signed certificate` | Node does not trust the site's certificate. The config from the Overview only turns checks off for `localhost` | Trust the certificate with `NODE_EXTRA_CA_CERTS=<path to the .pem>`, or for a local development host only, add `NODE_TLS_REJECT_UNAUTHORIZED=0` to `env` |
 | Only `cms--` tools are listed | The add-on is not installed or not reachable, or a product is not installed, not enabled, or not on major version 17 | `get-mcp-health` gives the reason per product. "MCP products" in the backoffice shows what the site detected |
 | A product's tools return permission errors | The API user's groups don't grant that product's section | The "MCP API user" check names the missing section |
-| No `.mcp.json` was written | The site is not running in Development, the file already exists, the site has no HTTPS address, `Umbraco:Mcp:McpJson:Enabled` is `false`, or the `Path` folder doesn't exist | The site log says why when there is no HTTPS address. Or copy the config from Settings → Umbrella → Overview |
-| "MCP client setup", the dashboard or `get-mcp-health` says the versions differ | Your AI tool's config still pins the `umbrella-mcp` of an earlier add-on | Set `umbrella-mcp@<add-on version>` in the config. A `.mcp.json` the site wrote and nobody edited is updated the next time the site starts in Development |
+| "MCP client setup", the dashboard or `get-mcp-health` says the versions differ | Your AI tool's config still pins the `umbrella-mcp` of an earlier add-on | Set `umbrella-mcp@<add-on version>` in the config |
 | The Umbrella dashboard is empty | The MCP server has not started against this site yet | Start it once from your AI tool, then reload the dashboard. If it stays empty, `get-mcp-health` notes why the tool groups could not be reported |
 | Dashboard changes have no effect | The server reads the settings when it starts, or the environment sets collection filters for that product | Reconnect the MCP server. The dashboard warns when the environment overrides it |
 

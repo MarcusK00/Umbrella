@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Umbrella: "one MCP server per Umbraco site", a personal project (not under the Umbraco organisation). Two halves are designed and released together, with the same version:
 
-- **`src/Umbraco.Mcp`** (NuGet **`Umbraco.Community.Umbrella`**): an add-on installed in the Umbraco 17 site. It detects which Umbraco HQ products are installed, serves `GET /umbraco/management/api/v1/mcp/capabilities`, adds an "MCP" backoffice health check group, and in Development writes a `.mcp.json` next to the site.
+- **`src/Umbraco.Mcp`** (NuGet **`Umbraco.Community.Umbrella`**): an add-on installed in the Umbraco 17 site. It detects which Umbraco HQ products are installed, serves `GET /umbraco/management/api/v1/mcp/capabilities`, adds an "MCP" backoffice health check group, and the "Umbrella" dashboard with the client config per API user.
 - **`npm/`** (npm **`umbrella-mcp`**): a stdio MCP server that AI tools start with `npx`. It loads the CMS, Forms, Automate and Engage tool collections in one process, but only for the products the site reports, and prefixes every tool `<module-id>--`.
 
 The original design is `docs/superpowers/specs/2026-10-11-umbraco-mcp-umbrella-design.md`. The plan it was built from, including its spec deltas and global constraints, is `docs/superpowers/plans/2026-10-11-umbraco-mcp-umbrella.md`. Specs and plans under `docs/superpowers/` are dated records and are not updated afterwards.
@@ -130,17 +130,11 @@ This only works because product tool handlers call `getApiClient()` lazily insid
 
 ### Client config (`src/Umbraco.Mcp/Client/`)
 
-- **`McpClientConfig`:** builds the `{ "mcpServers": { "umbraco": … } }` JSON. `McpClientSnippets` and `McpJsonFile.BuildJson` use it.
-- **`McpClientSnippets`:** the five snippets on the dashboard's Overview tab (Claude Code, Claude Code command, VS Code with `inputs`, Cursor, Other clients). None contains a secret.
-- **`McpOverviewService`** (`Overview/`): status, findings, products, connected API users and snippets, shared by the Overview tab and the three health checks (`McpHealthCheckRows` renders short rows; the pointer to Settings → Umbrella is only in the "MCP client setup" description). Endpoints on `McpOverviewController`, Settings section: `GET /mcp/overview`, `DELETE /mcp/connections/{userKey}`, `POST /mcp/mcp-json` (returns `{ outcome, path, message }`).
-- **`McpJsonFile`:** the `.mcp.json` write/upgrade rules, used by the hosted `McpJsonWriter` at startup and by `POST /mcp/mcp-json`. In Development, once the server has started, it writes `.mcp.json` into the content root (or `Umbraco:Mcp:McpJson:Path`). Rules:
-  - It never overwrites a file someone edited and never creates folders.
-  - It only upgrades a file it wrote itself: when the file is exactly what it would write for the version it pins, and the add-on is newer (`Umbraco.Cms.Core.Semver`), it rewrites it for the add-on's version. Switching to an older add-on never flips it back.
-  - It never writes a secret: the file reads `${UMBRELLA_CLIENT_SECRET}`.
-  - It uses the first HTTPS server address, since the token endpoint rejects HTTP. If there is none, it writes nothing.
-  - It adds `NODE_TLS_REJECT_UNAUTHORIZED=0` only for loopback sites.
-  - Failures are logged and never stop the site.
-- **Demo site:** `appsettings.Development.json` overrides `Command`/`Args` to `node ../npm/dist/index.js`, so `demo-site/.mcp.json` (gitignored) runs the local build.
+- **`McpClientConfig`:** builds the `{ "mcpServers": { "umbraco": … } }` JSON. `McpClientSnippets` uses it.
+- **`McpClientSnippets`:** the six snippets for one client id (Claude Code `.mcp.json`, Claude Code command, Claude Desktop, VS Code with `inputs`, Cursor, Other clients). None contains a secret; a loopback site adds `NODE_TLS_REJECT_UNAUTHORIZED=0`.
+- **`McpOverviewService`** (`Overview/`): status, findings, products and connected API users, shared by the Overview tab and the three health checks (`McpHealthCheckRows` renders short rows; the pointer to Settings → Umbrella is only in the "MCP client setup" description). Endpoints on `McpOverviewController`, Settings section: `GET /mcp/overview`, `DELETE /mcp/connections/{userKey}`, `GET /mcp/client-setup?clientId=` (`{ clientId, configuredClientId, apiUsers, clients }`: the snippets for that client id, default `Umbraco:Mcp:ClientId`, and the API users with a client id to pick from; 404 for a client id that is neither the configured one nor an API user's).
+- **No files written:** the add-on used to write `.mcp.json` in Development; that was removed, because it pinned one client id (a team sharing it signed in as one API user) and did nothing for hosted sites or editors without the source. Don't add it back.
+- **Demo site:** `demo-site/.mcp.json` (gitignored) is written by hand to run the local build (`node ../npm/dist/index.js`); `docs/development.md` has the content.
 
 ### Adding a product
 

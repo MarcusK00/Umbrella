@@ -4,7 +4,7 @@ One MCP server for your Umbraco 17 site. It loads the Umbraco CMS tools, plus Um
 
 ## Setup
 
-Product detection needs the [`Umbraco.Community.Umbrella`](https://www.nuget.org/packages/Umbraco.Community.Umbrella) NuGet package in the site. That package also writes a ready-to-use `.mcp.json` in Development and shows the client config in the backoffice (Settings → Umbrella → Overview), so you normally never install this package by hand. Your AI tool starts it with `npx`:
+Product detection needs the [`Umbraco.Community.Umbrella`](https://www.nuget.org/packages/Umbraco.Community.Umbrella) NuGet package in the site. That package also shows the client config for each API user in the backoffice (Settings → Umbrella → Overview), so you normally never install this package by hand. Your AI tool starts it with `npx`:
 
 ```json
 {

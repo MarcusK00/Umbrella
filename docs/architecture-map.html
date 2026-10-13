@@ -173,11 +173,11 @@ footer { margin-block-start: 72px; padding-block-start: 20px; border-top: 1px so
           <!-- AI tool column -->
           <rect class="box client" x="40" y="80" width="200" height="96" rx="8"/>
           <text class="t mid" x="140" y="112">AI tool</text>
-          <text class="s mid" x="140" y="134">Claude Code · VS Code · Cursor</text>
+          <text class="s mid" x="140" y="134">Claude · VS Code · Cursor</text>
           <text class="s mid" x="140" y="154">the MCP client</text>
 
           <rect class="box client" x="40" y="250" width="200" height="130" rx="8"/>
-          <text class="t mid" x="140" y="274">.mcp.json / client config</text>
+          <text class="t mid" x="140" y="274">client config</text>
           <text class="s m" x="54" y="300">npx -y umbrella-mcp@‹ver›</text>
           <text class="s m" x="54" y="320">UMBRACO_BASE_URL</text>
           <text class="s m" x="54" y="338">UMBRACO_CLIENT_ID</text>
@@ -308,7 +308,7 @@ footer { margin-block-start: 72px; padding-block-start: 20px; border-top: 1px so
           <text class="s mid" x="817" y="574">per-product client</text>
         </svg>
       </div>
-      <figcaption>Everything the AI tool knows about Umbraco comes through umbrella-mcp. The add-on never talks to the AI tool directly: in Development it only writes the <code>.mcp.json</code> on the left, with <code>${UMBRELLA_CLIENT_SECRET}</code> in place of the secret.</figcaption>
+      <figcaption>Everything the AI tool knows about Umbraco comes through umbrella-mcp. The add-on never talks to the AI tool directly: the Umbrella dashboard only shows the client config on the left, filled in with the client id of the API user you pick and without the secret.</figcaption>
     </figure>
     <ol class="steps">
       <li><b>Sign in.</b> The server gets a token with the API user's client id and secret. Every later request carries it.</li>
