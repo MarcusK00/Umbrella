@@ -218,15 +218,11 @@ export class UmbrellaOverviewElement extends UmbLitElement {
   }
 
   #renderServerAndUsers() {
-    const { server, apiUsers } = this._data;
+    // Each API user's row shows the version and start of its own MCP server, so there is no site-wide line here.
+    const { apiUsers } = this._data;
     return html`<uui-box headline="MCP server and API users">
-      ${server
-        ? html`<p class=${server.matchesAddon ? "" : "warning"}>
-            umbrella-mcp ${server.version} last started ${formatDate(server.reportedAt)}
-          </p>`
-        : html`<p>No MCP server has started yet.</p>`}
       ${apiUsers.length === 0
-        ? nothing
+        ? html`<p>No MCP server has connected yet.</p>`
         : html`<uui-table>
             <uui-table-head>
               <uui-table-head-cell>API user</uui-table-head-cell>
