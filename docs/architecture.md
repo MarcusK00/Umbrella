@@ -17,7 +17,7 @@ The add-on tells AI tools to run `npx -y umbrella-mcp@<add-on version>`, so both
 src/Umbraco.Mcp/
   Detection/        product detectors (one per product) and the seams they use
   Capabilities/     builds the capabilities payload
-  Api/              Management API controllers (capabilities, tool settings, catalogue, overview)
+  Api/              Management API controllers (capabilities, catalogue, tool settings for the defaults and per user, overview, client setup, connections)
   Overview/         McpOverviewService: status and findings for the dashboard and the health checks
   ToolSettings/     dashboard settings (defaults and per-API-user overrides) and the reported catalogues, in umbracoKeyValue
   Connections/      which API users the MCP server connected as
@@ -28,6 +28,7 @@ src/Umbraco.Mcp/
 npm/src/
   core/             server startup, selection, filters, registration, routing, health
   modules/          one file per product: cms.ts, forms.ts, automate.ts, engage.ts
+  types/            declarations for the product packages' ./collections (product-modules.d.ts)
 tests/Umbraco.Mcp.Tests/   NUnit tests for the add-on
 demo-site/          Umbraco 17 with Forms, Automate and Engage, referencing the add-on project
 scripts/            API user setup, end-to-end check, pack check
@@ -61,7 +62,7 @@ All under `/umbraco/management/api/v1/mcp/`, in the Management API's "MCP" Swagg
 | `POST catalogue` | API users only (403 otherwise) | The server reports every tool group it loaded: `{ umbrellaVersion, modules: [{ id, siteSettingsIgnored, collections: [{ name, toolCount, readOnlyToolCount, nonDestructiveToolCount, disabledByDefault? }] }] }`. Stored per caller (replacing that user's previous report) and merged per module into the shared catalogue |
 | `GET overview` | Settings section | What the Overview tab and the health checks show (`McpOverviewService`): findings, products and connected API users. Each API user row has its server version, last start and access per product (full access, no destructive tools or read-only, with `scope` `site` or `user`, and `toolCount`: the tools its last start got with those settings, `McpToolCounts.Effective`; 0 for a product it did not load, null without a report or when its environment sets its own collection filters), plus their sum. The dashboard shows only the warnings, and the API users as "MCP Users" |
 | `DELETE connections/{userKey}` | Settings section | Forgets an API user's stored connection and its stored catalogue (404 if unknown); its tool overrides are kept. The connection returns the next time the server signs in |
-| `GET client-setup?clientId=` | Settings section | The Overview's "Connect an AI tool": `{ clientId, configuredClientId, apiUsers: [{ key, name, clientIds }], clients }`. `clients` are the snippets filled in with `clientId` (default: `Umbraco:Mcp:ClientId`) and the address the request came in on. `apiUsers` are the API users with at least one client id (`IMcpApiUserDirectory`); a failing read logs a warning and leaves the list empty. 404 for a client id that is neither the configured one nor an API user's |
+| `GET client-setup?clientId=` | Settings section | The Overview's "Connect an AI tool": `{ clientId, configuredClientId, apiUsers: [{ key, name, clientIds }], clients }`. `clients` are the snippets filled in with `clientId` (default: `Umbraco:Mcp:ClientId`, else `umbraco-back-office-mcp`) and the address the request came in on. `apiUsers` are the API users with at least one client id (`IMcpApiUserDirectory`); a failing read logs a warning and leaves the list empty. 404 for a client id that is neither the configured one nor an API user's |
 | `GET tool-settings` | Settings section | What the dashboard shows: the add-on version, products, the catalogue for the defaults view (per group the highest counts any existing API user reported, `McpCatalogueFallback.Highest`; the shared catalogue before any user has its own report), and the defaults for all API users (disabled groups, read-only products, no-destructive products), plus `apiUsers: [{ key, name, clientIds, state, lastReportedAt, overriddenProducts }]` for every API user (`IMcpApiUserDirectory`) |
 | `PUT tool-settings` | Settings section | Replaces the defaults: `disabledCollections` (module id → group names), `readOnlyModules` and `noDestructiveModules`. Unknown product ids are refused, and a product in both level lists is a 400 (nothing stored) |
 | `GET tool-settings/users/{userKey}` | Settings section | One API user's `overrides`, its `catalogue` and `catalogueSource` (`{ kind: "user" or "latest" or "none", reportedAt, userName }`). Without a report of its own, the catalogue is the most recent other user's, else the shared one; the dashboard then shows the groups without counts. 404 for an unknown or non-API user |
@@ -140,7 +141,7 @@ The reason is kept and shown in `get-mcp-health`.
 A module (`npm/src/modules/<id>.ts`) is data plus a dynamic import:
 
 ```ts
-{ id, displayName, toolPrefix: `${id}--`, packageName, expectedMajor, description, useWhen, required?, load() }
+{ id, displayName, toolPrefix: `${id}--`, packageName, expectedMajor, description, useWhen, defaultDisabledCollections?, required?, load() }
 ```
 
 `load()` imports the product package's `./collections` entry point and returns its `collections`, `allModes`, `allModeNames`, `allSliceNames` and `createApiClient`. Absent products are never imported. `npm/src/modules/index.ts` lists the modules, CMS first, because it is the default module for unprefixed filter entries.

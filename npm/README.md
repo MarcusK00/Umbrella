@@ -35,6 +35,7 @@ Without the NuGet package, the server still starts, with CMS tools only.
 | `UMBRACO_MCP_MODULES` | Force modules on without detection, for example `forms,automate` |
 | `UMBRACO_READONLY` | `true` registers only read-only tools, for every product |
 | `UMBRACO_NO_DESTRUCTIVE` | `true` leaves out tools the products mark as destructive (`destructiveHint`), for every product |
+| `UMBRACO_INCLUDE_SLICES`, `UMBRACO_EXCLUDE_SLICES` | Toolkit slice filters, for every product |
 | `UMBRACO_INCLUDE_TOOL_COLLECTIONS`, `UMBRACO_EXCLUDE_TOOL_COLLECTIONS`, `UMBRACO_INCLUDE_TOOLS`, `UMBRACO_EXCLUDE_TOOLS`, `UMBRACO_TOOL_MODES` | Filters. Unprefixed entries apply to CMS, `forms:<value>` to Forms; the tool lists also accept names like `forms--list-forms` |
 
 Tool groups switched off in the backoffice (Settings → Umbrella) are left out on the next start, unless the environment sets `UMBRACO_INCLUDE_TOOL_COLLECTIONS` or `UMBRACO_EXCLUDE_TOOL_COLLECTIONS` for that product. A product set to read-only there registers only its read-only tools, and one set to no destructive tools leaves out its destructive tools; both always apply.
@@ -48,8 +49,8 @@ Some tool groups are off by default because they repeat another tool, are test a
 | Umbraco Automate | `umbraco-server` |
 | Umbraco Engage | `package`, `add-ons`, `cultures` |
 
-They stay off until the site saves a list for that product in the dashboard, or the environment sets a collection filter for it: `UMBRACO_INCLUDE_TOOL_COLLECTIONS=forms:*` brings the Forms ones back, and `cms:*` the CMS ones. Any collection filter for a product replaces its defaults.
+They stay off until the dashboard saves a list for that product (the defaults, or that API user's own settings), or the environment sets a collection filter for it: `UMBRACO_INCLUDE_TOOL_COLLECTIONS=forms:*` brings the Forms ones back, and `cms:*` the CMS ones. Any collection filter for a product replaces its defaults.
 
-`umbrella-mcp --list-tools` prints the tool names it would register, then exits.
+`umbrella-mcp --list-tools`, run with the same environment variables, prints the tool names it would register, then exits.
 
 Requires Node.js 22 or later and Umbraco 17. Full configuration, troubleshooting and known limitations: https://github.com/MarcusK00/Umbraco.Community.Umbrella#readme

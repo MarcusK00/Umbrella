@@ -21,7 +21,7 @@
 | Check | Fails when | Fix |
 |---|---|---|
 | `hmac-key` | `demo-site/appsettings.json` has a generated `Imaging:HMACSecretKey` (the demo site writes one on boot) | Set `HMACSecretKey` back to `""` in `demo-site/appsettings.json` and commit that |
-| `no-local-deps` | an npm `dependencies` entry is a `file:`, `link:`, git or path reference | Use a registry version, or keep it in `devDependencies` + `external` (see CLAUDE.md, "Product packages") |
+| `no-local-deps` | an npm `dependencies` entry is a `file:`, `link:`, git or path reference | Use a registry version, or keep it in `devDependencies` + `external` (see [adding-a-product.md](adding-a-product.md), step 1) |
 | `no-tracked-secrets` | a `.env`, `*.tgz`, `appsettings.local.json`, `demo-site/.mcp.json` or demo-site data/logs file is tracked | `git rm --cached <file>` |
 | `readme-versions` | an `umbrella-mcp@<x>` in a README differs from the npm `version` | Update the README |
 

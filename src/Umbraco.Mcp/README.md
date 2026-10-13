@@ -12,7 +12,7 @@ Install this package in your site, and Claude Code, VS Code, Cursor or Claude De
 
 - **One server for every product.** Umbraco CMS tools always, plus Umbraco Forms, Automate and Engage tools when the site has them installed.
 - **Config to copy, per person.** Settings → Umbrella → Overview has the config for Claude Code, Claude Desktop, VS Code, Cursor and other clients, filled in with the site's address and the client id of the API user you pick. No secret in it, so you can send it to an editor who has no access to the code.
-- **You stay in control.** The **Umbrella** dashboard (Settings section) has an **Overview** tab (what needs attention, config to copy for your AI tool, the API users MCP servers connected as) and a **Tool Permissions** tab that switches tool groups off, or sets a product's level: full access, no destructive tools (the tools the products flag `destructiveHint`: deletes, emptying recycle bins, terminating runs and a few Engage switches; unpublishing, the recycle bin and version rollback stay available), or read-only tools only.
+- **You stay in control.** The **Umbrella** dashboard (Settings section) has an **Overview** tab (what needs attention, config to copy for your AI tool, the API users MCP servers connected as) and a **Tool Permissions** tab that switches tool groups off, or sets a product's level: full access, no destructive tools (the tools the products flag `destructiveHint`: mostly deletes, emptying recycle bins and terminating runs; unpublishing, moving to the recycle bin, and CMS and Forms version rollback stay available), or read-only tools only.
 - **Easy to check.** Backoffice health checks show which products were found and which API user the AI signed in as. In the AI tool, `get-mcp-health` explains what loaded and why.
 
 ## 🚀 Get started in 5 steps
@@ -31,7 +31,7 @@ dotnet add package Umbraco.Community.Umbrella
 
 Give the user's groups the sections the AI should work in (Content, Media, Settings, Forms, …). Each person who uses an AI tool gets an API user of their own.
 
-**3. Copy the config.** In **Settings → Umbrella → Overview** ("Connect an AI tool"), pick the API user and your AI tool: Claude Code, Claude Desktop, VS Code, Cursor or another client. The plain version looks like this, with your site's address and the client id filled in:
+**3. Copy the config.** In **Settings → Umbrella → Overview** ("Connect an AI tool"), expand **Set up an MCP client for this site**, pick the API user and your AI tool: Claude Code, Claude Desktop, VS Code, Cursor or another client. The plain version looks like this, with your site's address and the client id filled in:
 
 ```json
 {
@@ -49,7 +49,7 @@ Give the user's groups the sections the AI should work in (Content, Media, Setti
 }
 ```
 
-**4. Add the secret.** Replace the placeholder with the client secret. The Claude Code `.mcp.json` and Cursor configs read it from an environment variable instead:
+**4. Add the secret.** Replace the placeholder with the client secret. VS Code asks for it when the server starts, and the Claude Code `.mcp.json` and Cursor configs read it from an environment variable:
 
 ```bash
 # macOS / Linux

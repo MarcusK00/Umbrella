@@ -82,9 +82,11 @@ bash scripts/check-guards.sh            # repo guards CI runs on every PR; see d
 4. The Umbraco version check runs against major 17.
 5. `fetchCapabilities()` returns ok, no-addon or unavailable.
 6. `selectModules()` loads a module if it is `required` (CMS), forced via `UMBRACO_MCP_MODULES`, or installed + enabled with a matching major.
-7. **Phase 1** loads the selected modules. A module whose package has its own nested toolkit copy is skipped by `checkSingleSdk`. A load failure becomes a health issue rather than a crash.
+7. **Phase 1** loads the selected modules. A module whose package is missing (`checkPackageInstalled`) or has its own nested toolkit copy (`checkSingleSdk`) is skipped with an issue. A load failure becomes a health issue rather than a crash.
 8. Only then is the `McpServer` constructed. Its `instructions` are fixed at construction, so they must contain only the modules that actually loaded.
-9. **Phase 2** registers tools per module via `registerModuleTools`, then `get-mcp-health`, then `useDraft202012ToolSchemas(server)`, which must come last.
+9. **Phase 2** registers tools per module via `registerModuleTools`.
+10. When the add-on answered, `reportCatalogue` posts the catalogue (a failure becomes a `get-mcp-health` note).
+11. `get-mcp-health` is registered, then `useDraft202012ToolSchemas(server)`, which must come last.
 
 Invariants:
 - **CMS:** it always loads, and a CMS registration failure or a `DuplicateToolNameError` stops startup.
@@ -132,7 +134,7 @@ This only works because product tool handlers call `getApiClient()` lazily insid
 
 - **`McpClientConfig`:** builds the `{ "mcpServers": { "umbraco": … } }` JSON. `McpClientSnippets` uses it.
 - **`McpClientSnippets`:** the six snippets for one client id (Claude Code `.mcp.json`, Claude Code command, Claude Desktop, VS Code with `inputs`, Cursor, Other clients). None contains a secret; a loopback site adds `NODE_TLS_REJECT_UNAUTHORIZED=0`.
-- **`McpOverviewService`** (`Overview/`): status, findings, products and connected API users, shared by the Overview tab and the three health checks (`McpHealthCheckRows` renders short rows; the pointer to Settings → Umbrella is only in the "MCP client setup" description). Endpoints on `McpOverviewController`, Settings section: `GET /mcp/overview`, `DELETE /mcp/connections/{userKey}`, `GET /mcp/client-setup?clientId=` (`{ clientId, configuredClientId, apiUsers, clients }`: the snippets for that client id, default `Umbraco:Mcp:ClientId`, and the API users with a client id to pick from; 404 for a client id that is neither the configured one nor an API user's).
+- **`McpOverviewService`** (`Overview/`): status, findings, products and connected API users, shared by the Overview tab and the three health checks (`McpHealthCheckRows` renders short rows; the pointer to Settings → Umbrella is only in the "MCP client setup" description). Endpoints on `McpOverviewController`, Settings section: `GET /mcp/overview`, `DELETE /mcp/connections/{userKey}`, `GET /mcp/client-setup?clientId=` (`{ clientId, configuredClientId, apiUsers, clients }`: the snippets for that client id, default `Umbraco:Mcp:ClientId`, else `umbraco-back-office-mcp`, and the API users with a client id to pick from; 404 for a client id that is neither the configured one nor an API user's).
 - **No files written:** the add-on used to write `.mcp.json` in Development; that was removed, because it pinned one client id (a team sharing it signed in as one API user) and did nothing for hosted sites or editors without the source. Don't add it back.
 - **Demo site:** `demo-site/.mcp.json` (gitignored) is written by hand to run the local build (`node ../npm/dist/index.js`); `docs/development.md` has the content.
 
