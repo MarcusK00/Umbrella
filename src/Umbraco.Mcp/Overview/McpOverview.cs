@@ -1,5 +1,3 @@
-using Umbraco.Mcp.Client;
-
 namespace Umbraco.Mcp.Overview;
 
 /// <summary>One thing the Overview wants a person to know. The message is plain text; whoever renders it encodes it.</summary>
@@ -68,5 +66,4 @@ public sealed record McpOverview(
     IReadOnlyList<McpFinding> Findings,
     IReadOnlyList<McpOverviewProduct> Products,
     McpServerReport? Server,
-    IReadOnlyList<McpOverviewApiUser> ApiUsers,
-    IReadOnlyList<McpClientSnippet> Clients);
+    IReadOnlyList<McpOverviewApiUser> ApiUsers);
