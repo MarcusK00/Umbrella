@@ -80,16 +80,13 @@ grep -qx "cms--delete-document" <<<"$TOOLS_ND" || fail "no-destructive forms als
 echo "   no-destructive forms kept list-forms and dropped delete-form"
 put_settings '{"disabledCollections":{}}' || fail "PUT empty tool-settings failed"
 TOOLS_DEF=$(node dist/index.js --list-tools)
-for tool in forms--get-server-info automate--get-server-info forms--get-acceptance-tests-system-info; do
-  if grep -qx "$tool" <<<"$TOOLS_DEF"; then fail "$tool listed although its group is off by default"; fi
+for tool in forms--get-server-info automate--get-server-info forms--get-acceptance-tests-system-info cms--get-manifest-manifest; do
+  grep -qx "$tool" <<<"$TOOLS_DEF" || fail "$tool missing although no tool group is off by default"
 done
-put_settings '{"disabledCollections":{"forms":[]}}' || fail "PUT forms tool-settings failed"
-TOOLS_SAVED=$(node dist/index.js --list-tools)
-grep -qx "forms--get-server-info" <<<"$TOOLS_SAVED" || fail "a saved empty Forms list did not switch its default-off groups on"
 put_settings "$ORIGINAL" || fail "could not restore tool settings"
 put_user_settings "$USER_ORIGINAL" || fail "could not restore this API user's own tool settings"
 trap - EXIT
-echo "   default-off groups are off until the site saves a list"
+echo "   every tool group is on until the site saves a list"
 
 echo "   overview and client-setup endpoints"
 OVERVIEW=$(curl -sfk -H "Authorization: Bearer $TOKEN" "$API/overview") || fail "GET overview failed"
