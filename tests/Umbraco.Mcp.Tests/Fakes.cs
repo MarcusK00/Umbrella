@@ -177,8 +177,12 @@ internal sealed class FakeApiUserProvider(params McpApiUser[] users) : IMcpApiUs
 
 internal sealed class FakeApiUserDirectory(params McpApiUserInfo[] users) : IMcpApiUserDirectory
 {
+    public Exception? Throws { get; init; }
+
     public Task<IReadOnlyList<McpApiUserInfo>> GetAllAsync() =>
-        Task.FromResult<IReadOnlyList<McpApiUserInfo>>(users.OrderBy(u => u.Name, StringComparer.OrdinalIgnoreCase).ToList());
+        Throws is null
+            ? Task.FromResult<IReadOnlyList<McpApiUserInfo>>(users.OrderBy(u => u.Name, StringComparer.OrdinalIgnoreCase).ToList())
+            : throw Throws;
 
     public Task<McpApiUserInfo?> GetAsync(Guid key) => Task.FromResult(users.FirstOrDefault(u => u.Key == key));
 }

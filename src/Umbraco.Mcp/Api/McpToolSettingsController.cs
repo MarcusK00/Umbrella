@@ -2,6 +2,7 @@ using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Umbraco.Cms.Api.Management.Controllers;
 using Umbraco.Cms.Api.Management.Routing;
 using Umbraco.Cms.Core.Models.Membership;
@@ -72,7 +73,8 @@ public sealed class McpToolSettingsController(
     IMcpToolSettingsStore store,
     IMcpCapabilitiesService capabilities,
     IMcpApiUserDirectory apiUsers,
-    IBackOfficeSecurityAccessor backOfficeSecurityAccessor) : ManagementApiControllerBase
+    IBackOfficeSecurityAccessor backOfficeSecurityAccessor,
+    ILogger<McpToolSettingsController> logger) : ManagementApiControllerBase
 {
     /// <summary>
     /// What the "Umbrella" dashboard shows: the products, the groups the MCP server reported, what is switched off and
@@ -85,21 +87,7 @@ public sealed class McpToolSettingsController(
     public async Task<IActionResult> GetToolSettings()
     {
         McpCapabilities caps = capabilities.GetCapabilities();
-        IReadOnlyDictionary<Guid, McpToolCatalogue> userCatalogues = store.GetAllUserCatalogues();
-        IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, McpProductOverride>> userOverrides = store.GetAllUserOverrides();
-        var users = (await apiUsers.GetAllAsync())
-            .Select(u => new McpToolSettingsApiUser(
-                u.Key,
-                u.Name,
-                u.ClientIds,
-                McpUserStates.Name(u.State),
-                userCatalogues.TryGetValue(u.Key, out McpToolCatalogue? catalogue) && catalogue.Modules.Count > 0
-                    ? McpCatalogueFallback.LatestReportedAt(catalogue)
-                    : null,
-                userOverrides.TryGetValue(u.Key, out IReadOnlyDictionary<string, McpProductOverride>? overrides)
-                    ? overrides.Keys.Order(StringComparer.Ordinal).ToList()
-                    : []))
-            .ToList();
+        var users = await ReadApiUsersAsync();
         return Ok(new McpToolSettingsResponse(
             caps.AddonVersion,
             caps.Products,
@@ -108,6 +96,37 @@ public sealed class McpToolSettingsController(
             store.GetReadOnlyModules(),
             store.GetNoDestructiveModules(),
             users));
+    }
+
+    /// <summary>
+    /// The picker's API users with their reports and overrides. A failing read must not stop the defaults from loading,
+    /// so it logs a warning and the dashboard shows no per-user picker.
+    /// </summary>
+    private async Task<List<McpToolSettingsApiUser>> ReadApiUsersAsync()
+    {
+        try
+        {
+            IReadOnlyDictionary<Guid, McpToolCatalogue> userCatalogues = store.GetAllUserCatalogues();
+            IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, McpProductOverride>> userOverrides = store.GetAllUserOverrides();
+            return (await apiUsers.GetAllAsync())
+                .Select(u => new McpToolSettingsApiUser(
+                    u.Key,
+                    u.Name,
+                    u.ClientIds,
+                    McpUserStates.Name(u.State),
+                    userCatalogues.TryGetValue(u.Key, out McpToolCatalogue? catalogue) && catalogue.Modules.Count > 0
+                        ? McpCatalogueFallback.LatestReportedAt(catalogue)
+                        : null,
+                    userOverrides.TryGetValue(u.Key, out IReadOnlyDictionary<string, McpProductOverride>? overrides)
+                        ? overrides.Keys.Order(StringComparer.Ordinal).ToList()
+                        : []))
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Umbrella could not read the API users' tool settings; showing the defaults only");
+            return [];
+        }
     }
 
     /// <summary>One API user's own settings and the catalogue to show for it (its own, or the closest fallback).</summary>
