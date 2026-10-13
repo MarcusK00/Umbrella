@@ -7,7 +7,7 @@ import { UmbTextStyles } from "@umbraco-cms/backoffice/style";
 import { formatDate, request } from "./umbrella-api.js";
 
 const STATE_LABELS = { active: "Active", disabled: "Disabled", lockedOut: "Locked out" };
-const ACCESS_LABELS = { full: "Full access", noDestructive: "No destructive tools", readOnly: "Read-only" };
+const ACCESS_LABELS = { full: "Full", noDestructive: "No deletes", readOnly: "Read-only", off: "Off" };
 
 /**
  * Settings → Umbrella → Overview: what needs attention (only when something does), how to connect an AI tool as a chosen

@@ -12,6 +12,12 @@ internal static class McpToolCounts
     /// </summary>
     public static int? Effective(McpModuleCatalogue module, McpProductStatus product)
     {
+        // Switched off: the npm server does not load the product, whatever the environment says about its groups.
+        if (product.Off)
+        {
+            return 0;
+        }
+
         if (module.SiteSettingsIgnored)
         {
             return null;

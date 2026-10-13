@@ -21,6 +21,13 @@ public class McpToolCountsTests
         new("forms", "Umbraco Forms", true, true, "17.6.1", []) { DisabledCollections = disabled, ReadOnly = readOnly, NoDestructive = noDestructive };
 
     [Test]
+    public void Effective_is_zero_when_off()
+    {
+        Assert.That(McpToolCounts.Effective(Module(), Forms() with { Off = true }), Is.EqualTo(0));
+        Assert.That(McpToolCounts.Effective(Module(siteSettingsIgnored: true), Forms() with { Off = true }), Is.EqualTo(0));
+    }
+
+    [Test]
     public void Without_a_saved_list_the_groups_off_by_default_are_left_out()
     {
         Assert.That(McpToolCounts.Effective(Module(), Forms()), Is.EqualTo(40));

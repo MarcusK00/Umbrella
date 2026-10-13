@@ -36,10 +36,18 @@ public sealed class McpOverviewService(
         string addonVersion = caps?.AddonVersion ?? McpAddon.Version;
         IReadOnlyList<McpProductStatus> products = caps?.Products ?? [];
         var sectionByProduct = detectors.ToDictionary(d => d.Id, d => d.SectionAlias);
+        var userCapabilities = new Dictionary<Guid, McpCapabilities>();
+        foreach (McpApiUser u in users ?? [])
+        {
+            if (Read(() => capabilities.GetCapabilities(u.Key), $"the tool access of \"{u.Name}\"") is { } own)
+            {
+                userCapabilities[u.Key] = own;
+            }
+        }
 
         return new McpOverview(
             addonVersion,
-            BuildFindings(caps, catalogue, users, sectionByProduct, addonVersion, userCatalogues),
+            BuildFindings(caps, catalogue, users, sectionByProduct, addonVersion, userCatalogues, userCapabilities),
             products.Select(p => BuildProduct(p, catalogue, userCatalogues)).ToList(),
             BuildServer(catalogue, addonVersion),
             (users ?? []).Select(u => BuildUser(
@@ -47,7 +55,7 @@ public sealed class McpOverviewService(
                 products,
                 sectionByProduct,
                 userCatalogues.GetValueOrDefault(u.Key),
-                Read(() => capabilities.GetCapabilities(u.Key), $"the tool access of \"{u.Name}\""))).ToList());
+                userCapabilities.GetValueOrDefault(u.Key))).ToList());
     }
 
     private T? Read<T>(Func<T> read, string what) where T : class
@@ -105,7 +113,8 @@ public sealed class McpOverviewService(
             ? module
             : null;
 
-    private static string AccessLevel(McpProductStatus p) => p.ReadOnly ? "readOnly" : p.NoDestructive ? "noDestructive" : "full";
+    private static string AccessLevel(McpProductStatus p) =>
+        p.Off ? McpToolLevel.Off : p.ReadOnly ? McpToolLevel.ReadOnly : p.NoDestructive ? McpToolLevel.NoDestructive : McpToolLevel.Full;
 
     /// <summary>
     /// A product is loaded when a connected API user's MCP server loaded it; its tool count is from the most recent such
@@ -204,7 +213,8 @@ public sealed class McpOverviewService(
         IReadOnlyList<McpApiUser>? users,
         IReadOnlyDictionary<string, string?> sectionByProduct,
         string addonVersion,
-        IReadOnlyDictionary<Guid, McpToolCatalogue>? userCatalogues = null)
+        IReadOnlyDictionary<Guid, McpToolCatalogue>? userCatalogues = null,
+        IReadOnlyDictionary<Guid, McpCapabilities>? userCapabilities = null)
     {
         var productFindings = new List<McpFinding>();
         var serverFindings = new List<McpFinding>();
@@ -257,7 +267,9 @@ public sealed class McpOverviewService(
         {
             foreach (McpApiUser user in users)
             {
-                userFindings.AddRange(BuildUserFindings(user, caps?.Products ?? [], sectionByProduct));
+                // A product switched off for the user (its own settings, else the defaults) needs no section.
+                IReadOnlyList<McpProductStatus> products = userCapabilities?.GetValueOrDefault(user.Key)?.Products ?? caps?.Products ?? [];
+                userFindings.AddRange(BuildUserFindings(user, products.Where(p => !p.Off).ToList(), sectionByProduct));
             }
         }
 

@@ -170,6 +170,55 @@ public class McpOverviewServiceTests
     }
 
     [Test]
+    public void No_section_finding_for_a_product_off_in_the_defaults()
+    {
+        var caps = new McpCapabilities(Addon, AllProducts.Select(p => p.Id == "forms" ? p with { Off = true } : p).ToList());
+
+        Assert.That(Findings(caps: caps, users: [User(UserState.Active, "Ua.Section.Automate")]), Is.Empty);
+    }
+
+    [Test]
+    public async Task No_section_finding_for_a_product_off_for_that_user()
+    {
+        McpApiUser anna = new(Guid.NewGuid(), "Anna", UserState.Active, ["Ua.Section.Automate"], ["a"], Reported);
+        McpApiUser bob = new(Guid.NewGuid(), "Bob", UserState.Active, ["Ua.Section.Automate"], ["b"], Reported);
+        McpProductStatus[] annaOwn = AllProducts.Select(p => p.Id == "forms" ? p with { Off = true, SettingsScope = McpSettingsScope.User } : p).ToArray();
+        var service = Service(
+            users: new FakeApiUserProvider(anna, bob),
+            caps: new StubCapabilities(
+                new McpCapabilities(Addon, AllProducts),
+                new Dictionary<Guid, McpCapabilities> { [anna.Key] = new McpCapabilities(Addon, annaOwn) }));
+
+        McpOverview overview = await service.GetOverviewAsync();
+
+        Assert.That(overview.Findings.Select(f => f.Message), Has.None.Contains("\"Anna\" cannot use Umbraco Forms"));
+        Assert.That(overview.Findings.Select(f => f.Message), Has.Some.Contains("\"Bob\" cannot use Umbraco Forms"));
+    }
+
+    [Test]
+    public async Task Access_level_is_off_with_no_tools()
+    {
+        McpApiUser user = NamedUser("Anna");
+        McpProductStatus[] own = AllProducts.Select(p => p.Id == "forms" ? p with { Off = true, ReadOnly = false, SettingsScope = McpSettingsScope.User } : p).ToArray();
+        var catalogue = new McpToolCatalogue(Addon, new Dictionary<string, McpModuleCatalogue>
+        {
+            ["cms"] = new(Reported, false, [new McpCollectionInfo("a", 3)]),
+            ["forms"] = new(Reported, false, [new McpCollectionInfo("a", 4)]),
+        });
+        var service = Service(
+            settings: new FakeToolSettingsStore { UserCatalogues = { [user.Key] = catalogue } },
+            users: new FakeApiUserProvider(user),
+            caps: new StubCapabilities(
+                new McpCapabilities(Addon, AllProducts),
+                new Dictionary<Guid, McpCapabilities> { [user.Key] = new McpCapabilities(Addon, own) }));
+
+        McpOverviewAccess forms = (await service.GetOverviewAsync()).ApiUsers.Single().Access.Single(a => a.ProductId == "forms");
+
+        Assert.That(forms.Level, Is.EqualTo("off"));
+        Assert.That(forms.ToolCount, Is.EqualTo(0));
+    }
+
+    [Test]
     public void Warnings_come_before_info_in_area_order()
     {
         var caps = new McpCapabilities(Addon, [Product("forms", "Umbraco Forms", true, false)]);
