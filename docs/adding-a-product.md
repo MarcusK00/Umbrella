@@ -25,7 +25,7 @@ It must also depend on the same `@umbraco-cms/mcp-server-sdk` version as `npm/pa
 Then add it to `npm/package.json`:
 
 - **A published release has both:** add it to `dependencies` with an exact registry version, as CMS, Forms, Automate and Engage are. The product ships in the next `umbrella-mcp` release.
-- **Not published yet:** pack it locally with `npm pack --pack-destination <this repo>/npm/vendor`, add it to `devDependencies` as `file:vendor/<tarball>.tgz`, and add the package name to `external` in `npm/tsup.config.ts`. It then loads in local builds, while the published `umbrella-mcp` reports in `get-mcp-health` that the product's tools are not available. CI cannot install the tarball: in `.github/workflows/ci.yml`, delete the devDependency before installing (with `npm install` instead of `npm ci`) and list the package in `CI_ABSENT_PACKAGES` so the contract test skips it. Move it to `dependencies` once the release is published, and undo all of that.
+- **Not published yet:** pack it locally with `npm pack --pack-destination <this repo>/npm/vendor`, add it to `devDependencies` as `file:vendor/<tarball>.tgz`, and add `external: ["<package>"]` to the config in `npm/tsup.config.ts` (devDependencies are bundled otherwise). It then loads in local builds, while the published `umbrella-mcp` reports in `get-mcp-health` that the product's tools are not available. CI cannot install the tarball: in `.github/workflows/ci.yml`, delete the devDependency before installing (with `npm install` instead of `npm ci`) and list the package in `CI_ABSENT_PACKAGES` so the contract test skips it. Move it to `dependencies` once the release is published, and undo all of that.
 
 After `npm install`, `npm ls @umbraco-cms/mcp-server-sdk` must show a single `1.0.0-beta.46`, deduped.
 
@@ -112,9 +112,12 @@ scripts/pack-check.sh                   # registry dependencies only
 
 The contract test checks the id and prefix format, the `load()` fields, that tools are well-formed, that prefixed names are unique across modules, and the routing length budget.
 
+It also compares the tools flagged `destructiveHint` with `npm/src/modules/__tests__/destructive-tools.snapshot.json`. A new product with destructive tools fails it until you review the `<id>--…` names it reports as added and add them to the snapshot, sorted.
+
 ## 6. Docs
 
 - `README.md`: the package table, Compatibility and Known limitations.
-- `npm/README.md` and `src/Umbraco.Mcp/README.md`: the list of supported products.
+- `npm/README.md` and `src/Umbraco.Mcp/README.md`: the list of supported products. `npm/README.md` also has the table of groups that are off by default, when the module sets `defaultDisabledCollections`.
+- `docs/architecture.md` (the module list) and `docs/architecture-map.html` (the product boxes and prefixes).
 - The `<Description>` in `src/Umbraco.Mcp/Umbraco.Mcp.csproj` (shown on NuGet).
 - `CLAUDE.md`, "Product packages".

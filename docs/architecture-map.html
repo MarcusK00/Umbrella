@@ -161,7 +161,7 @@ footer { margin-block-start: 72px; padding-block-start: 20px; border-top: 1px so
   <!-- 1 · system -->
   <section id="system">
     <h2>The whole system</h2>
-    <p>Three parties, two machines. Only four kinds of request cross from your machine to the site, numbered on the arrows.</p>
+    <p>Three parties, two machines. Four kinds of request carry the work from your machine to the site, numbered on the arrows. At start the server also checks the signed-in user and the Umbraco version.</p>
     <figure>
       <div class="scroll">
         <svg class="min-xl" viewBox="0 0 1180 630" role="img" aria-label="The AI tool starts umbrella-mcp over stdio. umbrella-mcp signs in to the Umbraco site, fetches capabilities from the add-on, reports its catalogue back, and sends tool calls to each product's Management API.">
@@ -265,7 +265,7 @@ footer { margin-block-start: 72px; padding-block-start: 20px; border-top: 1px so
           <text class="t m mid" x="1012" y="308">POST /mcp/catalogue</text>
           <rect class="box" x="892" y="328" width="240" height="62" rx="6"/>
           <text class="t sm mid" x="1012" y="350">Settings → Umbrella</text>
-          <text class="s mid" x="1012" y="367">dashboard · GET/PUT tool-settings</text>
+          <text class="s mid" x="1012" y="367">Overview · client-setup · tool-settings</text>
           <text class="s mid" x="1012" y="382">three health checks</text>
 
           <line class="ln site" x1="1012" y1="391" x2="1012" y2="416" marker-end="url(#ah-site)"/>
@@ -448,7 +448,7 @@ footer { margin-block-start: 72px; padding-block-start: 20px; border-top: 1px so
         <thead><tr><th>Toolkit export</th><th>What Umbrella uses it for</th></tr></thead>
         <tbody>
           <tr><td><code>initializeUmbracoFetch</code></td><td>Signing in once with the client credentials</td></tr>
-          <tr><td><code>UmbracoManagementClient</code></td><td>The credentials check (<code>getUserCurrent</code>), and the capabilities and catalogue requests</td></tr>
+          <tr><td><code>UmbracoManagementClient</code></td><td>The server information (Umbraco version), capabilities and catalogue requests. The credentials check (<code>getUserCurrent</code>) goes through the CMS package's client</td></tr>
           <tr><td><code>configureApiClient</code></td><td>Installing the one provider that every product handler's <code>getApiClient()</code> reads from</td></tr>
           <tr><td><code>createCollectionConfigLoader</code>, <code>shouldIncludeTool</code></td><td>Filtering, so <code>UMBRACO_TOOL_MODES</code>, <code>UMBRACO_EXCLUDE_TOOLS</code> and the rest mean what they mean in the product servers</td></tr>
           <tr><td><code>registerToolCollection</code>, <code>createToolAnnotations</code></td><td>Registering the tools the way the toolkit expects</td></tr>
@@ -621,7 +621,7 @@ footer { margin-block-start: 72px; padding-block-start: 20px; border-top: 1px so
           <text class="lbl mid" x="650" y="224">GET current user · bad credentials → exit</text>
 
           <rect class="dot" x="464" y="266" width="12" height="20" rx="2"/>
-          <text class="lbl" x="488" y="280">Umbraco major 17? a mismatch warns, doesn't stop</text>
+          <text class="lbl" x="488" y="280">GET server information: major 17? mismatch warns</text>
 
           <line class="ln site" x1="472" y1="320" x2="826" y2="320" marker-end="url(#ah-site)"/>
           <text class="lbl m mid c-site" x="650" y="312">GET /mcp/capabilities</text>
@@ -878,7 +878,7 @@ If the request does not clearly match one product, or product tools seem missing
           <rect class="box site" x="671" y="40" width="170" height="80" rx="8"/>
           <text class="t mid" x="756" y="70">Saved</text>
           <text class="s m mid" x="756" y="90">PUT /mcp/tool-settings</text>
-          <text class="s mid" x="756" y="106">defaults, or one user's</text>
+          <text class="s mid" x="756" y="106">+ /users/‹key› for one user</text>
           <rect class="panel server" x="888" y="40" width="170" height="80" rx="8"/>
           <text class="t mid" x="973" y="70">Next server start</text>
           <text class="s mid" x="973" y="90">reconnect in the AI tool</text>
@@ -892,7 +892,7 @@ If the request does not clearly match one product, or product tools seem missing
           <text class="lbl mid c-site" x="539" y="198">GET /mcp/capabilities carries disabledCollections, readOnly, noDestructive and settingsScope</text>
         </svg>
       </div>
-      <figcaption>Before the server has started once, the dashboard has nothing to show. Settings are shared by every server of a load-balanced site, since they live in the database. They are a convenience, not a security control: the API user's groups and sections decide what it can really do.</figcaption>
+      <figcaption>Before a server has started once, Tool Permissions has no tool groups to show. Settings are shared by every server of a load-balanced site, since they live in the database. They are a convenience, not a security control: the API user's groups and sections decide what it can really do.</figcaption>
     </figure>
   </section>
 
@@ -940,7 +940,7 @@ If the request does not clearly match one product, or product tools seem missing
           <text class="t sm mid" x="1010" y="64">Admin</text>
           <text class="s mid" x="1010" y="84">Settings →</text>
           <text class="s mid" x="1010" y="100">Umbrella →</text>
-          <text class="s mid" x="1010" y="116">Tool groups</text>
+          <text class="s mid" x="1010" y="116">Tool Permissions</text>
           <text class="s mid" x="1010" y="140">picker:</text>
           <text class="s mid" x="1010" y="154">defaults, or</text>
           <text class="s mid" x="1010" y="168">one API user</text>
@@ -985,6 +985,7 @@ If the request does not clearly match one product, or product tools seem missing
       <li><b>Override per product, all or nothing.</b> An override holds the product's switched-off groups and its level (<code>full</code>, <code>noDestructive</code> or <code>readOnly</code>). A product without one follows the defaults, also when they change later.</li>
       <li><b>Every API user is selectable</b>, also one that has never connected. The user's own server picks the settings up on its next start.</li>
       <li><b>Counts per user.</b> The Tool Permissions counts come from the selected user's own report; a user without one shows its groups without counts. The defaults show the highest counts any API user reported. Forgetting a connection in the Overview clears that user's report and keeps its overrides.</li>
+      <li><b>Client config per user.</b> The Overview's "Connect an AI tool" has its own API user picker. It calls <code>GET /mcp/client-setup?clientId=</code> and shows the six snippets (Claude Code, the <code>claude mcp add</code> command, Claude Desktop, VS Code, Cursor, other clients) for that user's client id. No secret, and no files written on the site.</li>
       <li><b>Still guardrails.</b> The npm server applies them on each developer's machine; the API user's Umbraco permissions are the real boundary.</li>
     </ul>
   </section>
