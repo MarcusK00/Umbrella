@@ -14,6 +14,7 @@ public sealed class McpCapabilitiesService(
         IReadOnlyDictionary<string, IReadOnlyList<string>> disabled = SafeDisabledCollections();
         IReadOnlyList<string> readOnly = SafeReadOnlyModules();
         IReadOnlyList<string> noDestructive = SafeNoDestructiveModules();
+        IReadOnlyList<string> off = SafeOffModules();
         IReadOnlyDictionary<string, McpProductOverride> overrides = SafeUserOverrides(apiUserKey);
         return new(
             McpAddon.Version,
@@ -28,6 +29,7 @@ public sealed class McpCapabilitiesService(
                         DisabledCollections = own.DisabledCollections,
                         ReadOnly = own.Level == McpToolLevel.ReadOnly,
                         NoDestructive = own.Level == McpToolLevel.NoDestructive,
+                        Off = own.Level == McpToolLevel.Off,
                         SettingsScope = McpSettingsScope.User,
                     };
                 }
@@ -37,6 +39,7 @@ public sealed class McpCapabilitiesService(
                     DisabledCollections = disabled.GetValueOrDefault(d.Id),
                     ReadOnly = readOnly.Contains(d.Id, StringComparer.Ordinal),
                     NoDestructive = noDestructive.Contains(d.Id, StringComparer.Ordinal),
+                    Off = off.Contains(d.Id, StringComparer.Ordinal),
                 };
             }).ToList());
     }
@@ -56,6 +59,19 @@ public sealed class McpCapabilitiesService(
         {
             logger.LogWarning(ex, "Could not read the MCP tool settings for API user {Key}. The defaults apply.", key);
             return new Dictionary<string, McpProductOverride>();
+        }
+    }
+
+    private IReadOnlyList<string> SafeOffModules()
+    {
+        try
+        {
+            return toolSettings.GetOffModules();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not read the MCP off settings. No product is off in the capabilities.");
+            return [];
         }
     }
 
