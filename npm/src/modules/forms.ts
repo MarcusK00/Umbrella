@@ -13,9 +13,6 @@ export const formsModule: McpProductModule = {
     "form workflows (actions that run after a form is submitted), data sources and prevalue sources",
     "the Forms recycle bin (deleted forms and folders)",
   ],
-  // get-server-info duplicates Automate's and CMS get-server-information; acceptance-tests is a test aid;
-  // licensing, updates and media (one media lookup by path) are backoffice plumbing.
-  defaultDisabledCollections: ["umbraco-server", "acceptance-tests", "licensing", "updates", "media"],
   load: async (): Promise<LoadedModule> => {
     const m = await import("@umbraco-forms/mcp-dev/collections");
     return {

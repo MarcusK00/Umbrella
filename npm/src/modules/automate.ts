@@ -14,8 +14,6 @@ export const automateModule: McpProductModule = {
     "workspaces, metrics and version history",
     "general automations that are not tied to a form submission",
   ],
-  // get-server-info duplicates Forms' and CMS get-server-information.
-  defaultDisabledCollections: ["umbraco-server"],
   load: async (): Promise<LoadedModule> => {
     const m = await import("@umbraco-automate/mcp-dev/collections");
     return {
