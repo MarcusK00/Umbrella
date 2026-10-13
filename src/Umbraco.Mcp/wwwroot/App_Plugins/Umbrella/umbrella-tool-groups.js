@@ -3,7 +3,7 @@ import { UmbLitElement } from "@umbraco-cms/backoffice/lit-element";
 import { UMB_AUTH_CONTEXT } from "@umbraco-cms/backoffice/auth";
 import { UMB_NOTIFICATION_CONTEXT } from "@umbraco-cms/backoffice/notification";
 import { UmbTextStyles } from "@umbraco-cms/backoffice/style";
-import { formatDate, request } from "./umbrella-api.js";
+import { request } from "./umbrella-api.js";
 
 /** Settings → Umbrella → Tool groups: switch the MCP server's tool groups (collections) on or off, and set a tool level (full access, no destructive tools or read-only) per product. */
 export class UmbrellaToolGroupsElement extends UmbLitElement {
@@ -105,13 +105,14 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
         <p>Not reported yet. Start the MCP server once; if it has started, call get-mcp-health in your AI tool to see why this product did not load.</p>
       </uui-box>`;
     }
-    const off = module.collections.filter((c) => this._disabled[product.id]?.has(c.name)).length;
+    const total = module.collections.reduce((sum, c) => sum + c.toolCount, 0);
+    const off = module.collections.filter((c) => this._disabled[product.id]?.has(c.name)).reduce((sum, c) => sum + c.toolCount, 0);
     const level = this._levels[product.id] ?? "full";
     const suffix = level === "readOnly" ? " · read-only" : level === "noDestructive" ? " · no destructive tools" : "";
     const olderServer =
       level === "noDestructive" && module.collections.length > 0 && !module.collections.some((c) => typeof c.nonDestructiveToolCount === "number");
     return html`<uui-box headline=${product.displayName}>
-      <span slot="header-actions">${off} of ${module.collections.length} groups off${suffix}</span>
+      <span slot="header-actions">${off} of ${total} tools off${suffix}</span>
       ${module.siteSettingsIgnored
         ? html`<p class="warning">
             Your MCP server's environment sets collection filters for this product, so the group settings are ignored there.
@@ -161,13 +162,11 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
         <p>No tool groups reported yet. Start your MCP client once (it runs umbrella-mcp), then reload this page.</p>
       </uui-box>`;
     }
-    const last = reported.map((m) => m.reportedAt).sort().at(-1);
     const { umbrellaVersion } = this._data.catalogue;
     const addonVersion = this._data.addonVersion;
 
     return html`
       <uui-box headline="Umbrella – MCP tool groups">
-        <p>Last reported by umbrella-mcp ${umbrellaVersion} · ${formatDate(last)}</p>
         ${addonVersion && umbrellaVersion && umbrellaVersion !== addonVersion
           ? html`<p class="warning">
               The add-on is ${addonVersion}, but the MCP server ran umbrella-mcp ${umbrellaVersion}. The two are released
