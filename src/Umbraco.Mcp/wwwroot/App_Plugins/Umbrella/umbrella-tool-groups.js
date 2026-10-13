@@ -105,9 +105,13 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
         <p>Not reported yet. Start the MCP server once; if it has started, call get-mcp-health in your AI tool to see why this product did not load.</p>
       </uui-box>`;
     }
-    const total = module.collections.reduce((sum, c) => sum + c.toolCount, 0);
-    const off = module.collections.filter((c) => this._disabled[product.id]?.has(c.name)).reduce((sum, c) => sum + c.toolCount, 0);
     const level = this._levels[product.id] ?? "full";
+    const total = module.collections.reduce((sum, c) => sum + c.toolCount, 0);
+    // A switched-off group loses all its tools; a switched-on one loses those the level removes.
+    const off = module.collections.reduce(
+      (sum, c) => sum + (this._disabled[product.id]?.has(c.name) ? c.toolCount : c.toolCount - (this.#keptCount(c, level) ?? c.toolCount)),
+      0,
+    );
     const suffix = level === "readOnly" ? " · read-only" : level === "noDestructive" ? " · no destructive tools" : "";
     const olderServer =
       level === "noDestructive" && module.collections.length > 0 && !module.collections.some((c) => typeof c.nonDestructiveToolCount === "number");
@@ -147,9 +151,15 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
 
   /** "12", or "4 of 12" under read-only or no destructive tools; reports from older MCP servers lack those counts. */
   #toolCount(collection, level) {
+    const kept = this.#keptCount(collection, level);
+    return kept === null ? `${collection.toolCount}` : `${kept} of ${collection.toolCount}`;
+  }
+
+  /** The group's tools left under read-only or no destructive tools; null at full access or when an older MCP server did not report the count. */
+  #keptCount(collection, level) {
     const kept =
       level === "readOnly" ? collection.readOnlyToolCount : level === "noDestructive" ? collection.nonDestructiveToolCount : null;
-    return typeof kept === "number" ? `${kept} of ${collection.toolCount}` : `${collection.toolCount}`;
+    return typeof kept === "number" ? kept : null;
   }
 
   render() {
