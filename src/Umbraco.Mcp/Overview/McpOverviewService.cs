@@ -107,13 +107,7 @@ public sealed class McpOverviewService(
             (user.AllowedSections.Contains(section, StringComparer.OrdinalIgnoreCase) ? reachable : unreachable).Add(p.DisplayName);
         }
 
-        string state = user.State switch
-        {
-            UserState.Disabled => "disabled",
-            UserState.LockedOut => "lockedOut",
-            _ => "active",
-        };
-        return new McpOverviewApiUser(user.Key, user.Name, user.ClientIds.ToList(), state, user.LastConnected, reachable, unreachable);
+        return new McpOverviewApiUser(user.Key, user.Name, user.ClientIds.ToList(), McpUserStates.Name(user.State), user.LastConnected, reachable, unreachable);
     }
 
     /// <summary>Installed and enabled products whose tools need a backoffice section. CMS needs none.</summary>

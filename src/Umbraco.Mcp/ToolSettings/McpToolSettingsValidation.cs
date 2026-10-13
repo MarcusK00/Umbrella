@@ -1,3 +1,5 @@
+using Umbraco.Mcp.Api;
+
 namespace Umbraco.Mcp.ToolSettings;
 
 /// <summary>Normalises and size-caps what clients send, so a stray client cannot bloat the key/value table.</summary>
@@ -38,6 +40,52 @@ internal static class McpToolSettingsValidation
             }
 
             result[id] = clean;
+        }
+
+        return null;
+    }
+
+    /// <returns>An error message, or null when <paramref name="result"/> holds the normalised per-user overrides.</returns>
+    public static string? TryNormalizeOverrides(
+        IReadOnlyDictionary<string, McpProductOverrideRequest?>? input,
+        ISet<string> knownModuleIds,
+        out Dictionary<string, McpProductOverride> result)
+    {
+        result = new Dictionary<string, McpProductOverride>(StringComparer.Ordinal);
+        if (input is null)
+        {
+            return "overrides is required.";
+        }
+
+        if (input.Count > MaxModules)
+        {
+            return $"At most {MaxModules} modules are allowed.";
+        }
+
+        foreach ((string id, McpProductOverrideRequest? entry) in input)
+        {
+            if (!knownModuleIds.Contains(id))
+            {
+                return $"\"{id}\" is not a product this site detects.";
+            }
+
+            if (entry?.DisabledCollections is null)
+            {
+                return $"{id}: an override needs disabledCollections and level.";
+            }
+
+            if (!McpToolLevel.IsValid(entry.Level))
+            {
+                return $"{id}: level must be \"full\", \"noDestructive\" or \"readOnly\".";
+            }
+
+            string? error = TryNormalizeNames(entry.DisabledCollections, out List<string> clean);
+            if (error is not null)
+            {
+                return $"{id}: {error}";
+            }
+
+            result[id] = new McpProductOverride(clean, entry.Level!);
         }
 
         return null;

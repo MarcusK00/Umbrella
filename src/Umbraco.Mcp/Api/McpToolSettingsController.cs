@@ -7,6 +7,7 @@ using Umbraco.Cms.Api.Management.Routing;
 using Umbraco.Cms.Core.Models.Membership;
 using Umbraco.Cms.Core.Security;
 using Umbraco.Cms.Web.Common.Authorization;
+using Umbraco.Mcp.ApiUser;
 using Umbraco.Mcp.Capabilities;
 using Umbraco.Mcp.Detection;
 using Umbraco.Mcp.ToolSettings;
@@ -20,7 +21,34 @@ public sealed record McpToolSettingsResponse(
     McpToolCatalogue Catalogue,
     IReadOnlyDictionary<string, IReadOnlyList<string>> DisabledCollections,
     IReadOnlyList<string> ReadOnlyModules,
-    IReadOnlyList<string> NoDestructiveModules);
+    IReadOnlyList<string> NoDestructiveModules,
+    IReadOnlyList<McpToolSettingsApiUser> ApiUsers);
+
+/// <summary>An API user for the dashboard's picker, with when its MCP server last reported and which products it overrides.</summary>
+/// <param name="State">"active", "disabled" or "lockedOut".</param>
+public sealed record McpToolSettingsApiUser(
+    Guid Key,
+    string Name,
+    IReadOnlyList<string> ClientIds,
+    string State,
+    DateTimeOffset? LastReportedAt,
+    IReadOnlyList<string> OverriddenProducts);
+
+/// <summary>Where the catalogue shown for a user comes from.</summary>
+/// <param name="Kind">"user" (its own report), "latest" (the most recent report of another user or of the site) or "none".</param>
+public sealed record McpCatalogueSource(string Kind, DateTimeOffset? ReportedAt = null, string? UserName = null);
+
+public sealed record McpUserToolSettingsResponse(
+    IReadOnlyDictionary<string, McpProductOverride> Overrides,
+    McpToolCatalogue Catalogue,
+    McpCatalogueSource CatalogueSource);
+
+public sealed record McpProductOverrideRequest(IReadOnlyList<string?>? DisabledCollections, string? Level);
+
+/// <summary>Replaces one API user's overrides. An empty map makes the user follow the defaults again.</summary>
+public sealed record McpUserToolSettingsRequest(IReadOnlyDictionary<string, McpProductOverrideRequest?>? Overrides);
+
+public sealed record McpUserOverridesSaved(IReadOnlyDictionary<string, McpProductOverride> Overrides);
 
 /// <summary>
 /// Replaces all tool settings. A missing <paramref name="ReadOnlyModules"/> means no product is read-only, and a missing
@@ -43,6 +71,7 @@ public sealed record McpToolSettings(
 public sealed class McpToolSettingsController(
     IMcpToolSettingsStore store,
     IMcpCapabilitiesService capabilities,
+    IMcpApiUserDirectory apiUsers,
     IBackOfficeSecurityAccessor backOfficeSecurityAccessor) : ManagementApiControllerBase
 {
     /// <summary>
@@ -53,16 +82,76 @@ public sealed class McpToolSettingsController(
     [MapToApiVersion("1.0")]
     [Authorize(Policy = AuthorizationPolicies.SectionAccessSettings)]
     [ProducesResponseType(typeof(McpToolSettingsResponse), StatusCodes.Status200OK)]
-    public IActionResult GetToolSettings()
+    public async Task<IActionResult> GetToolSettings()
     {
         McpCapabilities caps = capabilities.GetCapabilities();
+        IReadOnlyDictionary<Guid, McpToolCatalogue> userCatalogues = store.GetAllUserCatalogues();
+        IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, McpProductOverride>> userOverrides = store.GetAllUserOverrides();
+        var users = (await apiUsers.GetAllAsync())
+            .Select(u => new McpToolSettingsApiUser(
+                u.Key,
+                u.Name,
+                u.ClientIds,
+                McpUserStates.Name(u.State),
+                userCatalogues.TryGetValue(u.Key, out McpToolCatalogue? catalogue) && catalogue.Modules.Count > 0
+                    ? McpCatalogueFallback.LatestReportedAt(catalogue)
+                    : null,
+                userOverrides.TryGetValue(u.Key, out IReadOnlyDictionary<string, McpProductOverride>? overrides)
+                    ? overrides.Keys.Order(StringComparer.Ordinal).ToList()
+                    : []))
+            .ToList();
         return Ok(new McpToolSettingsResponse(
             caps.AddonVersion,
             caps.Products,
             store.GetCatalogue(),
             store.GetDisabledCollections(),
             store.GetReadOnlyModules(),
-            store.GetNoDestructiveModules()));
+            store.GetNoDestructiveModules(),
+            users));
+    }
+
+    /// <summary>One API user's own settings and the catalogue to show for it (its own, or the closest fallback).</summary>
+    [HttpGet("tool-settings/users/{userKey:guid}")]
+    [MapToApiVersion("1.0")]
+    [Authorize(Policy = AuthorizationPolicies.SectionAccessSettings)]
+    [ProducesResponseType(typeof(McpUserToolSettingsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetUserToolSettings(Guid userKey)
+    {
+        if (await apiUsers.GetAsync(userKey) is null)
+        {
+            return NotFound();
+        }
+
+        var names = (await apiUsers.GetAllAsync()).ToDictionary(u => u.Key, u => u.Name);
+        (McpToolCatalogue catalogue, McpCatalogueSource source) =
+            McpCatalogueFallback.Resolve(userKey, store.GetAllUserCatalogues(), store.GetCatalogue(), names);
+        return Ok(new McpUserToolSettingsResponse(store.GetUserOverrides(userKey), catalogue, source));
+    }
+
+    /// <summary>Replaces one API user's overrides. An empty map makes the user follow the defaults.</summary>
+    [HttpPut("tool-settings/users/{userKey:guid}")]
+    [MapToApiVersion("1.0")]
+    [Authorize(Policy = AuthorizationPolicies.SectionAccessSettings)]
+    [ProducesResponseType(typeof(McpUserOverridesSaved), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> PutUserToolSettings(Guid userKey, [FromBody] McpUserToolSettingsRequest request)
+    {
+        if (await apiUsers.GetAsync(userKey) is null)
+        {
+            return NotFound();
+        }
+
+        var known = capabilities.GetCapabilities().Products.Select(p => p.Id).ToHashSet(StringComparer.Ordinal);
+        string? error = McpToolSettingsValidation.TryNormalizeOverrides(request?.Overrides, known, out var overrides);
+        if (error is not null)
+        {
+            return BadRequest(new ProblemDetails { Title = "Invalid MCP tool settings", Detail = error });
+        }
+
+        store.SetUserOverrides(userKey, overrides);
+        return Ok(new McpUserOverridesSaved(overrides));
     }
 
     [HttpPut("tool-settings")]
@@ -99,7 +188,8 @@ public sealed class McpToolSettingsController(
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public IActionResult PostCatalogue([FromBody] McpCatalogueReport report)
     {
-        if (backOfficeSecurityAccessor.BackOfficeSecurity?.CurrentUser?.Kind != UserKind.Api)
+        IUser? caller = backOfficeSecurityAccessor.BackOfficeSecurity?.CurrentUser;
+        if (caller?.Kind != UserKind.Api)
         {
             return StatusCode(StatusCodes.Status403Forbidden);
         }
@@ -110,7 +200,9 @@ public sealed class McpToolSettingsController(
             return BadRequest(new ProblemDetails { Title = "Invalid MCP catalogue", Detail = error });
         }
 
-        store.MergeCatalogue(normalized, DateTimeOffset.UtcNow);
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        store.SetUserCatalogue(caller.Key, normalized, now);
+        store.MergeCatalogue(normalized, now);
         return NoContent();
     }
 }

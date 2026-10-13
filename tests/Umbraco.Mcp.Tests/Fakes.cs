@@ -175,6 +175,14 @@ internal sealed class FakeApiUserProvider(params McpApiUser[] users) : IMcpApiUs
         Throws is null ? Task.FromResult<IReadOnlyList<McpApiUser>>(users) : throw Throws;
 }
 
+internal sealed class FakeApiUserDirectory(params McpApiUserInfo[] users) : IMcpApiUserDirectory
+{
+    public Task<IReadOnlyList<McpApiUserInfo>> GetAllAsync() =>
+        Task.FromResult<IReadOnlyList<McpApiUserInfo>>(users.OrderBy(u => u.Name, StringComparer.OrdinalIgnoreCase).ToList());
+
+    public Task<McpApiUserInfo?> GetAsync(Guid key) => Task.FromResult(users.FirstOrDefault(u => u.Key == key));
+}
+
 internal sealed class FakeMcpJsonFile(bool isAvailable = false, string? path = null) : IMcpJsonFile
 {
     public bool IsAvailable => isAvailable;

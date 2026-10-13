@@ -29,6 +29,7 @@ public sealed class McpComposer : IComposer
         builder.Services.AddSingleton<IMcpConnectionStore, KeyValueMcpConnectionStore>();
         builder.Services.AddSingleton<IMcpToolSettingsStore, KeyValueMcpToolSettingsStore>();
         builder.Services.AddScoped<IMcpApiUserProvider, ConnectedMcpApiUserProvider>();
+        builder.Services.AddScoped<IMcpApiUserDirectory, UserServiceMcpApiUserDirectory>();
         builder.Services.AddScoped<IMcpOverviewService, McpOverviewService>();
         builder.Services.AddSingleton<IMcpJsonFile, McpJsonFile>();
         builder.Services.AddHostedService<McpJsonWriter>();
