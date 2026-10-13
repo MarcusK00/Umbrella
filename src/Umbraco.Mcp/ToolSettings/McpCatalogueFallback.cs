@@ -48,5 +48,65 @@ internal static class McpCatalogueFallback
         return (McpToolCatalogue.Empty, new McpCatalogueSource("none"));
     }
 
+    /// <summary>
+    /// The catalogue for "All API users": per group, the highest counts any existing API user's MCP server reported, so
+    /// the defaults show what the best-permitted user gets. Counts depend on each user's permissions, and a user whose
+    /// server never started adds nothing yet. Before any API user has a report of its own, the shared row is used.
+    /// The result has no version: versions are per user.
+    /// </summary>
+    public static McpToolCatalogue Highest(
+        IReadOnlyDictionary<Guid, McpToolCatalogue> userCatalogues,
+        McpToolCatalogue shared,
+        IReadOnlySet<Guid> apiUserKeys)
+    {
+        McpToolCatalogue[] reports = userCatalogues
+            .Where(c => apiUserKeys.Contains(c.Key) && c.Value.Modules.Count > 0)
+            .Select(c => c.Value)
+            .ToArray();
+        if (reports.Length == 0)
+        {
+            return shared;
+        }
+
+        var modules = new Dictionary<string, McpModuleCatalogue>(StringComparer.Ordinal);
+        foreach ((string id, McpModuleCatalogue module) in reports.SelectMany(r => r.Modules))
+        {
+            modules[id] = modules.TryGetValue(id, out McpModuleCatalogue? seen) ? Higher(seen, module) : module;
+        }
+
+        return new McpToolCatalogue(null, modules);
+    }
+
+    private static McpModuleCatalogue Higher(McpModuleCatalogue a, McpModuleCatalogue b)
+    {
+        // Keep the order the groups were first reported in; a group only one report has is kept as it is.
+        var collections = a.Collections.ToList();
+        foreach (McpCollectionInfo other in b.Collections)
+        {
+            int i = collections.FindIndex(c => c.Name == other.Name);
+            if (i < 0)
+            {
+                collections.Add(other);
+                continue;
+            }
+
+            McpCollectionInfo mine = collections[i];
+            collections[i] = mine with
+            {
+                ToolCount = Math.Max(mine.ToolCount, other.ToolCount),
+                ReadOnlyToolCount = Max(mine.ReadOnlyToolCount, other.ReadOnlyToolCount),
+                NonDestructiveToolCount = Max(mine.NonDestructiveToolCount, other.NonDestructiveToolCount),
+                DisabledByDefault = mine.DisabledByDefault || other.DisabledByDefault,
+            };
+        }
+
+        return new McpModuleCatalogue(
+            a.ReportedAt > b.ReportedAt ? a.ReportedAt : b.ReportedAt,
+            a.SiteSettingsIgnored || b.SiteSettingsIgnored,
+            collections);
+    }
+
+    private static int? Max(int? a, int? b) => a is null ? b : b is null ? a : Math.Max(a.Value, b.Value);
+
     internal static DateTimeOffset LatestReportedAt(McpToolCatalogue catalogue) => catalogue.Modules.Values.Max(m => m.ReportedAt);
 }

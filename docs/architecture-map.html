@@ -984,7 +984,7 @@ If the request does not clearly match one product, or product tools seem missing
     <ul class="notes">
       <li><b>Override per product, all or nothing.</b> An override holds the product's switched-off groups and its level (<code>full</code>, <code>noDestructive</code> or <code>readOnly</code>). A product without one follows the defaults, also when they change later.</li>
       <li><b>Every API user is selectable</b>, also one that has never connected. The user's own server picks the settings up on its next start.</li>
-      <li><b>Counts per user.</b> The Tool groups counts come from the selected user's own report. A user without one sees the most recent other report, with a note. Forgetting a connection in the Overview clears that user's report and keeps its overrides.</li>
+      <li><b>Counts per user.</b> The Tool Permissions counts come from the selected user's own report; a user without one shows its groups without counts. The defaults show the highest counts any API user reported. Forgetting a connection in the Overview clears that user's report and keeps its overrides.</li>
       <li><b>Still guardrails.</b> The npm server applies them on each developer's machine; the API user's Umbraco permissions are the real boundary.</li>
     </ul>
   </section>

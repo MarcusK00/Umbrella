@@ -89,4 +89,80 @@ public class McpCatalogueFallbackTests
         Assert.That(catalogue, Is.SameAs(McpToolCatalogue.Empty));
         Assert.That(source, Is.EqualTo(new McpCatalogueSource("none")));
     }
+
+    private static McpModuleCatalogue Module(DateTimeOffset at, params McpCollectionInfo[] collections) =>
+        new(at, false, collections);
+
+    [Test]
+    public void Highest_takes_the_most_tools_per_group_across_api_users()
+    {
+        Guid editor = Guid.NewGuid(), admin = Guid.NewGuid();
+        var catalogues = new Dictionary<Guid, McpToolCatalogue>
+        {
+            [editor] = new("17.0.0", new Dictionary<string, McpModuleCatalogue>
+            {
+                ["cms"] = Module(T1, new McpCollectionInfo("document", 20, 10, false, 15), new McpCollectionInfo("user", 0, 0, false, 0)),
+                ["forms"] = Module(T1, new McpCollectionInfo("form", 30, 12, false, 25)),
+            }),
+            [admin] = new("17.0.0", new Dictionary<string, McpModuleCatalogue>
+            {
+                ["cms"] = Module(T2, new McpCollectionInfo("document", 50, 27, false, 40), new McpCollectionInfo("user", 9, 4, false, 7), new McpCollectionInfo("imaging", 1, 1, true, 1)),
+            }),
+        };
+
+        McpToolCatalogue highest = McpCatalogueFallback.Highest(catalogues, Catalogue(T3), new HashSet<Guid> { editor, admin });
+
+        Assert.That(highest.Modules["cms"].Collections, Is.EqualTo(new McpCollectionInfo[]
+        {
+            new("document", 50, 27, false, 40),
+            new("user", 9, 4, false, 7),
+            new("imaging", 1, 1, true, 1),
+        }));
+        Assert.That(highest.Modules["cms"].ReportedAt, Is.EqualTo(T2));
+        Assert.That(highest.Modules["forms"].Collections, Is.EqualTo(new McpCollectionInfo[] { new("form", 30, 12, false, 25) }));
+    }
+
+    [Test]
+    public void Highest_keeps_a_count_missing_when_no_report_has_it()
+    {
+        Guid a = Guid.NewGuid(), b = Guid.NewGuid();
+        var catalogues = new Dictionary<Guid, McpToolCatalogue>
+        {
+            [a] = new("17.0.0", new Dictionary<string, McpModuleCatalogue> { ["cms"] = Module(T1, new McpCollectionInfo("document", 20)) }),
+            [b] = new("17.0.0", new Dictionary<string, McpModuleCatalogue> { ["cms"] = Module(T2, new McpCollectionInfo("document", 5, 3)) }),
+        };
+
+        McpCollectionInfo document = McpCatalogueFallback.Highest(catalogues, McpToolCatalogue.Empty, new HashSet<Guid> { a, b })
+            .Modules["cms"].Collections.Single();
+
+        Assert.That(document, Is.EqualTo(new McpCollectionInfo("document", 20, 3)));
+    }
+
+    [Test]
+    public void Highest_ignores_catalogues_of_users_that_are_not_api_users()
+    {
+        Guid user = Guid.NewGuid(), ghost = Guid.NewGuid();
+        var catalogues = new Dictionary<Guid, McpToolCatalogue>
+        {
+            [user] = new("17.0.0", new Dictionary<string, McpModuleCatalogue> { ["cms"] = Module(T1, new McpCollectionInfo("document", 20)) }),
+            [ghost] = new("17.0.0", new Dictionary<string, McpModuleCatalogue> { ["cms"] = Module(T2, new McpCollectionInfo("document", 99)) }),
+        };
+
+        McpToolCatalogue highest = McpCatalogueFallback.Highest(catalogues, McpToolCatalogue.Empty, new HashSet<Guid> { user });
+
+        Assert.That(highest.Modules["cms"].Collections.Single().ToolCount, Is.EqualTo(20));
+    }
+
+    [Test]
+    public void Highest_is_the_shared_row_when_no_api_user_has_its_own_report()
+    {
+        McpToolCatalogue shared = Catalogue(T1);
+
+        McpToolCatalogue highest = McpCatalogueFallback.Highest(
+            new Dictionary<Guid, McpToolCatalogue> { [Guid.NewGuid()] = Catalogue(T2) },
+            shared,
+            new HashSet<Guid>());
+
+        Assert.That(highest, Is.SameAs(shared));
+    }
 }

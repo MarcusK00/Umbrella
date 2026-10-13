@@ -3,14 +3,15 @@ import { UmbLitElement } from "@umbraco-cms/backoffice/lit-element";
 import { UMB_AUTH_CONTEXT } from "@umbraco-cms/backoffice/auth";
 import { UMB_NOTIFICATION_CONTEXT } from "@umbraco-cms/backoffice/notification";
 import { UmbTextStyles } from "@umbraco-cms/backoffice/style";
-import { formatDate, request } from "./umbrella-api.js";
+import { request } from "./umbrella-api.js";
 
 /** The picker's value for the defaults; an API user's value is its key (a GUID). */
 const DEFAULTS = "defaults";
 const STATE_SUFFIX = { disabled: " – disabled", lockedOut: " – locked out" };
+const LEVEL_LABELS = { full: "Full access", noDestructive: "No destructive tools", readOnly: "Read-only" };
 
 /**
- * Settings → Umbrella → Tool groups: switch the MCP server's tool groups (collections) on or off, and set a tool level
+ * Settings → Umbrella → Tool Permissions: switch the MCP server's tool groups (collections) on or off, and set a tool level
  * (full access, no destructive tools or read-only) per product. The defaults apply to every API user; each API user can
  * override a product, all-or-nothing, with its own groups and level.
  */
@@ -31,6 +32,8 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
 
   #auth;
   #notifications;
+  // An API user the Overview asked to open before the settings had loaded.
+  #pendingUser = null;
 
   constructor() {
     super();
@@ -77,6 +80,37 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     } catch (error) {
       this._error = error.message;
     }
+    if (this.#pendingUser) {
+      const key = this.#pendingUser;
+      this.#pendingUser = null;
+      await this.selectUser(key);
+    }
+  }
+
+  /**
+   * Opens an API user's settings as if it was picked (the Overview's "Edit permissions"). With unsaved changes the
+   * usual notice asks first.
+   */
+  async selectUser(key) {
+    if (!this._data) {
+      this.#pendingUser = key;
+      return;
+    }
+    if (key === this._selected) return;
+    if (this._dirty) {
+      this._switchTo = key;
+      return;
+    }
+    this._switchTo = null;
+    await this.#switchTo(key, this.#picker());
+  }
+
+  /**
+   * Counts belong to the user being shown only when its own MCP server reported them; another user's report would show
+   * that user's permissions. The defaults always show the highest counts any API user's server reported.
+   */
+  #showCounts() {
+    return this._selected === "" || this._user?.catalogueSource?.kind === "user";
   }
 
   #fetchUser(key) {
@@ -311,10 +345,14 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
       0,
     );
     const suffix = level === "readOnly" ? " · read-only" : level === "noDestructive" ? " · no destructive tools" : "";
+    const counts = this.#showCounts();
     const olderServer =
-      level === "noDestructive" && module.collections.length > 0 && !module.collections.some((c) => typeof c.nonDestructiveToolCount === "number");
+      counts &&
+      level === "noDestructive" &&
+      module.collections.length > 0 &&
+      !module.collections.some((c) => typeof c.nonDestructiveToolCount === "number");
     return html`<uui-box headline=${product.displayName}>
-      <span slot="header-actions">${off} of ${total} tools off${suffix}</span>
+      <span slot="header-actions">${counts ? `${off} of ${total} tools off${suffix}` : (LEVEL_LABELS[level] ?? LEVEL_LABELS.full)}</span>
       ${note}
       ${user
         ? html`<uui-toggle
@@ -349,7 +387,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
         <div class="groups">
           ${module.collections.map(
             (c) => html`<uui-checkbox
-              label="${c.name} (${this.#toolCount(c, level)})"
+              label=${counts ? `${c.name} (${this.#toolCount(c, level)})` : c.name}
               ?checked=${!disabled.has(c.name)}
               ?disabled=${!editable}
               @change=${(e) => this.#toggle(product.id, c.name, e.target.checked)}
@@ -410,38 +448,34 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     </div>`;
   }
 
-  /** The version of the MCP server the shown catalogue comes from, and a note when the counts are another user's. */
+  /**
+   * Where the counts come from. In the user view, also the version that user's server ran: versions are per user, so
+   * the defaults view has none.
+   */
   #renderCatalogueNotes() {
     const addonVersion = this._data.addonVersion;
-    const user = this._selected !== "";
-    const source = this._user?.catalogueSource;
-    // In the user view only the user's own report says which umbrella-mcp that user runs.
-    const umbrellaVersion = user ? (source?.kind === "user" ? this._user.catalogue?.umbrellaVersion : null) : this._data.catalogue.umbrellaVersion;
-    const when = source?.reportedAt ? formatDate(source.reportedAt) : null;
-    return html`
-      ${addonVersion && umbrellaVersion && umbrellaVersion !== addonVersion
-        ? html`<p class="warning">
-            The add-on is ${addonVersion}, but the MCP server ran umbrella-mcp ${umbrellaVersion}. The two are released
-            together: set umbrella-mcp@${addonVersion} in your AI tool's MCP configuration.
-          </p>`
-        : nothing}
-      ${user && source?.kind === "latest"
-        ? html`<p>
-            ${source.userName
-              ? `Counts are from ${source.userName}'s last start${when ? ` on ${when}` : ""} and may differ for this user.`
-              : `Counts are from the most recent start on this site${when ? ` (${when})` : ""} and may differ for this user.`}
-          </p>`
-        : nothing}
-    `;
+    if (this._selected === "") {
+      return html`<p class="muted">Tool counts are the highest any API user's MCP server reported. Each user's own counts depend on its Umbraco permissions.</p>`;
+    }
+    if (this._user?.catalogueSource?.kind !== "user") {
+      return html`<p class="muted">Counts appear after this user's MCP server has started once.</p>`;
+    }
+    const umbrellaVersion = this._user.catalogue?.umbrellaVersion;
+    return addonVersion && umbrellaVersion && umbrellaVersion !== addonVersion
+      ? html`<p class="warning">
+          The add-on is ${addonVersion}, but this user's MCP server ran umbrella-mcp ${umbrellaVersion}. The two are released
+          together: set umbrella-mcp@${addonVersion} in the AI tool's MCP configuration.
+        </p>`
+      : nothing;
   }
 
   render() {
-    if (this._error) return html`<uui-box headline="Umbrella"><p>Could not load the tool groups: ${this._error}</p></uui-box>`;
+    if (this._error) return html`<uui-box headline="Umbrella"><p>Could not load the tool permissions: ${this._error}</p></uui-box>`;
     if (!this._data) return html`<uui-loader></uui-loader>`;
 
     const reported = Object.values(this._data.catalogue.modules);
     if (reported.length === 0) {
-      return html`<uui-box headline="Umbrella – MCP tool groups">
+      return html`<uui-box headline="Umbrella – MCP tool permissions">
         <p>No tool groups reported yet. Start your MCP client once (it runs umbrella-mcp), then reload this page.</p>
       </uui-box>`;
     }
@@ -450,7 +484,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     const userName = this._data.apiUsers?.find((u) => u.key === this._selected)?.name;
 
     return html`
-      <uui-box headline="Umbrella – MCP tool groups">
+      <uui-box headline="Umbrella – MCP tool permissions">
         ${this.#renderPicker()}
         ${this.#renderDiscardNotice()}
         ${this.#renderCatalogueNotes()}
@@ -484,6 +518,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
       .discard-notice { margin-bottom: var(--uui-size-space-4); padding: var(--uui-size-space-4); border: 1px solid var(--uui-color-danger); border-radius: var(--uui-border-radius); }
       .discard-notice p { margin: var(--uui-size-space-2) 0 var(--uui-size-space-3); }
       .warning { color: var(--uui-color-warning-standalone); }
+      .muted { color: var(--uui-color-text-alt); }
       .level { display: flex; flex-direction: column; margin-bottom: var(--uui-size-space-4); }
       .dimmed { opacity: 0.55; }
       .actions { display: flex; justify-content: flex-end; }

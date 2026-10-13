@@ -10,8 +10,8 @@ const STATE_LABELS = { active: "Active", disabled: "Disabled", lockedOut: "Locke
 const ACCESS_LABELS = { full: "Full access", noDestructive: "No destructive tools", readOnly: "Read-only" };
 
 /**
- * Settings → Umbrella → Overview: what needs attention, how to connect an AI tool, which products the MCP server
- * loaded, and the API users it has connected as.
+ * Settings → Umbrella → Overview: what needs attention (only when something does), how to connect an AI tool, and the
+ * API users MCP servers have connected as, with what each can reach and the tools it gets.
  */
 export class UmbrellaOverviewElement extends UmbLitElement {
   static properties = {
@@ -38,6 +38,11 @@ export class UmbrellaOverviewElement extends UmbLitElement {
       this.#auth = ctx;
       this.#load();
     });
+  }
+
+  /** Loads the overview again, for example after settings changed on Tool Permissions. */
+  reload() {
+    if (this.#auth) this.#load();
   }
 
   async #load() {
@@ -95,26 +100,20 @@ export class UmbrellaOverviewElement extends UmbLitElement {
     }
   }
 
+  /** Only when something needs attention; information that needs no action is left out. */
   #renderStatus() {
-    const { findings, server, apiUsers } = this._data;
-    const warnings = findings.filter((f) => f.severity === "warning").length;
-    const headline =
-      server === null || apiUsers.length === 0
-        ? "Not connected yet"
-        : warnings === 0
-          ? "Everything is connected"
-          : `${warnings} ${warnings === 1 ? "thing needs" : "things need"} attention`;
+    const warnings = this._data.findings.filter((f) => f.severity === "warning");
+    if (warnings.length === 0) return nothing;
+    const headline = `${warnings.length} ${warnings.length === 1 ? "thing needs" : "things need"} attention`;
     return html`<uui-box headline=${headline}>
-      ${findings.length === 0
-        ? nothing
-        : html`<ul class="findings">
-            ${findings.map(
-              (f) => html`<li class=${f.severity === "warning" ? "is-warning" : "is-info"}>
-                <umb-icon name=${f.severity === "warning" ? "icon-alert" : "icon-info"}></umb-icon>
-                <span>${f.message}</span>
-              </li>`,
-            )}
-          </ul>`}
+      <ul class="findings">
+        ${warnings.map(
+          (f) => html`<li>
+            <umb-icon name="icon-alert"></umb-icon>
+            <span>${f.message}</span>
+          </li>`,
+        )}
+      </ul>
     </uui-box>`;
   }
 
@@ -165,62 +164,30 @@ export class UmbrellaOverviewElement extends UmbLitElement {
     </uui-box>`;
   }
 
-  #differingUsersSuffix(count) {
-    if (!count || count <= 0) return "";
-    return count === 1 ? " (1 API user differs)" : ` (${count} API users differ)`;
+  /** One line per product: its level, whose settings, and how many tools the user's last start got with them. */
+  #renderTools(user) {
+    if (!user.access || user.access.length === 0) return nothing;
+    const count = (n) => (n === null || n === undefined ? "" : ` · ${n} ${n === 1 ? "tool" : "tools"}`);
+    return html`
+      ${user.access.map(
+        (a) => html`<div>
+          ${a.displayName}: ${ACCESS_LABELS[a.level] ?? ACCESS_LABELS.full}
+          <span class="muted">(${a.scope === "user" ? "own settings" : "defaults"})</span>${count(a.toolCount)}
+        </div>`,
+      )}
+      ${user.toolCount === null || user.toolCount === undefined
+        ? nothing
+        : html`<div class="muted">${user.toolCount} ${user.toolCount === 1 ? "tool" : "tools"} in total</div>`}
+    `;
   }
 
-  #reportLine(user) {
-    if (!user.serverVersion) return null;
-    const parts = [`umbrella-mcp ${user.serverVersion}`];
-    if (user.lastReportedAt) parts.push(`last start ${formatDate(user.lastReportedAt)}`);
-    if (user.toolCount !== null && user.toolCount !== undefined) parts.push(`${user.toolCount} tools`);
-    return parts.join(" · ");
+  #editPermissions(user) {
+    this.dispatchEvent(new CustomEvent("umbrella-edit-permissions", { detail: { key: user.key }, bubbles: true, composed: true }));
   }
 
-  #accessLine(user) {
-    if (!user.access || user.access.length === 0) return null;
-    return user.access
-      .map((a) => `${a.displayName}: ${ACCESS_LABELS[a.level] ?? ACCESS_LABELS.full} (${a.scope === "user" ? "own settings" : "defaults"})`)
-      .join(" · ");
-  }
-
-  #renderProducts() {
-    const installed = this._data.products.filter((p) => p.installed);
-    const notInstalled = this._data.products.filter((p) => !p.installed);
-    return html`<uui-box headline="Products">
-      ${installed.length === 0
-        ? html`<p>No Umbraco products detected.</p>`
-        : html`<uui-table>
-            <uui-table-head>
-              <uui-table-head-cell>Product</uui-table-head-cell>
-              <uui-table-head-cell>Version</uui-table-head-cell>
-              <uui-table-head-cell>API</uui-table-head-cell>
-              <uui-table-head-cell>MCP server</uui-table-head-cell>
-              <uui-table-head-cell>Access</uui-table-head-cell>
-              <uui-table-head-cell>Tools available</uui-table-head-cell>
-            </uui-table-head>
-            ${installed.map(
-              (p) => html`<uui-table-row>
-                <uui-table-cell>${p.displayName}</uui-table-cell>
-                <uui-table-cell>${p.version ?? ""}</uui-table-cell>
-                <uui-table-cell class=${p.enabled ? "" : "warning"}>${p.enabled ? "Available" : "Not available"}</uui-table-cell>
-                <uui-table-cell>${p.loaded ? "Loaded" : "Not loaded"}</uui-table-cell>
-                <uui-table-cell>${ACCESS_LABELS[p.access] ?? ACCESS_LABELS.full}${this.#differingUsersSuffix(p.usersWithOwnSettings)}</uui-table-cell>
-                <uui-table-cell>${p.loaded ? p.toolCount : ""}</uui-table-cell>
-              </uui-table-row>`,
-            )}
-          </uui-table>`}
-      ${notInstalled.length > 0
-        ? html`<p class="muted">Not installed: ${notInstalled.map((p) => p.displayName).join(", ")}</p>`
-        : nothing}
-    </uui-box>`;
-  }
-
-  #renderServerAndUsers() {
-    // Each API user's row shows the version and start of its own MCP server, so there is no site-wide line here.
+  #renderUsers() {
     const { apiUsers } = this._data;
-    return html`<uui-box headline="MCP server and API users">
+    return html`<uui-box headline="MCP Users">
       ${apiUsers.length === 0
         ? html`<p>No MCP server has connected yet.</p>`
         : html`<uui-table>
@@ -230,27 +197,28 @@ export class UmbrellaOverviewElement extends UmbLitElement {
               <uui-table-head-cell>Connection</uui-table-head-cell>
               <uui-table-head-cell>State</uui-table-head-cell>
               <uui-table-head-cell>Products</uui-table-head-cell>
+              <uui-table-head-cell>Tools</uui-table-head-cell>
               <uui-table-head-cell></uui-table-head-cell>
             </uui-table-head>
-            ${apiUsers.map((u) => {
-              const reportLine = this.#reportLine(u);
-              const accessLine = this.#accessLine(u);
-              return html`<uui-table-row>
+            ${apiUsers.map(
+              (u) => html`<uui-table-row>
                 <uui-table-cell>${u.name}</uui-table-cell>
                 <uui-table-cell>${u.clientIds.join(", ")}</uui-table-cell>
-                <uui-table-cell>
-                  <div>Last connected ${formatDate(u.lastConnected)}</div>
-                  ${reportLine ? html`<div class="muted">${reportLine}</div>` : nothing}
-                </uui-table-cell>
+                <uui-table-cell>Last connected ${formatDate(u.lastConnected)}</uui-table-cell>
                 <uui-table-cell class=${u.state === "active" ? "" : "warning"}>${STATE_LABELS[u.state] ?? u.state}</uui-table-cell>
                 <uui-table-cell>
                   ${u.reachable.length > 0 ? html`<div>Can reach ${u.reachable.join(", ")}</div>` : nothing}
                   ${u.unreachable.length > 0
                     ? html`<div class="warning">Cannot reach ${u.unreachable.join(", ")}</div>`
                     : nothing}
-                  ${accessLine ? html`<div class="muted">${accessLine}</div>` : nothing}
                 </uui-table-cell>
+                <uui-table-cell>${this.#renderTools(u)}</uui-table-cell>
                 <uui-table-cell class="row-actions">
+                  <uui-button
+                    look="secondary"
+                    label="Edit permissions"
+                    @click=${() => this.#editPermissions(u)}
+                  ></uui-button>
                   <uui-button
                     look="secondary"
                     color="danger"
@@ -259,8 +227,8 @@ export class UmbrellaOverviewElement extends UmbLitElement {
                     @click=${() => this.#forget(u)}
                   ></uui-button>
                 </uui-table-cell>
-              </uui-table-row>`;
-            })}
+              </uui-table-row>`,
+            )}
           </uui-table>`}
     </uui-box>`;
   }
@@ -270,7 +238,7 @@ export class UmbrellaOverviewElement extends UmbLitElement {
     if (!this._data) return html`<uui-loader></uui-loader>`;
 
     return html`
-      ${this.#renderStatus()} ${this.#renderConnect()} ${this.#renderProducts()} ${this.#renderServerAndUsers()}
+      ${this.#renderStatus()} ${this.#renderConnect()} ${this.#renderUsers()}
     `;
   }
 
@@ -284,7 +252,7 @@ export class UmbrellaOverviewElement extends UmbLitElement {
       .findings { list-style: none; margin: 0; padding: 0; }
       .findings li { display: flex; gap: var(--uui-size-space-3); align-items: flex-start; margin-bottom: var(--uui-size-space-3); }
       .findings li umb-icon { flex: none; margin-top: 0.2em; }
-      .findings li.is-warning umb-icon { color: var(--uui-color-warning-standalone); }
+      .findings li umb-icon { color: var(--uui-color-warning-standalone); }
       summary { cursor: pointer; margin-bottom: var(--uui-size-space-4); }
       .snippet { margin-top: var(--uui-size-space-4); }
       .snippet-header { display: flex; justify-content: space-between; align-items: center; gap: var(--uui-size-space-3); }
@@ -296,7 +264,7 @@ export class UmbrellaOverviewElement extends UmbLitElement {
         white-space: pre;
       }
       .mcp-json { margin-top: var(--uui-size-space-4); }
-      .row-actions { text-align: right; }
+      .row-actions { text-align: right; white-space: nowrap; }
     `,
   ];
 }
