@@ -17,7 +17,13 @@ public class McpCapabilitiesControllerTests
 {
     private sealed class StubService(McpCapabilities caps) : IMcpCapabilitiesService
     {
-        public McpCapabilities GetCapabilities() => caps;
+        public List<Guid?> Requested { get; } = [];
+
+        public McpCapabilities GetCapabilities(Guid? apiUserKey = null)
+        {
+            Requested.Add(apiUserKey);
+            return caps;
+        }
     }
 
     private static readonly McpCapabilities Caps =
@@ -26,8 +32,8 @@ public class McpCapabilitiesControllerTests
     private static IUser User(UserKind kind) =>
         new User(new GlobalSettings()) { Key = Guid.NewGuid(), Kind = kind };
 
-    private static McpCapabilitiesController Controller(IUser? currentUser, FakeConnectionStore store) =>
-        new(new StubService(Caps), new FakeBackOfficeSecurityAccessor(currentUser), store,
+    private static McpCapabilitiesController Controller(IUser? currentUser, FakeConnectionStore store, StubService? service = null) =>
+        new(service ?? new StubService(Caps), new FakeBackOfficeSecurityAccessor(currentUser), store,
             NullLogger<McpCapabilitiesController>.Instance);
 
     [Test]
@@ -62,6 +68,37 @@ public class McpCapabilitiesControllerTests
         Controller(User(UserKind.Default), store).GetCapabilities();
 
         Assert.That(store.Recorded, Is.Empty);
+    }
+
+    [Test]
+    public void Api_caller_key_reaches_the_service()
+    {
+        IUser user = User(UserKind.Api);
+        var service = new StubService(Caps);
+
+        Controller(user, new FakeConnectionStore(), service).GetCapabilities();
+
+        Assert.That(service.Requested, Is.EqualTo(new Guid?[] { user.Key }));
+    }
+
+    [Test]
+    public void Backoffice_caller_gets_the_defaults()
+    {
+        var service = new StubService(Caps);
+
+        Controller(User(UserKind.Default), new FakeConnectionStore(), service).GetCapabilities();
+
+        Assert.That(service.Requested, Is.EqualTo(new Guid?[] { null }));
+    }
+
+    [Test]
+    public void No_current_user_gets_the_defaults()
+    {
+        var service = new StubService(Caps);
+
+        Controller(null, new FakeConnectionStore(), service).GetCapabilities();
+
+        Assert.That(service.Requested, Is.EqualTo(new Guid?[] { null }));
     }
 
     [Test]

@@ -9,7 +9,7 @@ How Umbrella works inside. For setup and configuration, see the [README](../READ
 | Package | NuGet `Umbraco.Community.Umbrella` | npm `umbrella-mcp` |
 | Source | `src/Umbraco.Mcp/` (C#, `net10.0`) | `npm/` (TypeScript, ESM, Node 22+) |
 | Runs | inside the Umbraco site | on the developer's machine, started by the AI tool over stdio |
-| Job | detect products, store tool settings, health checks, write `.mcp.json` | load product tool collections into one MCP server |
+| Job | detect products, store tool settings, health checks, client config per API user | load product tool collections into one MCP server |
 
 The add-on tells AI tools to run `npx -y umbrella-mcp@<add-on version>`, so both packages always ship with the same version. The source folders and namespaces keep their working name `Umbraco.Mcp`; only the package ids are "Umbrella".
 
@@ -17,17 +17,18 @@ The add-on tells AI tools to run `npx -y umbrella-mcp@<add-on version>`, so both
 src/Umbraco.Mcp/
   Detection/        product detectors (one per product) and the seams they use
   Capabilities/     builds the capabilities payload
-  Api/              Management API controllers (capabilities, tool settings, catalogue, overview)
-  Overview/         McpOverviewService: status, findings and snippets for the dashboard and the health checks
-  ToolSettings/     dashboard settings and the reported catalogue, in umbracoKeyValue
+  Api/              Management API controllers (capabilities, catalogue, tool settings for the defaults and per user, overview, client setup, connections)
+  Overview/         McpOverviewService: status and findings for the dashboard and the health checks
+  ToolSettings/     dashboard settings (defaults and per-API-user overrides) and the reported catalogues, in umbracoKeyValue
   Connections/      which API users the MCP server connected as
-  ApiUser/          resolves those users for the health check
+  ApiUser/          resolves those users for the health check, and lists every API user for the dashboard
   HealthChecks/     the three checks in the "MCP" group (short rows over the overview's findings)
-  Client/           MCP client config, per-client snippets and the .mcp.json file logic
+  Client/           MCP client config and the per-client snippets
   wwwroot/App_Plugins/Umbrella/   the "Umbrella" backoffice dashboard (plain JS, no build step)
 npm/src/
   core/             server startup, selection, filters, registration, routing, health
   modules/          one file per product: cms.ts, forms.ts, automate.ts, engage.ts
+  types/            declarations for the product packages' ./collections (product-modules.d.ts)
 tests/Umbraco.Mcp.Tests/   NUnit tests for the add-on
 demo-site/          Umbraco 17 with Forms, Automate and Engage, referencing the add-on project
 scripts/            API user setup, end-to-end check, pack check
@@ -57,13 +58,17 @@ All under `/umbraco/management/api/v1/mcp/`, in the Management API's "MCP" Swagg
 
 | Endpoint | Who may call it | What it does |
 |---|---|---|
-| `GET capabilities` | any backoffice user | Returns `{ addonVersion, products: [{ id, displayName, installed, enabled, version, issues, disabledCollections, readOnly, noDestructive }] }`. `disabledCollections` is `null` for a product without a saved list. When the caller is an API user, records the connection for the "MCP API user" check |
-| `POST catalogue` | API users only (403 otherwise) | The server reports every tool group it loaded: `{ umbrellaVersion, modules: [{ id, siteSettingsIgnored, collections: [{ name, toolCount, readOnlyToolCount, nonDestructiveToolCount, disabledByDefault? }] }] }`. Merged per module into the stored catalogue |
-| `GET overview` | Settings section | What the Overview tab shows (`McpOverviewService`): status, findings, products, connected API users, the `.mcp.json` status and the client snippets |
-| `DELETE connections/{userKey}` | Settings section | Forgets an API user's stored connection (404 if unknown); it returns the next time the server signs in |
-| `POST mcp-json` | Settings section | Writes or upgrades `.mcp.json` through `McpJsonFile`; returns `{ outcome, path, message }`. 404 when the site is not in Development or writing is off, 500 on an I/O failure |
-| `GET tool-settings` | Settings section | What the dashboard shows: the add-on version, products, catalogue, disabled groups, read-only products, no-destructive products |
-| `PUT tool-settings` | Settings section | Replaces `disabledCollections` (module id → group names), `readOnlyModules` and `noDestructiveModules`. Unknown product ids are refused, and a product in both level lists is a 400 (nothing stored) |
+| `GET capabilities` | any backoffice user | Returns `{ addonVersion, products: [{ id, displayName, installed, enabled, version, issues, disabledCollections, readOnly, noDestructive, settingsScope }] }`. `disabledCollections` is `null` for a product without a saved list. For an API caller the settings are resolved per product: that user's override if it has one (`settingsScope: "user"`), else the defaults (`"site"`). Non-API callers get the defaults. When the caller is an API user, records the connection for the "MCP API user" check |
+| `POST catalogue` | API users only (403 otherwise) | The server reports every tool group it loaded: `{ umbrellaVersion, modules: [{ id, siteSettingsIgnored, collections: [{ name, toolCount, readOnlyToolCount, nonDestructiveToolCount, disabledByDefault? }] }] }`. Stored per caller (replacing that user's previous report) and merged per module into the shared catalogue |
+| `GET overview` | Settings section | What the Overview tab and the health checks show (`McpOverviewService`): findings, products and connected API users. Each API user row has its server version, last start and access per product (full access, no destructive tools or read-only, with `scope` `site` or `user`, and `toolCount`: the tools its last start got with those settings, `McpToolCounts.Effective`; 0 for a product it did not load, null without a report or when its environment sets its own collection filters), plus their sum. The dashboard shows only the warnings, and the API users as "MCP Users" |
+| `DELETE connections/{userKey}` | Settings section | Forgets an API user's stored connection and its stored catalogue (404 if unknown); its tool overrides are kept. The connection returns the next time the server signs in |
+| `GET client-setup?clientId=` | Settings section | The Overview's "Connect an AI tool": `{ clientId, configuredClientId, apiUsers: [{ key, name, clientIds }], clients }`. `clients` are the snippets filled in with `clientId` (default: `Umbraco:Mcp:ClientId`, else `umbraco-back-office-mcp`) and the address the request came in on. `apiUsers` are the API users with at least one client id (`IMcpApiUserDirectory`); a failing read logs a warning and leaves the list empty. 404 for a client id that is neither the configured one nor an API user's |
+| `GET tool-settings` | Settings section | What the dashboard shows: the add-on version, products, the catalogue for the defaults view (per group the highest counts any existing API user reported, `McpCatalogueFallback.Highest`; the shared catalogue before any user has its own report), and the defaults for all API users (disabled groups, read-only products, no-destructive products), plus `apiUsers: [{ key, name, clientIds, state, lastReportedAt, overriddenProducts }]` for every API user (`IMcpApiUserDirectory`) |
+| `PUT tool-settings` | Settings section | Replaces the defaults: `disabledCollections` (module id → group names), `readOnlyModules` and `noDestructiveModules`. Unknown product ids are refused, and a product in both level lists is a 400 (nothing stored) |
+| `GET tool-settings/users/{userKey}` | Settings section | One API user's `overrides`, its `catalogue` and `catalogueSource` (`{ kind: "user" or "latest" or "none", reportedAt, userName }`). Without a report of its own, the catalogue is the most recent other user's, else the shared one; the dashboard then shows the groups without counts. 404 for an unknown or non-API user |
+| `PUT tool-settings/users/{userKey}` | Settings section | Replaces that user's overrides, `{ overrides: { <productId>: { disabledCollections, level } } }` with `level` `full`, `noDestructive` or `readOnly`. An empty map makes the user follow the defaults. 404 for an unknown or non-API user (checked first); 400 (nothing stored) for an unknown product id, a missing or invalid level, or names failing the rules below |
+
+The store has no delete (`IKeyValueService` has none), so removing a row blanks it, and every reader skips blank or invalid values. Rows of users that no longer exist or are no longer API users are ignored everywhere: not listed, never the fallback catalogue, not counted.
 
 Input is trimmed, de-duplicated and capped (`McpToolSettingsValidation`: 50 modules, 200 groups per module, 100 characters per name), so a stray client cannot bloat the database.
 
@@ -73,26 +78,29 @@ Everything is kept in Umbraco's `umbracoKeyValue` table, so it survives restarts
 
 | Key | Content |
 |---|---|
-| `Umbraco.Mcp.ToolSettings` | Disabled tool groups per module |
-| `Umbraco.Mcp.ReadOnlyModules` | Products limited to read-only tools |
-| `Umbraco.Mcp.NoDestructiveModules` | Products whose destructive tools are left out |
-| `Umbraco.Mcp.Catalogue` | The last reported tool groups per module, with when they were reported |
+| `Umbraco.Mcp.ToolSettings` | Default disabled tool groups per module, for all API users |
+| `Umbraco.Mcp.ReadOnlyModules` | Default products limited to read-only tools |
+| `Umbraco.Mcp.NoDestructiveModules` | Default products whose destructive tools are left out |
+| `Umbraco.Mcp.UserToolSettings.<user key>` | One API user's overrides, `{ "<productId>": { disabledCollections, level } }`. A product present is overridden in full; absent means it follows the defaults |
+| `Umbraco.Mcp.Catalogue` | The most recent report from any user, merged per module, with when it was reported. The fallback for a user without a report |
+| `Umbraco.Mcp.UserCatalogue.<user key>` | That API user's last report, replaced on each start |
 | `Umbraco.Mcp.Connection.<user key>` | When that API user last fetched capabilities |
 
-### Client config and `.mcp.json`
+### Settings per API user
 
-`McpClientConfig` builds the `{ "mcpServers": { "umbraco": … } }` JSON. `McpClientSnippets` and `McpJsonFile.BuildJson` use it. `McpClientSnippets` builds the five snippets on the Overview tab (Claude Code `.mcp.json`, the `claude mcp add` command, VS Code with `inputs`, Cursor with `${env:...}`, other clients). None contains a secret.
+A team can give each developer an API user, and the settings can differ per user without any change in the server:
 
-`McpOverviewService` (`Overview/`) gathers the status, findings, products, API users and snippets once. The three health checks render the same findings through `McpHealthCheckRows` as short rows, and the dashboard renders them in full. The pointer to Settings → Umbrella (`McpHealthCheckRows.DashboardPointer`) is only in the "MCP client setup" description, so it shows once when the group runs.
+- **Defaults and overrides.** The three default rows apply to every API user. An override is per product and all-or-nothing: it holds that product's groups and level, so a product the user does not override keeps following the defaults, including later changes to them.
+- **Resolved per caller.** `McpCapabilitiesService.GetCapabilities(apiUserKey)` takes the key of the API user that called `GET capabilities`, and fills `disabledCollections`, `readOnly` and `noDestructive` for each product from that user's override (the level maps to the two booleans), with `settingsScope` `"user"`, or from the defaults with `"site"`. An override for a product the site no longer detects is ignored. A failing read of the overrides is logged and the caller gets the defaults.
+- **Catalogue per caller.** The report of every start is kept per user, so the dashboard's counts and the version warning no longer depend on who started last. Tool Permissions shows a user's counts only from its own report; the defaults show the highest counts any API user reported. The shared row stays for sites where no user has reported yet.
+- **Overview.** The version-mismatch finding is one per connected user that has its own report, and the shared-row finding applies only when none has.
+- **Dashboard.** Tool Permissions has a picker ("All API users (defaults)" first, then each API user). For a user, each product has a "Use defaults" switch; switched off, that product's groups and level are that user's override.
 
-`McpJsonFile` holds the `.mcp.json` rules. `McpJsonWriter` is a hosted service that calls it at startup, and `POST mcp-json` calls it on request. In Development, once the server has started (only then are its addresses known), it writes `.mcp.json` to the content root or `Umbraco:Mcp:McpJson:Path`. It:
+### Client config
 
-- uses the first HTTPS address, with wildcard hosts (`*`, `+`, `0.0.0.0`, `[::]`) turned into `localhost`, and writes nothing if there is none;
-- writes `${UMBRELLA_CLIENT_SECRET}` instead of a secret;
-- adds `NODE_TLS_REJECT_UNAUTHORIZED=0` only when the address is loopback;
-- never overwrites a file someone edited (a new file is opened with `FileMode.CreateNew`) and never creates folders;
-- upgrades a file it wrote itself (`TryUpgrade`): when the file equals what it would write for the `umbrella-mcp@<version>` it pins, and the add-on's version is newer by `Umbraco.Cms.Core.Semver`, it rewrites the file for the add-on's version. A changed port or client id, an `Args` override or any edit leaves the file alone, and an older add-on never downgrades it;
-- logs failures and never stops the site.
+`McpClientConfig` builds the `{ "mcpServers": { "umbraco": … } }` JSON. `McpClientSnippets` builds the six snippets for one client id (Claude Code `.mcp.json` with `${UMBRELLA_CLIENT_SECRET}`, the `claude mcp add` command, Claude Desktop, VS Code with `inputs`, Cursor with `${env:...}`, other clients), and `GET client-setup` returns them for the API user picked on the Overview. None contains a secret. A loopback site adds `NODE_TLS_REJECT_UNAUTHORIZED=0`. The add-on writes no files: the site where the add-on runs is often not where the AI tool runs (Umbraco Cloud, editors without the source), and a shared file would sign everyone in as one API user.
+
+`McpOverviewService` (`Overview/`) gathers the status, findings, products and API users once. The three health checks render the same findings through `McpHealthCheckRows` as short rows, and the dashboard renders them in full. The pointer to Settings → Umbrella (`McpHealthCheckRows.DashboardPointer`) is only in the "MCP client setup" description, so it shows once when the group runs.
 
 ## The server
 
@@ -133,7 +141,7 @@ The reason is kept and shown in `get-mcp-health`.
 A module (`npm/src/modules/<id>.ts`) is data plus a dynamic import:
 
 ```ts
-{ id, displayName, toolPrefix: `${id}--`, packageName, expectedMajor, description, useWhen, required?, load() }
+{ id, displayName, toolPrefix: `${id}--`, packageName, expectedMajor, description, useWhen, defaultDisabledCollections?, required?, load() }
 ```
 
 `load()` imports the product package's `./collections` entry point and returns its `collections`, `allModes`, `allModeNames`, `allSliceNames` and `createApiClient`. Absent products are never imported. `npm/src/modules/index.ts` lists the modules, CMS first, because it is the default module for unprefixed filter entries.
@@ -172,7 +180,7 @@ The shared provider only exists once if every product uses the same toolkit copy
 
 ### Health
 
-`get-mcp-health` (`health.ts`) reports the add-on status, the Umbraco version check, and for each module whether it was detected, installed, enabled, loaded, its tool count and its issues, plus notes: products the site has but the server has no module for, unknown ids in `UMBRACO_MCP_MODULES`, ignored or applied dashboard settings, default-off tool groups, a failed catalogue report, and a server version that differs from the add-on's. The report's `server.version` is the running umbrella-mcp. On the site, the "MCP client setup" check and the dashboard compare the catalogue's `umbrellaVersion` with the add-on's version in the same way.
+`get-mcp-health` (`health.ts`) reports the add-on status, the Umbraco version check, and for each module whether it was detected, installed, enabled, loaded, its tool count and its issues, plus notes: products the site has but the server has no module for, unknown ids in `UMBRACO_MCP_MODULES`, ignored or applied dashboard settings (worded "for this API user" when `settingsScope` is `"user"`), default-off tool groups, a failed catalogue report, and a server version that differs from the add-on's. The report's `server.version` is the running umbrella-mcp. On the site, the "MCP client setup" check and the dashboard compare each connected API user's last reported `umbrellaVersion` with the add-on's version in the same way.
 
 ## The cross-language contract
 
@@ -181,7 +189,7 @@ These must match on both sides:
 | What | C# | npm |
 |---|---|---|
 | Product ids | detector `Id` | module `id` |
-| Capabilities payload (camelCase) | `McpCapabilities`, `McpProductStatus` | `CapabilitiesPayload` (`disabledCollections`, `readOnly` and `noDestructive` optional, for older add-ons) |
+| Capabilities payload (camelCase) | `McpCapabilities`, `McpProductStatus` | `CapabilitiesPayload` (`disabledCollections`, `readOnly`, `noDestructive` and `settingsScope` optional, for older add-ons; a missing or unknown `settingsScope` is `"site"`) |
 | Catalogue payload | `McpCatalogueReport` (accepts a null `readOnlyToolCount` and `nonDestructiveToolCount` and a missing `disabledByDefault` from older servers) | `CataloguePayload` |
 | npm package name and bin | `McpClientConfig.NpmPackage` | `name`, `bin` |
 | Version | csproj `<Version>` | `version` |

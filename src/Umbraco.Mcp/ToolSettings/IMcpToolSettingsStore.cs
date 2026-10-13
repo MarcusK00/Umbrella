@@ -25,4 +25,25 @@ public interface IMcpToolSettingsStore
 
     /// <summary>Overwrites the modules in <paramref name="report"/> and keeps every other module's last entry.</summary>
     void MergeCatalogue(McpCatalogueReport report, DateTimeOffset at);
+
+    /// <summary>One API user's own settings by product id. Empty when none are stored or the row is blank or invalid.</summary>
+    IReadOnlyDictionary<string, McpProductOverride> GetUserOverrides(Guid userKey);
+
+    /// <summary>Replaces the user's settings. An empty map blanks the row, so the user follows the defaults.</summary>
+    void SetUserOverrides(Guid userKey, IReadOnlyDictionary<string, McpProductOverride> overrides);
+
+    /// <summary>Every user's own settings. Leaves out blank, invalid and empty rows.</summary>
+    IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, McpProductOverride>> GetAllUserOverrides();
+
+    /// <summary>What this user's MCP server last reported. Null when none is stored or the row is blank or invalid.</summary>
+    McpToolCatalogue? GetUserCatalogue(Guid userKey);
+
+    /// <summary>Replaces the user's catalogue with <paramref name="report"/>; every module is stamped with <paramref name="at"/>.</summary>
+    void SetUserCatalogue(Guid userKey, McpCatalogueReport report, DateTimeOffset at);
+
+    /// <summary>Every stored per-user catalogue. Leaves out blank and invalid rows.</summary>
+    IReadOnlyDictionary<Guid, McpToolCatalogue> GetAllUserCatalogues();
+
+    /// <summary>Blanks the user's catalogue row.</summary>
+    void ClearUserCatalogue(Guid userKey);
 }

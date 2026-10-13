@@ -1,12 +1,12 @@
 # Releasing
 
-`Umbraco.Community.Umbrella` (NuGet) and `umbrella-mcp` (npm) are released together, with the same version. The add-on tells AI tools to run `npx umbrella-mcp@<add-on version>`, so an add-on release without the matching npm release breaks setup for everyone who installs it.
+`Umbraco.Community.Umbrella` (NuGet) and `umbrella-mcp` (npm) are released together, with the same version. The add-on tells AI tools to run `npx -y umbrella-mcp@<add-on version>`, so an add-on release without the matching npm release breaks setup for everyone who installs it.
 
 Nothing in the repo publishes: both steps below are run by hand. Releases are for testing until further notice, so the NuGet package has no `umbraco-marketplace` tag (see [Test and Marketplace releases](#test-and-marketplace-releases)).
 
 ## Checklist
 
-1. **Version.** Set the same version in `src/Umbraco.Mcp/Umbraco.Mcp.csproj` (`<Version>`) and `npm/package.json` (`version`), and update the version in the config examples in `README.md` and `npm/README.md`. `NpmPackageContractTests` fails if the two packages differ in name or version, and the `readme-versions` guard fails if a README still names another version. Also check that the Compatibility table in `README.md` matches the product package versions in `npm/package.json`.
+1. **Version.** Set the same version in `src/Umbraco.Mcp/Umbraco.Mcp.csproj` (`<Version>`) and `npm/package.json` (`version`), and update the version in the config examples in `README.md`, `npm/README.md` and `src/Umbraco.Mcp/README.md`. `NpmPackageContractTests` fails if the two packages differ in name or version, and the `readme-versions` guard fails if a README still names another version. Also check that the Compatibility table in `README.md` matches the product package versions in `npm/package.json`.
 2. **No local dependencies.** `npm/package.json` `dependencies` must only reference registry versions. A `file:` dependency cannot be installed by users. A product that only exists as a local tarball stays in `devDependencies` and `external` in `tsup.config.ts` (none today).
 3. **Tests and guards.**
    ```bash

@@ -34,8 +34,7 @@ describe("buildHealthReport", () => {
     ));
     expect(r.notes).toContain(
       "umbrella-mcp 17.0.0-alpha.1 is running, but the site's Umbraco.Community.Umbrella add-on is 17.0.0-alpha.2. " +
-      "The two are released together: set umbrella-mcp@17.0.0-alpha.2 in your MCP client config. " +
-      "A .mcp.json the site wrote and nobody edited is upgraded when the site next starts in Development.",
+      "The two are released together: set umbrella-mcp@17.0.0-alpha.2 in your MCP client config.",
     );
   });
 
@@ -153,6 +152,50 @@ describe("buildHealthReport", () => {
     };
     expect(buildHealthReport(state(caps, [forms])).notes).toContain("Umbraco Forms: no destructive tools (10 removed), as set in the backoffice.");
     expect(buildHealthReport(state(caps, [forms, { ...cmsLoaded, siteNoDestructive: false }])).notes.join(" ")).not.toMatch(/Umbraco CMS: no destructive/);
+  });
+
+  describe("settings set for the calling API user", () => {
+    const caps = { kind: "ok" as const, payload: { addonVersion: "17.0.0", products: [] } };
+    const forms: ModuleRuntimeState = {
+      decision: { module: mod("forms", "Umbraco Forms"), product: null, load: true, reason: "ok" },
+      loaded: true, toolCount: 80, issues: [], siteSettingsScope: "user",
+    };
+
+    it("words disabled tool groups for this API user", () => {
+      const r = buildHealthReport(state(caps, [{ ...forms, siteDisabledCollections: ["media", "updates"] }]));
+      expect(r.notes).toContain("Umbraco Forms: tool groups disabled in the backoffice for this API user: media, updates.");
+      expect(r.notes.join(" ")).not.toMatch(/disabled in the backoffice: /);
+    });
+
+    it("words read-only for this API user", () => {
+      const r = buildHealthReport(state(caps, [{ ...forms, siteReadOnly: true }]));
+      expect(r.notes).toContain("Umbraco Forms: only read-only tools, as set in the backoffice for this API user.");
+    });
+
+    it("words no destructive tools for this API user", () => {
+      const r = buildHealthReport(state(caps, [{ ...forms, siteNoDestructive: true, destructiveRemoved: 10 }]));
+      expect(r.notes).toContain("Umbraco Forms: no destructive tools (10 removed), as set in the backoffice for this API user.");
+    });
+
+    it("keeps the site wording when the scope is site or absent", () => {
+      const r = buildHealthReport(state(caps, [
+        { ...forms, siteSettingsScope: "site", siteDisabledCollections: ["media"], siteReadOnly: true, siteNoDestructive: true, destructiveRemoved: 3 },
+        { ...cmsLoaded, siteDisabledCollections: ["log-viewer"], siteReadOnly: true },
+      ]));
+      expect(r.notes).toContain("Umbraco Forms: tool groups disabled in the backoffice: media.");
+      expect(r.notes).toContain("Umbraco Forms: only read-only tools, as set in the backoffice.");
+      expect(r.notes).toContain("Umbraco Forms: no destructive tools (3 removed), as set in the backoffice.");
+      expect(r.notes).toContain("Umbraco CMS: tool groups disabled in the backoffice: log-viewer.");
+      expect(r.notes.join(" ")).not.toMatch(/for this API user/);
+    });
+
+    it("keeps the ignored-settings note unchanged under user scope", () => {
+      const r = buildHealthReport(state(caps, [{ ...forms, siteDisabledCollections: ["media"], siteSettingsIgnored: true }]));
+      expect(r.notes).toContain(
+        "Umbraco Forms: the backoffice tool group settings are ignored because the environment sets collection filters for this module.",
+      );
+      expect(r.notes.join(" ")).not.toMatch(/for this API user/);
+    });
   });
 
   it("notes UMBRACO_NO_DESTRUCTIVE once, and gives a module whose level comes from the env alone no backoffice note", () => {

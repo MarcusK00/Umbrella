@@ -10,15 +10,16 @@ const STATE_LABELS = { active: "Active", disabled: "Disabled", lockedOut: "Locke
 const ACCESS_LABELS = { full: "Full access", noDestructive: "No destructive tools", readOnly: "Read-only" };
 
 /**
- * Settings → Umbrella → Overview: what needs attention, how to connect an AI tool, which products the MCP server
- * loaded, and the API users it has connected as.
+ * Settings → Umbrella → Overview: what needs attention (only when something does), how to connect an AI tool as a chosen
+ * API user, and the API users MCP servers have connected as, with what each can reach and the tools it gets.
  */
 export class UmbrellaOverviewElement extends UmbLitElement {
   static properties = {
     _data: { state: true },
     _error: { state: true },
+    _setup: { state: true },
+    _setupError: { state: true },
     _client: { state: true },
-    _mcpJsonMessage: { state: true },
     _busy: { state: true },
   };
 
@@ -29,8 +30,9 @@ export class UmbrellaOverviewElement extends UmbLitElement {
     super();
     this._data = null;
     this._error = null;
+    this._setup = null;
+    this._setupError = null;
     this._client = null;
-    this._mcpJsonMessage = null;
     this._busy = false;
     this.consumeContext(UMB_NOTIFICATION_CONTEXT, (ctx) => (this.#notifications = ctx));
     this.consumeContext(UMB_AUTH_CONTEXT, (ctx) => {
@@ -40,13 +42,55 @@ export class UmbrellaOverviewElement extends UmbLitElement {
     });
   }
 
+  /** Loads the overview again, for example after settings changed on Tool Permissions. */
+  reload() {
+    if (this.#auth) this.#load();
+  }
+
   async #load() {
+    const setup = this.#loadSetup(this._setup?.clientId);
     try {
       this._data = await request(this.#auth, "GET", "overview");
       this._error = null;
     } catch (error) {
       this._error = error.message;
     }
+    await setup;
+  }
+
+  /**
+   * The client config filled in with `clientId`, or with the configured client id when there is none. A client id
+   * that no API user has any more falls back to the configured one.
+   */
+  async #loadSetup(clientId) {
+    try {
+      const query = clientId ? `?clientId=${encodeURIComponent(clientId)}` : "";
+      this._setup = await request(this.#auth, "GET", `client-setup${query}`);
+      this._setupError = null;
+    } catch (error) {
+      if (clientId) return this.#loadSetup();
+      this._setupError = error.message;
+    }
+  }
+
+  /** One option per client id of each API user, plus the configured client id when no API user has it yet. */
+  #renderClientIdPicker() {
+    const { apiUsers, clientId, configuredClientId } = this._setup;
+    const options = apiUsers.flatMap((u) => u.clientIds.map((id) => ({ name: `${u.name} (${id})`, value: id })));
+    if (!options.some((o) => o.value === configuredClientId)) {
+      options.unshift({ name: `${configuredClientId} (no API user has this client id yet)`, value: configuredClientId });
+    }
+    return html`<div class="picker">
+      <uui-select
+        label="API user"
+        .options=${options.map((o) => ({ ...o, selected: o.value === clientId }))}
+        @change=${(e) => this.#loadSetup(e.target.value)}
+      ></uui-select>
+      <p class="muted">
+        The config signs in as this API user. Give each person their own API user, and send them the config with the
+        client secret you saved when you created it. Each person also needs Node.js 22 or later.
+      </p>
+    </div>`;
   }
 
   async #copy(content) {
@@ -55,19 +99,6 @@ export class UmbrellaOverviewElement extends UmbLitElement {
       this.#notifications?.peek("positive", { data: { message: "Copied" } });
     } catch {
       this.#notifications?.peek("danger", { data: { message: "Could not copy. Select the text and copy it by hand." } });
-    }
-  }
-
-  async #writeMcpJson() {
-    this._busy = true;
-    try {
-      const result = await request(this.#auth, "POST", "mcp-json");
-      this._mcpJsonMessage = result?.message ?? null;
-      await this.#load();
-    } catch (error) {
-      this.#notifications?.peek("danger", { data: { headline: "Could not write .mcp.json", message: error.message } });
-    } finally {
-      this._busy = false;
     }
   }
 
@@ -95,38 +126,39 @@ export class UmbrellaOverviewElement extends UmbLitElement {
     }
   }
 
+  /** Only when something needs attention; information that needs no action is left out. */
   #renderStatus() {
-    const { findings, server, apiUsers } = this._data;
-    const warnings = findings.filter((f) => f.severity === "warning").length;
-    const headline =
-      server === null || apiUsers.length === 0
-        ? "Not connected yet"
-        : warnings === 0
-          ? "Everything is connected"
-          : `${warnings} ${warnings === 1 ? "thing needs" : "things need"} attention`;
+    const warnings = this._data.findings.filter((f) => f.severity === "warning");
+    if (warnings.length === 0) return nothing;
+    const headline = `${warnings.length} ${warnings.length === 1 ? "thing needs" : "things need"} attention`;
     return html`<uui-box headline=${headline}>
-      ${findings.length === 0
-        ? nothing
-        : html`<ul class="findings">
-            ${findings.map(
-              (f) => html`<li class=${f.severity === "warning" ? "is-warning" : "is-info"}>
-                <umb-icon name=${f.severity === "warning" ? "icon-alert" : "icon-info"}></umb-icon>
-                <span>${f.message}</span>
-              </li>`,
-            )}
-          </ul>`}
+      <ul class="findings">
+        ${warnings.map(
+          (f) => html`<li>
+            <umb-icon name="icon-alert"></umb-icon>
+            <span>${f.message}</span>
+          </li>`,
+        )}
+      </ul>
     </uui-box>`;
   }
 
   #renderConnect() {
-    const { apiUsers, server, findings, clients, mcpJson } = this._data;
+    const { apiUsers, server, findings } = this._data;
     const open =
       apiUsers.length === 0 || server === null || findings.some((f) => f.severity === "warning" && f.area !== "products");
+    if (!this._setup) {
+      return html`<uui-box headline="Connect an AI tool">
+        ${this._setupError ? html`<p>Could not load the client config: ${this._setupError}</p>` : html`<uui-loader></uui-loader>`}
+      </uui-box>`;
+    }
+    const { clients } = this._setup;
     const selected = clients.find((c) => c.id === this._client) ?? clients[0];
     const insecure = /UMBRACO_BASE_URL["'=:\s]+http:\/\//.test(clients[0]?.content ?? "");
     return html`<uui-box headline="Connect an AI tool">
       <details ?open=${open}>
         <summary>Set up an MCP client for this site</summary>
+        ${this.#renderClientIdPicker()}
         ${insecure
           ? html`<p class="warning">
               The MCP server needs HTTPS. Open the backoffice over https, or change UMBRACO_BASE_URL in the snippet to the site's https address.
@@ -150,63 +182,36 @@ export class UmbrellaOverviewElement extends UmbLitElement {
                 <pre>${selected.content}</pre>
               </div>`
           : nothing}
-        ${mcpJson.available
-          ? html`<div class="mcp-json">
-              <uui-button
-                look="primary"
-                label="Write .mcp.json"
-                ?disabled=${this._busy}
-                @click=${this.#writeMcpJson}
-              ></uui-button>
-              ${this._mcpJsonMessage ? html`<p>${this._mcpJsonMessage}</p>` : nothing}
-            </div>`
-          : nothing}
       </details>
     </uui-box>`;
   }
 
-  #renderProducts() {
-    const installed = this._data.products.filter((p) => p.installed);
-    const notInstalled = this._data.products.filter((p) => !p.installed);
-    return html`<uui-box headline="Products">
-      ${installed.length === 0
-        ? html`<p>No Umbraco products detected.</p>`
-        : html`<uui-table>
-            <uui-table-head>
-              <uui-table-head-cell>Product</uui-table-head-cell>
-              <uui-table-head-cell>Version</uui-table-head-cell>
-              <uui-table-head-cell>API</uui-table-head-cell>
-              <uui-table-head-cell>MCP server</uui-table-head-cell>
-              <uui-table-head-cell>Access</uui-table-head-cell>
-              <uui-table-head-cell>Tools available</uui-table-head-cell>
-            </uui-table-head>
-            ${installed.map(
-              (p) => html`<uui-table-row>
-                <uui-table-cell>${p.displayName}</uui-table-cell>
-                <uui-table-cell>${p.version ?? ""}</uui-table-cell>
-                <uui-table-cell class=${p.enabled ? "" : "warning"}>${p.enabled ? "Available" : "Not available"}</uui-table-cell>
-                <uui-table-cell>${p.loaded ? "Loaded" : "Not loaded"}</uui-table-cell>
-                <uui-table-cell>${ACCESS_LABELS[p.access] ?? ACCESS_LABELS.full}</uui-table-cell>
-                <uui-table-cell>${p.loaded ? p.toolCount : ""}</uui-table-cell>
-              </uui-table-row>`,
-            )}
-          </uui-table>`}
-      ${notInstalled.length > 0
-        ? html`<p class="muted">Not installed: ${notInstalled.map((p) => p.displayName).join(", ")}</p>`
-        : nothing}
-    </uui-box>`;
+  /** One line per product: its level, whose settings, and how many tools the user's last start got with them. */
+  #renderTools(user) {
+    if (!user.access || user.access.length === 0) return nothing;
+    const count = (n) => (n === null || n === undefined ? "" : ` · ${n} ${n === 1 ? "tool" : "tools"}`);
+    return html`
+      ${user.access.map(
+        (a) => html`<div>
+          ${a.displayName}: ${ACCESS_LABELS[a.level] ?? ACCESS_LABELS.full}
+          <span class="muted">(${a.scope === "user" ? "own settings" : "defaults"})</span>${count(a.toolCount)}
+        </div>`,
+      )}
+      ${user.toolCount === null || user.toolCount === undefined
+        ? nothing
+        : html`<div class="muted">${user.toolCount} ${user.toolCount === 1 ? "tool" : "tools"} in total</div>`}
+    `;
   }
 
-  #renderServerAndUsers() {
-    const { server, apiUsers } = this._data;
-    return html`<uui-box headline="MCP server and API users">
-      ${server
-        ? html`<p class=${server.matchesAddon ? "" : "warning"}>
-            umbrella-mcp ${server.version} last started ${formatDate(server.reportedAt)}
-          </p>`
-        : html`<p>No MCP server has started yet.</p>`}
+  #editPermissions(user) {
+    this.dispatchEvent(new CustomEvent("umbrella-edit-permissions", { detail: { key: user.key }, bubbles: true, composed: true }));
+  }
+
+  #renderUsers() {
+    const { apiUsers } = this._data;
+    return html`<uui-box headline="MCP Users">
       ${apiUsers.length === 0
-        ? nothing
+        ? html`<p>No MCP server has connected yet.</p>`
         : html`<uui-table>
             <uui-table-head>
               <uui-table-head-cell>API user</uui-table-head-cell>
@@ -214,6 +219,7 @@ export class UmbrellaOverviewElement extends UmbLitElement {
               <uui-table-head-cell>Connection</uui-table-head-cell>
               <uui-table-head-cell>State</uui-table-head-cell>
               <uui-table-head-cell>Products</uui-table-head-cell>
+              <uui-table-head-cell>Tools</uui-table-head-cell>
               <uui-table-head-cell></uui-table-head-cell>
             </uui-table-head>
             ${apiUsers.map(
@@ -228,7 +234,13 @@ export class UmbrellaOverviewElement extends UmbLitElement {
                     ? html`<div class="warning">Cannot reach ${u.unreachable.join(", ")}</div>`
                     : nothing}
                 </uui-table-cell>
+                <uui-table-cell>${this.#renderTools(u)}</uui-table-cell>
                 <uui-table-cell class="row-actions">
+                  <uui-button
+                    look="secondary"
+                    label="Edit permissions"
+                    @click=${() => this.#editPermissions(u)}
+                  ></uui-button>
                   <uui-button
                     look="secondary"
                     color="danger"
@@ -248,7 +260,7 @@ export class UmbrellaOverviewElement extends UmbLitElement {
     if (!this._data) return html`<uui-loader></uui-loader>`;
 
     return html`
-      ${this.#renderStatus()} ${this.#renderConnect()} ${this.#renderProducts()} ${this.#renderServerAndUsers()}
+      ${this.#renderStatus()} ${this.#renderConnect()} ${this.#renderUsers()}
     `;
   }
 
@@ -262,8 +274,9 @@ export class UmbrellaOverviewElement extends UmbLitElement {
       .findings { list-style: none; margin: 0; padding: 0; }
       .findings li { display: flex; gap: var(--uui-size-space-3); align-items: flex-start; margin-bottom: var(--uui-size-space-3); }
       .findings li umb-icon { flex: none; margin-top: 0.2em; }
-      .findings li.is-warning umb-icon { color: var(--uui-color-warning-standalone); }
+      .findings li umb-icon { color: var(--uui-color-warning-standalone); }
       summary { cursor: pointer; margin-bottom: var(--uui-size-space-4); }
+      .picker uui-select { min-width: 20rem; max-width: 100%; }
       .snippet { margin-top: var(--uui-size-space-4); }
       .snippet-header { display: flex; justify-content: space-between; align-items: center; gap: var(--uui-size-space-3); }
       pre {
@@ -273,8 +286,7 @@ export class UmbrellaOverviewElement extends UmbLitElement {
         border-radius: var(--uui-border-radius);
         white-space: pre;
       }
-      .mcp-json { margin-top: var(--uui-size-space-4); }
-      .row-actions { text-align: right; }
+      .row-actions { text-align: right; white-space: nowrap; }
     `,
   ];
 }
