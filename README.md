@@ -1,5 +1,3 @@
-Nuget: https://www.nuget.org/packages/Umbraco.Community.Umbrella/
-
 # Umbrella
 
 One MCP server for your Umbraco 17 site. Umbrella detects which Umbraco products the site has installed and gives your AI tool (Claude Code, VS Code, Cursor, Claude Desktop) the tools for exactly those products.
@@ -25,22 +23,6 @@ The site only needs the NuGet package, but installing it doesn't connect your AI
 - [Develop](#develop)
 
 ## How it works
-
-```mermaid
-sequenceDiagram
-    participant AI as AI tool
-    participant MCP as umbrella-mcp (npx)
-    participant Site as Umbraco site + add-on
-    AI->>MCP: start (stdio)
-    MCP->>Site: sign in as the API user (client credentials)
-    MCP->>Site: GET /mcp/capabilities
-    Site-->>MCP: installed products, tool settings for this API user
-    Note over MCP: load CMS + the detected products,<br/>apply filters, prefix tool names
-    MCP->>Site: POST /mcp/catalogue (tool groups, for the dashboard)
-    MCP-->>AI: tools + routing instructions
-    AI->>MCP: forms--list-forms
-    MCP->>Site: Forms Management API
-```
 
 1. The add-on finds each product by its assembly and checks that its Management API is live.
 2. When your AI tool starts `umbrella-mcp`, the server signs in as an Umbraco API user and asks the site which products it has.
@@ -106,7 +88,7 @@ Every tab on the Overview is a variant of this config:
   "mcpServers": {
     "umbraco": {
       "command": "npx",
-      "args": ["-y", "umbrella-mcp@17.0.0-alpha.5"],
+      "args": ["-y", "umbrella-mcp@17.0.0-alpha.6"],
       "env": {
         "UMBRACO_BASE_URL": "https://your-site",
         "UMBRACO_CLIENT_ID": "umbraco-back-office-mcp",
