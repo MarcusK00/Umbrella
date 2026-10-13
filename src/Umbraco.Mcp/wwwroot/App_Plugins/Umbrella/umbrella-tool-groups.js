@@ -111,8 +111,11 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
       return;
     }
     if (this._dirty) {
-      select.value = this._selected || DEFAULTS;
       this._switchTo = value;
+      // uui-select only writes `value` to its native select when it differs from the last value it rendered. Put back
+      // before that render, the old value counts as unchanged and the native select keeps showing the new choice.
+      await select.updateComplete;
+      select.value = this._selected || DEFAULTS;
       return;
     }
     this._switchTo = null;
