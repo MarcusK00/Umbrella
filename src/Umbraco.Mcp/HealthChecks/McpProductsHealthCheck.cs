@@ -11,7 +11,7 @@ namespace Umbraco.Mcp.HealthChecks;
 public sealed class McpProductsHealthCheck(IMcpOverviewService overview) : HealthCheck
 {
     public override async Task<IEnumerable<HealthCheckStatus>> GetStatusAsync() =>
-        McpHealthCheckRows.Build(await overview.GetOverviewAsync(null), McpFindingArea.Products);
+        McpHealthCheckRows.Build(await overview.GetOverviewAsync(), McpFindingArea.Products);
 
     public override HealthCheckStatus ExecuteAction(HealthCheckAction action) =>
         throw new InvalidOperationException("The MCP products health check has no actions.");

@@ -1,4 +1,3 @@
-using Umbraco.Mcp.Client;
 using Umbraco.Mcp.Overview;
 
 namespace Umbraco.Mcp.Tests;
@@ -13,7 +12,7 @@ internal static class TestOverview
         IReadOnlyList<McpOverviewProduct>? products = null,
         McpServerReport? server = null,
         IReadOnlyList<McpOverviewApiUser>? users = null) =>
-        new("17.0.0", findings ?? [], products ?? [], server, users ?? [], Array.Empty<McpClientSnippet>());
+        new("17.0.0", findings ?? [], products ?? [], server, users ?? []);
 
     public static McpOverviewProduct Product(string name, bool installed = true, string? version = "17.0.0", string[]? issues = null) =>
         new(name.ToLowerInvariant(), name, installed, installed, version, issues ?? [], installed, 0, "full");

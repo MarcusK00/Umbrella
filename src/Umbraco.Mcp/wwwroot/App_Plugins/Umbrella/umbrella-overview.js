@@ -10,13 +10,15 @@ const STATE_LABELS = { active: "Active", disabled: "Disabled", lockedOut: "Locke
 const ACCESS_LABELS = { full: "Full access", noDestructive: "No destructive tools", readOnly: "Read-only" };
 
 /**
- * Settings → Umbrella → Overview: what needs attention (only when something does), how to connect an AI tool, and the
- * API users MCP servers have connected as, with what each can reach and the tools it gets.
+ * Settings → Umbrella → Overview: what needs attention (only when something does), how to connect an AI tool as a chosen
+ * API user, and the API users MCP servers have connected as, with what each can reach and the tools it gets.
  */
 export class UmbrellaOverviewElement extends UmbLitElement {
   static properties = {
     _data: { state: true },
     _error: { state: true },
+    _setup: { state: true },
+    _setupError: { state: true },
     _client: { state: true },
     _busy: { state: true },
   };
@@ -28,6 +30,8 @@ export class UmbrellaOverviewElement extends UmbLitElement {
     super();
     this._data = null;
     this._error = null;
+    this._setup = null;
+    this._setupError = null;
     this._client = null;
     this._busy = false;
     this.consumeContext(UMB_NOTIFICATION_CONTEXT, (ctx) => (this.#notifications = ctx));
@@ -44,12 +48,49 @@ export class UmbrellaOverviewElement extends UmbLitElement {
   }
 
   async #load() {
+    const setup = this.#loadSetup(this._setup?.clientId);
     try {
       this._data = await request(this.#auth, "GET", "overview");
       this._error = null;
     } catch (error) {
       this._error = error.message;
     }
+    await setup;
+  }
+
+  /**
+   * The client config filled in with `clientId`, or with the configured client id when there is none. A client id
+   * that no API user has any more falls back to the configured one.
+   */
+  async #loadSetup(clientId) {
+    try {
+      const query = clientId ? `?clientId=${encodeURIComponent(clientId)}` : "";
+      this._setup = await request(this.#auth, "GET", `client-setup${query}`);
+      this._setupError = null;
+    } catch (error) {
+      if (clientId) return this.#loadSetup();
+      this._setupError = error.message;
+    }
+  }
+
+  /** One option per client id of each API user, plus the configured client id when no API user has it yet. */
+  #renderClientIdPicker() {
+    const { apiUsers, clientId, configuredClientId } = this._setup;
+    const options = apiUsers.flatMap((u) => u.clientIds.map((id) => ({ name: `${u.name} (${id})`, value: id })));
+    if (!options.some((o) => o.value === configuredClientId)) {
+      options.unshift({ name: `${configuredClientId} (no API user has this client id yet)`, value: configuredClientId });
+    }
+    return html`<div class="picker">
+      <uui-select
+        label="API user"
+        .options=${options.map((o) => ({ ...o, selected: o.value === clientId }))}
+        @change=${(e) => this.#loadSetup(e.target.value)}
+      ></uui-select>
+      <p class="muted">
+        The config signs in as this API user. Give each person their own API user, and send them the config with the
+        client secret you saved when you created it. Each person also needs Node.js 22 or later.
+      </p>
+    </div>`;
   }
 
   async #copy(content) {
@@ -103,14 +144,21 @@ export class UmbrellaOverviewElement extends UmbLitElement {
   }
 
   #renderConnect() {
-    const { apiUsers, server, findings, clients } = this._data;
+    const { apiUsers, server, findings } = this._data;
     const open =
       apiUsers.length === 0 || server === null || findings.some((f) => f.severity === "warning" && f.area !== "products");
+    if (!this._setup) {
+      return html`<uui-box headline="Connect an AI tool">
+        ${this._setupError ? html`<p>Could not load the client config: ${this._setupError}</p>` : html`<uui-loader></uui-loader>`}
+      </uui-box>`;
+    }
+    const { clients } = this._setup;
     const selected = clients.find((c) => c.id === this._client) ?? clients[0];
     const insecure = /UMBRACO_BASE_URL["'=:\s]+http:\/\//.test(clients[0]?.content ?? "");
     return html`<uui-box headline="Connect an AI tool">
       <details ?open=${open}>
         <summary>Set up an MCP client for this site</summary>
+        ${this.#renderClientIdPicker()}
         ${insecure
           ? html`<p class="warning">
               The MCP server needs HTTPS. Open the backoffice over https, or change UMBRACO_BASE_URL in the snippet to the site's https address.
@@ -228,6 +276,7 @@ export class UmbrellaOverviewElement extends UmbLitElement {
       .findings li umb-icon { flex: none; margin-top: 0.2em; }
       .findings li umb-icon { color: var(--uui-color-warning-standalone); }
       summary { cursor: pointer; margin-bottom: var(--uui-size-space-4); }
+      .picker uui-select { min-width: 20rem; max-width: 100%; }
       .snippet { margin-top: var(--uui-size-space-4); }
       .snippet-header { display: flex; justify-content: space-between; align-items: center; gap: var(--uui-size-space-3); }
       pre {

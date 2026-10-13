@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
 using Umbraco.Cms.Core.Models.Membership;
@@ -85,7 +84,6 @@ public class McpOverviewServiceTests
             settings ?? new FakeToolSettingsStore { Catalogue = Catalogue(Addon, ("cms", 1)) },
             users ?? new FakeApiUserProvider(User(UserState.Active, "Umb.Section.Forms", "Ua.Section.Automate")),
             Sections.Select(s => (IMcpProductDetector)new StubDetector(s.Key, s.Value)).ToList(),
-            new ConfigurationBuilder().Build(),
             NullLogger<McpOverviewService>.Instance);
 
     [Test]
@@ -193,7 +191,7 @@ public class McpOverviewServiceTests
     {
         var service = Service(settings: new FakeToolSettingsStore { Throws = new InvalidOperationException("boom") });
 
-        McpOverview overview = await service.GetOverviewAsync(null);
+        McpOverview overview = await service.GetOverviewAsync();
 
         Assert.That(overview.Products, Has.Count.EqualTo(3));
         Assert.That(overview.ApiUsers, Has.Count.EqualTo(1));
@@ -208,7 +206,7 @@ public class McpOverviewServiceTests
     {
         var service = Service(users: new FakeApiUserProvider { Throws = new InvalidOperationException("boom") });
 
-        McpOverview overview = await service.GetOverviewAsync(null);
+        McpOverview overview = await service.GetOverviewAsync();
 
         Assert.That(overview.ApiUsers, Is.Empty);
         McpFinding finding = overview.Findings.Single();
@@ -228,7 +226,7 @@ public class McpOverviewServiceTests
         ];
         var service = Service(caps: new StubCapabilities(new McpCapabilities(Addon, products)));
 
-        McpOverview overview = await service.GetOverviewAsync(null);
+        McpOverview overview = await service.GetOverviewAsync();
 
         Assert.That(overview.Products.Single(p => p.Id == "cms").Access, Is.EqualTo("readOnly"));
         Assert.That(overview.Products.Single(p => p.Id == "forms").Access, Is.EqualTo("noDestructive"));
@@ -245,7 +243,7 @@ public class McpOverviewServiceTests
         });
         var service = Service(settings: new FakeToolSettingsStore { Catalogue = catalogue });
 
-        McpOverview overview = await service.GetOverviewAsync(null);
+        McpOverview overview = await service.GetOverviewAsync();
 
         McpOverviewProduct forms = overview.Products.Single(p => p.Id == "forms");
         Assert.That(forms.Loaded, Is.False);
@@ -260,7 +258,7 @@ public class McpOverviewServiceTests
     {
         var service = Service(settings: new FakeToolSettingsStore { Catalogue = Catalogue(Addon) });
 
-        McpOverview overview = await service.GetOverviewAsync(null);
+        McpOverview overview = await service.GetOverviewAsync();
 
         Assert.That(overview.Server, Is.Null);
         McpFinding finding = overview.Findings.Single();
@@ -277,7 +275,7 @@ public class McpOverviewServiceTests
         });
         var service = Service(settings: new FakeToolSettingsStore { Catalogue = catalogue });
 
-        McpOverview overview = await service.GetOverviewAsync(null);
+        McpOverview overview = await service.GetOverviewAsync();
 
         McpOverviewProduct forms = overview.Products.Single(p => p.Id == "forms");
         Assert.That(forms.Loaded, Is.True);
@@ -297,7 +295,7 @@ public class McpOverviewServiceTests
         });
         var service = Service(settings: new FakeToolSettingsStore { Catalogue = catalogue });
 
-        McpOverview overview = await service.GetOverviewAsync(null);
+        McpOverview overview = await service.GetOverviewAsync();
 
         Assert.That(overview.Server, Is.EqualTo(new McpServerReport(Addon, Reported, true)));
     }
@@ -307,7 +305,7 @@ public class McpOverviewServiceTests
     {
         var service = Service(users: new FakeApiUserProvider(User(UserState.LockedOut, "Ua.Section.Automate")));
 
-        McpOverview overview = await service.GetOverviewAsync(null);
+        McpOverview overview = await service.GetOverviewAsync();
 
         McpOverviewApiUser user = overview.ApiUsers.Single();
         Assert.That(user.State, Is.EqualTo("lockedOut"));
@@ -316,13 +314,11 @@ public class McpOverviewServiceTests
     }
 
     [Test]
-    public async Task Overview_without_a_site_url_still_builds()
+    public async Task Overview_has_the_addon_version()
     {
-        McpOverview overview = await Service().GetOverviewAsync(null);
+        McpOverview overview = await Service().GetOverviewAsync();
 
         Assert.That(overview.AddonVersion, Is.EqualTo(Addon));
-        Assert.That(overview.Clients, Has.Count.EqualTo(5));
-        Assert.That(overview.Clients.Select(c => c.Content), Has.All.Contain("https://your-site"));
     }
 
     [Test]
@@ -347,7 +343,7 @@ public class McpOverviewServiceTests
                 new McpCapabilities(Addon, AllProducts),
                 new Dictionary<Guid, McpCapabilities> { [user.Key] = new McpCapabilities(Addon, own) }));
 
-        McpOverviewApiUser row = (await service.GetOverviewAsync(null)).ApiUsers.Single();
+        McpOverviewApiUser row = (await service.GetOverviewAsync()).ApiUsers.Single();
 
         Assert.That(row.ServerVersion, Is.EqualTo(Addon));
         Assert.That(row.LastReportedAt, Is.EqualTo(Reported));
@@ -381,7 +377,7 @@ public class McpOverviewServiceTests
                 new McpCapabilities(Addon, AllProducts),
                 new Dictionary<Guid, McpCapabilities> { [user.Key] = new McpCapabilities(Addon, own) }));
 
-        McpOverviewApiUser row = (await service.GetOverviewAsync(null)).ApiUsers.Single();
+        McpOverviewApiUser row = (await service.GetOverviewAsync()).ApiUsers.Single();
 
         Assert.That(row.Access.Select(a => a.ToolCount), Is.EqualTo(new int?[] { 3, 4, 0 }));
         Assert.That(row.ToolCount, Is.EqualTo(7));
@@ -400,7 +396,7 @@ public class McpOverviewServiceTests
             settings: new FakeToolSettingsStore { UserCatalogues = { [user.Key] = catalogue } },
             users: new FakeApiUserProvider(user));
 
-        McpOverviewApiUser row = (await service.GetOverviewAsync(null)).ApiUsers.Single();
+        McpOverviewApiUser row = (await service.GetOverviewAsync()).ApiUsers.Single();
 
         Assert.That(row.Access.Single(a => a.ProductId == "forms").ToolCount, Is.Null);
         Assert.That(row.Access.Single(a => a.ProductId == "cms").ToolCount, Is.EqualTo(3));
@@ -413,7 +409,7 @@ public class McpOverviewServiceTests
         McpApiUser user = NamedUser("Anna");
         var service = Service(users: new FakeApiUserProvider(user));
 
-        McpOverviewApiUser row = (await service.GetOverviewAsync(null)).ApiUsers.Single();
+        McpOverviewApiUser row = (await service.GetOverviewAsync()).ApiUsers.Single();
 
         Assert.That(row.ServerVersion, Is.Null);
         Assert.That(row.LastReportedAt, Is.Null);
@@ -439,7 +435,7 @@ public class McpOverviewServiceTests
             },
             users: new FakeApiUserProvider(anna, ben));
 
-        McpOverview overview = await service.GetOverviewAsync(null);
+        McpOverview overview = await service.GetOverviewAsync();
 
         McpFinding finding = overview.Findings.Single(f => f.Area == McpFindingArea.Server);
         Assert.That(finding.Severity, Is.EqualTo(McpFinding.Warning));
@@ -453,7 +449,7 @@ public class McpOverviewServiceTests
     {
         var service = Service(settings: new FakeToolSettingsStore { Catalogue = Catalogue("16.9.0", ("cms", 5)) });
 
-        McpOverview overview = await service.GetOverviewAsync(null);
+        McpOverview overview = await service.GetOverviewAsync();
 
         McpFinding finding = overview.Findings.Single(f => f.Area == McpFindingArea.Server);
         Assert.That(finding.Severity, Is.EqualTo(McpFinding.Warning));
@@ -476,7 +472,7 @@ public class McpOverviewServiceTests
             },
             users: new FakeApiUserProvider(a, b));
 
-        McpOverview overview = await service.GetOverviewAsync(null);
+        McpOverview overview = await service.GetOverviewAsync();
 
         McpOverviewProduct forms = overview.Products.Single(p => p.Id == "forms");
         Assert.That(forms.Loaded, Is.True);
@@ -499,7 +495,7 @@ public class McpOverviewServiceTests
             },
             users: new FakeApiUserProvider(anna));
 
-        McpOverview overview = await service.GetOverviewAsync(null);
+        McpOverview overview = await service.GetOverviewAsync();
 
         McpOverviewApiUser row = overview.ApiUsers.Single();
         Assert.That(row.ServerVersion, Is.Null);

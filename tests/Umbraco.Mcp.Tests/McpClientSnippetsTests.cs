@@ -22,14 +22,16 @@ public class McpClientSnippetsTests
         JsonDocument.Parse(Get(id, site).Content).RootElement.GetProperty("mcpServers").GetProperty("umbraco").GetProperty("env");
 
     [Test]
-    public void Five_clients_in_order()
+    public void Six_clients_in_order()
     {
         IReadOnlyList<McpClientSnippet> snippets = Build();
 
-        Assert.That(snippets.Select(s => s.Id), Is.EqualTo(new[] { "claude-code", "claude-code-cli", "vscode", "cursor", "other" }));
-        Assert.That(snippets.Select(s => s.Label), Is.EqualTo(new[] { "Claude Code", "Claude Code (command)", "VS Code", "Cursor", "Other clients" }));
-        Assert.That(snippets.Select(s => s.FileName), Is.EqualTo(new string?[] { ".mcp.json", null, ".vscode/mcp.json", ".cursor/mcp.json", null }));
-        Assert.That(snippets.Select(s => s.Format), Is.EqualTo(new[] { "json", "shell", "json", "json", "json" }));
+        Assert.That(snippets.Select(s => s.Id), Is.EqualTo(new[] { "claude-code", "claude-code-cli", "claude-desktop", "vscode", "cursor", "other" }));
+        Assert.That(snippets.Select(s => s.Label),
+            Is.EqualTo(new[] { "Claude Code", "Claude Code (command)", "Claude Desktop", "VS Code", "Cursor", "Other clients" }));
+        Assert.That(snippets.Select(s => s.FileName),
+            Is.EqualTo(new string?[] { ".mcp.json", null, "claude_desktop_config.json", ".vscode/mcp.json", ".cursor/mcp.json", null }));
+        Assert.That(snippets.Select(s => s.Format), Is.EqualTo(new[] { "json", "shell", "json", "json", "json", "json" }));
     }
 
     [Test]
@@ -69,6 +71,10 @@ public class McpClientSnippetsTests
         Assert.That(Env("cursor").GetProperty("UMBRACO_CLIENT_SECRET").GetString(), Is.EqualTo("${env:UMBRELLA_CLIENT_SECRET}"));
 
     [Test]
+    public void Claude_desktop_uses_the_placeholder() =>
+        Assert.That(Env("claude-desktop").GetProperty("UMBRACO_CLIENT_SECRET").GetString(), Is.EqualTo(McpClientSnippets.SecretPlaceholder));
+
+    [Test]
     public void Other_uses_the_placeholder() =>
         Assert.That(Env("other").GetProperty("UMBRACO_CLIENT_SECRET").GetString(), Is.EqualTo(McpClientSnippets.SecretPlaceholder));
 
@@ -94,7 +100,7 @@ public class McpClientSnippetsTests
     {
         const string id = "a\"b";
 
-        foreach (string snippetId in new[] { "claude-code", "vscode", "cursor", "other" })
+        foreach (string snippetId in new[] { "claude-code", "claude-desktop", "vscode", "cursor", "other" })
         {
             JsonElement root = JsonDocument.Parse(Get(snippetId, Site, id).Content).RootElement;
             JsonElement server = root.GetProperty(snippetId == "vscode" ? "servers" : "mcpServers").GetProperty("umbraco");

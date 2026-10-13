@@ -1,5 +1,4 @@
 using System.Globalization;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Umbraco.Cms.Core.Models.Membership;
 using Umbraco.Mcp.ApiUser;
@@ -16,10 +15,9 @@ public sealed class McpOverviewService(
     IMcpToolSettingsStore toolSettings,
     IMcpApiUserProvider apiUsers,
     IEnumerable<IMcpProductDetector> detectors,
-    IConfiguration configuration,
     ILogger<McpOverviewService> logger) : IMcpOverviewService
 {
-    public async Task<McpOverview> GetOverviewAsync(string? siteUrl)
+    public async Task<McpOverview> GetOverviewAsync()
     {
         McpCapabilities? caps = Read(() => capabilities.GetCapabilities(), "the detected products");
         McpToolCatalogue? catalogue = Read(toolSettings.GetCatalogue, "what the MCP server last reported");
@@ -49,8 +47,7 @@ public sealed class McpOverviewService(
                 products,
                 sectionByProduct,
                 userCatalogues.GetValueOrDefault(u.Key),
-                Read(() => capabilities.GetCapabilities(u.Key), $"the tool access of \"{u.Name}\""))).ToList(),
-            McpClientSnippets.Build(siteUrl, McpClientConfig.ReadClientId(configuration), addonVersion));
+                Read(() => capabilities.GetCapabilities(u.Key), $"the tool access of \"{u.Name}\""))).ToList());
     }
 
     private T? Read<T>(Func<T> read, string what) where T : class
