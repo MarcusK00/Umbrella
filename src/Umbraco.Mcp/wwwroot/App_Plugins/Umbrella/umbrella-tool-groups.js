@@ -216,6 +216,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
   }
 
   #setLevel(id, level) {
+    if (this._busy) return;
     if (this._selected) {
       const override = this._edit.overrides[id];
       if (!override) return;
@@ -226,6 +227,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
   }
 
   #setGroup(id, name, enabled) {
+    if (this._busy) return;
     const edit = (current) => {
       const set = new Set(current ?? []);
       if (enabled) set.delete(name);
@@ -243,6 +245,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
 
   /** "Customise for …" starts an override from a copy of the saved defaults; "Reset to defaults" drops it. */
   #setOverride(id, customise) {
+    if (this._busy) return;
     const overrides = { ...this._edit.overrides };
     if (customise) overrides[id] = this.#defaultsFor(id);
     else delete overrides[id];
@@ -250,7 +253,8 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
   }
 
   async #save() {
-    if (!this.dirty || this._saving) return;
+    // While another user loads, the page is about to be replaced: nothing is edited or saved then.
+    if (!this.dirty || this._saving || this._busy) return;
     const key = this._selected;
     const name = this._data.apiUsers?.find((u) => u.key === key)?.name ?? "This API user";
     this._saving = true;
@@ -329,7 +333,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
       .module=${module}
       .level=${state.level}
       .disabled=${state.disabled}
-      .editable=${mode !== "follows" && !this._saving}
+      .editable=${mode !== "follows" && !this._saving && !this._busy}
       .showCounts=${this.#showCounts(id)}
       .mode=${mode}
       .userName=${userName}
@@ -397,14 +401,14 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
         <h3>Tool permissions</h3>
         ${dirty
           ? html`<span class="unsaved" role="status"><span class="dot"></span>Unsaved changes</span>
-              <uui-button look="secondary" label="Discard" ?disabled=${this._saving} @click=${this.#discard}></uui-button>`
+              <uui-button look="secondary" label="Discard" ?disabled=${this._saving || this._busy} @click=${this.#discard}></uui-button>`
           : nothing}
         <uui-button
           look="primary"
           color="positive"
           label="Save"
           .state=${this._saving ? "waiting" : undefined}
-          ?disabled=${!dirty || this._saving}
+          ?disabled=${!dirty || this._saving || this._busy}
           @click=${this.#save}
         ></uui-button>
       </header>
