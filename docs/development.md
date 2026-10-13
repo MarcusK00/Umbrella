@@ -45,7 +45,26 @@ How to build, run and test Umbrella from a fresh clone. How the code fits togeth
 
    This prints every registered tool (`cms--`, `forms--`, `automate--`, `engage--` and `get-mcp-health`).
 
-6. **Use it from an AI tool.** On its first start the demo site writes `demo-site/.mcp.json` (gitignored). `demo-site/appsettings.Development.json` makes it run the local build (`node ../npm/dist/index.js`) instead of `npx`. Set `UMBRELLA_CLIENT_SECRET` to the same secret, restart your AI tool, and open `demo-site/` in it. Run `npm run build` again after changing the server, then reconnect.
+6. **Use it from an AI tool.** Create `demo-site/.mcp.json` (gitignored) to run the local build instead of `npx`:
+
+   ```json
+   {
+     "mcpServers": {
+       "umbraco": {
+         "command": "node",
+         "args": ["../npm/dist/index.js"],
+         "env": {
+           "UMBRACO_BASE_URL": "https://localhost:44399",
+           "UMBRACO_CLIENT_ID": "umbraco-back-office-mcp",
+           "UMBRACO_CLIENT_SECRET": "${UMBRELLA_CLIENT_SECRET}",
+           "NODE_TLS_REJECT_UNAUTHORIZED": "0"
+         }
+       }
+     }
+   }
+   ```
+
+   Set `UMBRELLA_CLIENT_SECRET` to the same secret, restart your AI tool, and open `demo-site/` in it. Run `npm run build` again after changing the server, then reconnect.
 
 ## Tests
 
