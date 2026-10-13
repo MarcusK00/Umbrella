@@ -16,7 +16,7 @@ internal static class TestOverview
         new("17.0.0", findings ?? [], products ?? [], server, users ?? [], Array.Empty<McpClientSnippet>(), new McpJsonStatus(false, null));
 
     public static McpOverviewProduct Product(string name, bool installed = true, string? version = "17.0.0", string[]? issues = null) =>
-        new(name.ToLowerInvariant(), name, installed, installed, version, issues ?? [], installed, 0, "full");
+        new(name.ToLowerInvariant(), name, installed, installed, version, issues ?? [], installed, 0, "full", 0);
 
     public static McpOverviewApiUser User(
         string name = "MCP API user",
@@ -24,5 +24,5 @@ internal static class TestOverview
         string[]? clientIds = null,
         string[]? reachable = null,
         string[]? unreachable = null) =>
-        new(Guid.NewGuid(), name, clientIds ?? ["umbraco-back-office-mcp"], state, At, reachable ?? [], unreachable ?? []);
+        new(Guid.NewGuid(), name, clientIds ?? ["umbraco-back-office-mcp"], state, At, reachable ?? [], unreachable ?? [], null, null, null, []);
 }

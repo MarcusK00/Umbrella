@@ -9,6 +9,7 @@ using Umbraco.Mcp.Api;
 using Umbraco.Mcp.Client;
 using Umbraco.Mcp.Connections;
 using Umbraco.Mcp.Overview;
+using Umbraco.Mcp.ToolSettings;
 
 namespace Umbraco.Mcp.Tests;
 
@@ -29,9 +30,12 @@ public class McpOverviewControllerTests
     }
 
     private static McpOverviewController Controller(
-        StubOverview? overview = null, FakeConnectionStore? connections = null, FakeMcpJsonFile? mcpJson = null) =>
-        new(overview ?? new StubOverview(), connections ?? new FakeConnectionStore(), mcpJson ?? new FakeMcpJsonFile(),
-            NullLogger<McpOverviewController>.Instance);
+        StubOverview? overview = null,
+        FakeConnectionStore? connections = null,
+        FakeMcpJsonFile? mcpJson = null,
+        FakeToolSettingsStore? settings = null) =>
+        new(overview ?? new StubOverview(), connections ?? new FakeConnectionStore(), settings ?? new FakeToolSettingsStore(),
+            mcpJson ?? new FakeMcpJsonFile(), NullLogger<McpOverviewController>.Instance);
 
     private static string? PolicyOf(string method) =>
         typeof(McpOverviewController).GetMethod(method)!.GetCustomAttribute<AuthorizeAttribute>()?.Policy;
@@ -77,7 +81,31 @@ public class McpOverviewControllerTests
     [Test]
     public void Forget_unknown_connection_is_not_found()
     {
-        Assert.That(Controller().ForgetConnection(Guid.NewGuid()), Is.InstanceOf<NotFoundResult>());
+        var settings = new FakeToolSettingsStore();
+
+        Assert.That(Controller(settings: settings).ForgetConnection(Guid.NewGuid()), Is.InstanceOf<NotFoundResult>());
+        Assert.That(settings.ClearedCatalogues, Is.Empty);
+    }
+
+    [Test]
+    public void Forget_clears_the_user_catalogue_and_keeps_overrides()
+    {
+        Guid key = Guid.NewGuid();
+        var connections = new FakeConnectionStore();
+        connections.Record(key, DateTimeOffset.UtcNow);
+        var overrides = new Dictionary<string, McpProductOverride> { ["forms"] = new([], "readOnly") };
+        var settings = new FakeToolSettingsStore
+        {
+            UserOverrides = { [key] = overrides },
+            UserCatalogues = { [key] = new McpToolCatalogue("17.0.0", new Dictionary<string, McpModuleCatalogue>()) },
+        };
+
+        IActionResult result = Controller(connections: connections, settings: settings).ForgetConnection(key);
+
+        Assert.That(result, Is.InstanceOf<NoContentResult>());
+        Assert.That(settings.ClearedCatalogues, Is.EqualTo(new[] { key }));
+        Assert.That(settings.UserCatalogues, Does.Not.ContainKey(key));
+        Assert.That(settings.UserOverrides[key], Is.SameAs(overrides));
     }
 
     [Test]

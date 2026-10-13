@@ -24,9 +24,10 @@ public class McpOverviewServiceTests
         ["automate"] = "Ua.Section.Automate",
     };
 
-    private sealed class StubCapabilities(McpCapabilities caps) : IMcpCapabilitiesService
+    private sealed class StubCapabilities(McpCapabilities caps, Dictionary<Guid, McpCapabilities>? perUser = null) : IMcpCapabilitiesService
     {
-        public McpCapabilities GetCapabilities(Guid? apiUserKey = null) => caps;
+        public McpCapabilities GetCapabilities(Guid? apiUserKey = null) =>
+            apiUserKey is { } key && perUser is not null && perUser.TryGetValue(key, out McpCapabilities? own) ? own : caps;
     }
 
     private sealed class StubDetector(string id, string? section) : IMcpProductDetector
@@ -53,6 +54,12 @@ public class McpOverviewServiceTests
     private static McpApiUser User(UserState state = UserState.Active, params string[] sections) =>
         new(Guid.NewGuid(), "MCP API user", state, sections, ["umbraco-back-office-mcp"], Reported);
 
+    private static McpApiUser NamedUser(string name) =>
+        new(Guid.NewGuid(), name, UserState.Active, ["Umb.Section.Forms", "Ua.Section.Automate"], ["umbraco-back-office-mcp"], Reported);
+
+    private static McpToolCatalogue OwnCatalogue(string version, DateTimeOffset at, params (string Id, int Tools)[] modules) =>
+        new(version, modules.ToDictionary(m => m.Id, m => new McpModuleCatalogue(at, false, [new McpCollectionInfo("a", m.Tools)])));
+
     private static McpToolCatalogue Catalogue(string? version = Addon, params (string Id, int Tools)[] modules) =>
         new(version, modules.ToDictionary(
             m => m.Id,
@@ -73,11 +80,13 @@ public class McpOverviewServiceTests
         IMcpToolSettingsStore? settings = null,
         IMcpApiUserProvider? users = null,
         IMcpCapabilitiesService? caps = null,
-        FakeMcpJsonFile? json = null) =>
+        FakeMcpJsonFile? json = null,
+        IMcpApiUserDirectory? directory = null) =>
         new(
             caps ?? new StubCapabilities(new McpCapabilities(Addon, AllProducts)),
             settings ?? new FakeToolSettingsStore { Catalogue = Catalogue(Addon, ("cms", 1)) },
             users ?? new FakeApiUserProvider(User(UserState.Active, "Umb.Section.Forms", "Ua.Section.Automate")),
+            directory ?? new FakeApiUserDirectory(),
             Sections.Select(s => (IMcpProductDetector)new StubDetector(s.Key, s.Value)).ToList(),
             json ?? new FakeMcpJsonFile(),
             new ConfigurationBuilder().Build(),
@@ -329,5 +338,162 @@ public class McpOverviewServiceTests
         McpOverview overview = await service.GetOverviewAsync(null);
 
         Assert.That(overview.McpJson, Is.EqualTo(new McpJsonStatus(true, "C:/site/.mcp.json")));
+    }
+
+    [Test]
+    public async Task User_row_shows_its_own_report_and_access()
+    {
+        McpApiUser user = NamedUser("Anna");
+        McpProductStatus[] own =
+        [
+            Product("cms", "Umbraco CMS"),
+            Product("forms", "Umbraco Forms") with { ReadOnly = true, SettingsScope = McpSettingsScope.User },
+            Product("automate", "Umbraco Automate", installed: false, enabled: false),
+        ];
+        var catalogue = new McpToolCatalogue(Addon, new Dictionary<string, McpModuleCatalogue>
+        {
+            ["cms"] = new(Reported, false, [new McpCollectionInfo("a", 3)]),
+            ["forms"] = new(Reported, false, [new McpCollectionInfo("a", 4), new McpCollectionInfo("b", 6)]),
+        });
+        var service = Service(
+            settings: new FakeToolSettingsStore { UserCatalogues = { [user.Key] = catalogue } },
+            users: new FakeApiUserProvider(user),
+            caps: new StubCapabilities(
+                new McpCapabilities(Addon, AllProducts),
+                new Dictionary<Guid, McpCapabilities> { [user.Key] = new McpCapabilities(Addon, own) }));
+
+        McpOverviewApiUser row = (await service.GetOverviewAsync(null)).ApiUsers.Single();
+
+        Assert.That(row.ServerVersion, Is.EqualTo(Addon));
+        Assert.That(row.LastReportedAt, Is.EqualTo(Reported));
+        Assert.That(row.ToolCount, Is.EqualTo(13));
+        Assert.That(row.Access, Is.EqualTo(new[]
+        {
+            new McpOverviewAccess("cms", "Umbraco CMS", "full", "site"),
+            new McpOverviewAccess("forms", "Umbraco Forms", "readOnly", "user"),
+        }));
+    }
+
+    [Test]
+    public async Task User_without_own_report_has_null_report_fields()
+    {
+        McpApiUser user = NamedUser("Anna");
+        var service = Service(users: new FakeApiUserProvider(user));
+
+        McpOverviewApiUser row = (await service.GetOverviewAsync(null)).ApiUsers.Single();
+
+        Assert.That(row.ServerVersion, Is.Null);
+        Assert.That(row.LastReportedAt, Is.Null);
+        Assert.That(row.ToolCount, Is.Null);
+        Assert.That(row.Access.Select(a => a.ProductId), Is.EqualTo(new[] { "cms", "forms", "automate" }));
+    }
+
+    [Test]
+    public async Task Version_warning_per_user()
+    {
+        McpApiUser anna = NamedUser("Anna");
+        McpApiUser ben = NamedUser("Ben");
+        var service = Service(
+            settings: new FakeToolSettingsStore
+            {
+                Catalogue = Catalogue(Addon, ("cms", 1)),
+                UserCatalogues =
+                {
+                    [anna.Key] = OwnCatalogue("16.9.0", Reported, ("cms", 5)),
+                    [ben.Key] = OwnCatalogue(Addon, Reported, ("cms", 5)),
+                },
+            },
+            users: new FakeApiUserProvider(anna, ben));
+
+        McpOverview overview = await service.GetOverviewAsync(null);
+
+        McpFinding finding = overview.Findings.Single(f => f.Area == McpFindingArea.Server);
+        Assert.That(finding.Severity, Is.EqualTo(McpFinding.Warning));
+        Assert.That(finding.Message, Is.EqualTo(
+            "\"Anna\" last started umbrella-mcp 16.9.0 on 12-10-2026 08:46 UTC, but the add-on is 17.0.0. " +
+            "The two are released together: set umbrella-mcp@17.0.0 in your AI tool's MCP configuration. " +
+            "A .mcp.json the site wrote and nobody edited is upgraded when the site next starts in Development."));
+    }
+
+    [Test]
+    public async Task Shared_row_finding_when_no_user_has_its_own_report()
+    {
+        var service = Service(settings: new FakeToolSettingsStore { Catalogue = Catalogue("16.9.0", ("cms", 5)) });
+
+        McpOverview overview = await service.GetOverviewAsync(null);
+
+        McpFinding finding = overview.Findings.Single(f => f.Area == McpFindingArea.Server);
+        Assert.That(finding.Severity, Is.EqualTo(McpFinding.Warning));
+        Assert.That(finding.Message, Does.StartWith("The MCP server last started as umbrella-mcp 16.9.0 on 12-10-2026 08:46 UTC"));
+    }
+
+    [Test]
+    public async Task Loaded_when_any_connected_user_loaded_it()
+    {
+        McpApiUser a = NamedUser("Anna");
+        McpApiUser b = NamedUser("Ben");
+        var service = Service(
+            settings: new FakeToolSettingsStore
+            {
+                UserCatalogues =
+                {
+                    [a.Key] = OwnCatalogue(Addon, Reported, ("cms", 1), ("forms", 4)),
+                    [b.Key] = OwnCatalogue(Addon, Reported.AddHours(1), ("cms", 9)),
+                },
+            },
+            users: new FakeApiUserProvider(a, b));
+
+        McpOverview overview = await service.GetOverviewAsync(null);
+
+        McpOverviewProduct forms = overview.Products.Single(p => p.Id == "forms");
+        Assert.That(forms.Loaded, Is.True);
+        Assert.That(forms.ToolCount, Is.EqualTo(4));
+        McpOverviewProduct cms = overview.Products.Single(p => p.Id == "cms");
+        Assert.That(cms.Loaded, Is.True);
+        Assert.That(cms.ToolCount, Is.EqualTo(9));
+        Assert.That(overview.Products.Single(p => p.Id == "automate").Loaded, Is.False);
+    }
+
+    [Test]
+    public async Task Products_count_only_existing_api_users_that_differ()
+    {
+        McpApiUser anna = NamedUser("Anna");
+        var ghost = Guid.NewGuid();
+        var forms = new Dictionary<string, McpProductOverride> { ["forms"] = new([], "readOnly") };
+        var service = Service(
+            settings: new FakeToolSettingsStore { UserOverrides = { [anna.Key] = forms, [ghost] = forms } },
+            users: new FakeApiUserProvider(anna),
+            directory: new FakeApiUserDirectory(new McpApiUserInfo(anna.Key, "Anna", UserState.Active, ["umbraco-back-office-mcp"])));
+
+        McpOverview overview = await service.GetOverviewAsync(null);
+
+        Assert.That(overview.Products.Single(p => p.Id == "forms").UsersWithOwnSettings, Is.EqualTo(1));
+        Assert.That(overview.Products.Single(p => p.Id == "cms").UsersWithOwnSettings, Is.EqualTo(0));
+    }
+
+    [Test]
+    public async Task Overview_survives_a_failing_per_user_read()
+    {
+        McpApiUser anna = NamedUser("Anna");
+        var service = Service(
+            settings: new FakeToolSettingsStore
+            {
+                Catalogue = Catalogue("16.9.0", ("cms", 5)),
+                UserReadsThrow = new InvalidOperationException("boom"),
+            },
+            users: new FakeApiUserProvider(anna),
+            directory: new FakeApiUserDirectory(new McpApiUserInfo(anna.Key, "Anna", UserState.Active, [])));
+
+        McpOverview overview = await service.GetOverviewAsync(null);
+
+        McpOverviewApiUser row = overview.ApiUsers.Single();
+        Assert.That(row.ServerVersion, Is.Null);
+        Assert.That(row.ToolCount, Is.Null);
+        Assert.That(overview.Products.Select(p => p.UsersWithOwnSettings), Has.All.EqualTo(0));
+        McpOverviewProduct cms = overview.Products.Single(p => p.Id == "cms");
+        Assert.That(cms.Loaded, Is.True);
+        Assert.That(cms.ToolCount, Is.EqualTo(5));
+        McpFinding finding = overview.Findings.Single(f => f.Area == McpFindingArea.Server);
+        Assert.That(finding.Message, Does.StartWith("The MCP server last started as umbrella-mcp 16.9.0"));
     }
 }
