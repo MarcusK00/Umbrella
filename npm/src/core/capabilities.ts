@@ -15,6 +15,8 @@ export interface ProductCapability {
   readOnly?: boolean | null;
   /** No destructive tools, as set in the backoffice. Missing on older add-ons. */
   noDestructive?: boolean | null;
+  /** "user" when the settings above are an override for the calling API user, "site" for the defaults. Missing on older add-ons; any other value counts as "site". */
+  settingsScope?: string | null;
 }
 
 export interface CapabilitiesPayload {
@@ -93,4 +95,10 @@ export function siteReadOnly(caps: CapabilitiesResult, moduleId: string): boolea
 export function siteNoDestructive(caps: CapabilitiesResult, moduleId: string): boolean {
   if (caps.kind !== "ok") return false;
   return caps.payload.products.find((p) => p.id === moduleId)?.noDestructive === true;
+}
+
+/** "user" when the module's backoffice settings are an override for the calling API user; "site" otherwise, also for a missing, null or unknown value. */
+export function siteSettingsScope(caps: CapabilitiesResult, moduleId: string): "site" | "user" {
+  if (caps.kind !== "ok") return "site";
+  return caps.payload.products.find((p) => p.id === moduleId)?.settingsScope === "user" ? "user" : "site";
 }

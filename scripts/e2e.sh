@@ -40,7 +40,24 @@ ORIGINAL=$(node -e "const s = JSON.parse(require('fs').readFileSync(0, 'utf8'));
 put_settings() {
   curl -sfk -X PUT -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d "$1" "$API/tool-settings" >/dev/null
 }
-trap 'put_settings "$ORIGINAL" || true' EXIT
+# The checks below change the defaults, so this API user must follow them: its own settings are parked until the end.
+USER_KEY=$(CLIENT_ID="$UMBRACO_CLIENT_ID" node -e "
+  const s = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+  const u = (s.apiUsers || []).find((u) => u.clientIds.includes(process.env.CLIENT_ID));
+  if (!u) { console.error('no API user with client id ' + process.env.CLIENT_ID); process.exit(1); }
+  console.log(u.key);" <<<"$SETTINGS") || fail "could not find this API user in tool-settings"
+USER_ORIGINAL=$(curl -sfk -H "Authorization: Bearer $TOKEN" "$API/tool-settings/users/$USER_KEY" \
+  | node -e "const s = JSON.parse(require('fs').readFileSync(0, 'utf8')); console.log(JSON.stringify({ overrides: s.overrides || {} }));") \
+  || fail "GET this API user's tool settings failed"
+put_user_settings() {
+  curl -sfk -X PUT -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d "$1" "$API/tool-settings/users/$USER_KEY" >/dev/null
+}
+restore() {
+  put_settings "$ORIGINAL" || echo "WARN: could not restore the default tool settings" >&2
+  put_user_settings "$USER_ORIGINAL" || echo "WARN: could not restore this API user's own tool settings" >&2
+}
+trap restore EXIT
+put_user_settings '{"overrides":{}}' || fail "could not clear this API user's own tool settings"
 put_settings '{"disabledCollections":{"forms":["prevalue-source"]}}' || fail "PUT tool-settings failed"
 TOOLS_OFF=$(node dist/index.js --list-tools)
 # The separate prevalue-source-type group stays on, so leave its tools out of the check.
@@ -70,19 +87,27 @@ put_settings '{"disabledCollections":{"forms":[]}}' || fail "PUT forms tool-sett
 TOOLS_SAVED=$(node dist/index.js --list-tools)
 grep -qx "forms--get-server-info" <<<"$TOOLS_SAVED" || fail "a saved empty Forms list did not switch its default-off groups on"
 put_settings "$ORIGINAL" || fail "could not restore tool settings"
+put_user_settings "$USER_ORIGINAL" || fail "could not restore this API user's own tool settings"
 trap - EXIT
 echo "   default-off groups are off until the site saves a list"
 
-echo "   overview endpoint"
+echo "   overview and client-setup endpoints"
 OVERVIEW=$(curl -sfk -H "Authorization: Bearer $TOKEN" "$API/overview") || fail "GET overview failed"
-SECRET="$UMBRACO_CLIENT_SECRET" node -e "
+node -e "
   const o = JSON.parse(require('fs').readFileSync(0, 'utf8'));
-  if (typeof o.addonVersion !== 'string' || !o.addonVersion) { console.error('no addonVersion'); process.exit(1); }
-  if (!Array.isArray(o.clients) || o.clients.length !== 5) { console.error('expected 5 clients, got ' + (o.clients && o.clients.length)); process.exit(1); }
-  const secret = process.env.SECRET;
-  if (secret && o.clients.some((c) => c.content.includes(secret))) { console.error('a client snippet contains the client secret'); process.exit(1); }" <<<"$OVERVIEW" \
+  if (typeof o.addonVersion !== 'string' || !o.addonVersion) { console.error('no addonVersion'); process.exit(1); }" <<<"$OVERVIEW" \
   || fail "overview check failed (excerpt: ${OVERVIEW:0:300})"
-echo "   overview has the add-on version and 5 client snippets without the secret"
+SETUP=$(curl -sfk -G -H "Authorization: Bearer $TOKEN" --data-urlencode "clientId=$UMBRACO_CLIENT_ID" "$API/client-setup") \
+  || fail "GET client-setup for $UMBRACO_CLIENT_ID failed"
+SECRET="$UMBRACO_CLIENT_SECRET" CLIENT_ID="$UMBRACO_CLIENT_ID" node -e "
+  const s = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+  if (s.clientId !== process.env.CLIENT_ID) { console.error('clientId is ' + s.clientId); process.exit(1); }
+  if (!Array.isArray(s.clients) || s.clients.length !== 6) { console.error('expected 6 clients, got ' + (s.clients && s.clients.length)); process.exit(1); }
+  if (!s.clients.every((c) => c.content.includes(process.env.CLIENT_ID))) { console.error('a client snippet lacks the client id'); process.exit(1); }
+  const secret = process.env.SECRET;
+  if (secret && s.clients.some((c) => c.content.includes(secret))) { console.error('a client snippet contains the client secret'); process.exit(1); }" <<<"$SETUP" \
+  || fail "client-setup check failed (excerpt: ${SETUP:0:300})"
+echo "   overview has the add-on version; client-setup has 6 client snippets for this API user, without the secret"
 
 echo "4. Smoke calls"
 call() {

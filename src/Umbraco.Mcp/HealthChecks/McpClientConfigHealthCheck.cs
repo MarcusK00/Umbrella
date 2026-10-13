@@ -11,7 +11,7 @@ namespace Umbraco.Mcp.HealthChecks;
 public sealed class McpClientConfigHealthCheck(IMcpOverviewService overview) : HealthCheck
 {
     public override async Task<IEnumerable<HealthCheckStatus>> GetStatusAsync() =>
-        McpHealthCheckRows.Build(await overview.GetOverviewAsync(null), McpFindingArea.Server);
+        McpHealthCheckRows.Build(await overview.GetOverviewAsync(), McpFindingArea.Server);
 
     public override HealthCheckStatus ExecuteAction(HealthCheckAction action) =>
         throw new InvalidOperationException("The MCP client setup health check has no actions.");

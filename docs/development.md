@@ -45,7 +45,26 @@ How to build, run and test Umbrella from a fresh clone. How the code fits togeth
 
    This prints every registered tool (`cms--`, `forms--`, `automate--`, `engage--` and `get-mcp-health`).
 
-6. **Use it from an AI tool.** On its first start the demo site writes `demo-site/.mcp.json` (gitignored). `demo-site/appsettings.Development.json` makes it run the local build (`node ../npm/dist/index.js`) instead of `npx`. Set `UMBRELLA_CLIENT_SECRET` to the same secret, restart your AI tool, and open `demo-site/` in it. Run `npm run build` again after changing the server, then reconnect.
+6. **Use it from an AI tool.** Create `demo-site/.mcp.json` (gitignored) to run the local build instead of `npx`:
+
+   ```json
+   {
+     "mcpServers": {
+       "umbraco": {
+         "command": "node",
+         "args": ["../npm/dist/index.js"],
+         "env": {
+           "UMBRACO_BASE_URL": "https://localhost:44399",
+           "UMBRACO_CLIENT_ID": "umbraco-back-office-mcp",
+           "UMBRACO_CLIENT_SECRET": "${UMBRELLA_CLIENT_SECRET}",
+           "NODE_TLS_REJECT_UNAUTHORIZED": "0"
+         }
+       }
+     }
+   }
+   ```
+
+   Set `UMBRELLA_CLIENT_SECRET` to the same secret, restart your AI tool, and open `demo-site/` in it. Run `npm run build` again after changing the server, then reconnect.
 
 ## Tests
 
@@ -68,7 +87,7 @@ Expected noise: Jest runs with `--experimental-vm-modules`, so every run prints 
 
 Both scripts need the demo site running, `npm/.env`, and the API user.
 
-- **`scripts/e2e.sh`** runs the local build (`npm run build` first) against the site: capabilities report Forms, Automate and Engage; every prefix has tools; descriptions are product-prefixed; switching off a tool group and setting Forms to read-only or to no destructive tools (checking `forms--delete-form` is gone) change the tool list; and `get-mcp-health`, `forms--list-forms` and `automate--list-automations` answer. It changes the site's tool settings while it runs and restores them afterwards, even when it fails.
+- **`scripts/e2e.sh`** runs the local build (`npm run build` first) against the site: capabilities report Forms, Automate and Engage; every prefix has tools; descriptions are product-prefixed; switching off a tool group and setting Forms to read-only or to no destructive tools (checking `forms--delete-form` is gone) change the tool list; groups that are off by default stay off until the site saves a list; the Overview reports the add-on version, and `client-setup` returns the six client configs for the API user's client id without the secret; and `get-mcp-health`, `forms--list-forms` and `automate--list-automations` answer. It changes the site's default tool settings while it runs, and clears the API user's own settings for the run, and restores both afterwards, even when it fails.
 - **`scripts/pack-check.sh`** packs `umbrella-mcp` and installs it with `npx` in an empty folder, the way users get it. There npm ignores the package's `overrides`, so this is the check that every product still shares one toolkit copy: it fails when `cms--`, `forms--`, `automate--` or `engage--` tools are missing. It also checks that no vendor tarball is packed.
 
 ## Before you commit
@@ -79,7 +98,7 @@ Both scripts need the demo site running, `npm/.env`, and the API user.
 - **New files in `demo-site/`** are ignored too, so local experiments stay local: only the files already in the repo are tracked. Add one on purpose with `git add -f`.
 - **`bash scripts/check-guards.sh`** catches most of these, plus README versions that differ from the npm version.
 - **Don't upgrade dependencies** as a side effect of other work.
-- **Docs:** dates are DD-MM-YYYY. When behaviour or configuration changes, update `README.md`, `npm/README.md`, `src/Umbraco.Mcp/README.md` and `CLAUDE.md`.
+- **Docs:** dates are DD-MM-YYYY. When behaviour or configuration changes, update `README.md`, `npm/README.md`, `src/Umbraco.Mcp/README.md`, `docs/architecture.md` (and `docs/architecture-map.html`) and `CLAUDE.md`.
 
 Then open a PR: [merging.md](merging.md) covers the CI checks and the PR checklist.
 
