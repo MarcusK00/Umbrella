@@ -53,6 +53,27 @@ public class KeyValueMcpToolSettingsStoreTests
     }
 
     [Test]
+    public void Off_modules_round_trip()
+    {
+        var values = new FakeKeyValueService();
+
+        Store(values).SetOffModules(["forms"]);
+
+        Assert.That(Store(values).GetOffModules(), Is.EqualTo(new[] { "forms" }));
+        Assert.That(values.Values[KeyValueMcpToolSettingsStore.OffKey], Is.EqualTo("[\"forms\"]"));
+        Assert.That(KeyValueMcpToolSettingsStore.OffKey, Is.EqualTo("Umbraco.Mcp.OffModules"));
+    }
+
+    [Test]
+    public void Off_modules_default_to_empty()
+    {
+        var values = new FakeKeyValueService();
+        Assert.That(Store(values).GetOffModules(), Is.Empty);
+        values.SetValue(KeyValueMcpToolSettingsStore.OffKey, "");
+        Assert.That(Store(values).GetOffModules(), Is.Empty);
+    }
+
+    [Test]
     public void No_destructive_modules_empty_when_nothing_stored()
     {
         Assert.That(Store(new FakeKeyValueService()).GetNoDestructiveModules(), Is.Empty);

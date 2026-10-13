@@ -15,6 +15,7 @@ public sealed class KeyValueMcpToolSettingsStore(IKeyValueService keyValues, ILo
     internal const string CatalogueKey = "Umbraco.Mcp.Catalogue";
     internal const string ReadOnlyKey = "Umbraco.Mcp.ReadOnlyModules";
     internal const string NoDestructiveKey = "Umbraco.Mcp.NoDestructiveModules";
+    internal const string OffKey = "Umbraco.Mcp.OffModules";
     internal const string UserOverridesKeyPrefix = "Umbraco.Mcp.UserToolSettings.";
     internal const string UserCatalogueKeyPrefix = "Umbraco.Mcp.UserCatalogue.";
 
@@ -35,6 +36,11 @@ public sealed class KeyValueMcpToolSettingsStore(IKeyValueService keyValues, ILo
 
     public void SetNoDestructiveModules(IReadOnlyList<string> moduleIds) =>
         keyValues.SetValue(NoDestructiveKey, JsonSerializer.Serialize(moduleIds, Json));
+
+    public IReadOnlyList<string> GetOffModules() => Read<List<string>>(OffKey) ?? [];
+
+    public void SetOffModules(IReadOnlyList<string> moduleIds) =>
+        keyValues.SetValue(OffKey, JsonSerializer.Serialize(moduleIds, Json));
 
     public McpToolCatalogue GetCatalogue() => Read<McpToolCatalogue>(CatalogueKey) is { Modules: not null } c ? c : McpToolCatalogue.Empty;
 
