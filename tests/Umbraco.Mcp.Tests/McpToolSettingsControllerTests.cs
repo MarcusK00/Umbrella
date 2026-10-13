@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Reflection;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
 using Umbraco.Cms.Core.Configuration.Models;
 using Umbraco.Cms.Core.Models.Membership;
@@ -26,7 +27,7 @@ public class McpToolSettingsControllerTests
     private static IUser User(UserKind kind) => new User(new GlobalSettings()) { Key = Guid.NewGuid(), Kind = kind };
 
     private static McpToolSettingsController Controller(FakeToolSettingsStore store, IUser? user = null, FakeApiUserDirectory? directory = null) =>
-        new(store, new StubCapabilities("cms", "forms"), directory ?? new FakeApiUserDirectory(), new FakeBackOfficeSecurityAccessor(user ?? User(UserKind.Default)));
+        new(store, new StubCapabilities("cms", "forms"), directory ?? new FakeApiUserDirectory(), new FakeBackOfficeSecurityAccessor(user ?? User(UserKind.Default)), NullLogger<McpToolSettingsController>.Instance);
 
     private static McpApiUserInfo ApiUser(string name, UserState state = UserState.Active, params string[] clientIds) =>
         new(Guid.NewGuid(), name, state, clientIds);
@@ -55,6 +56,8 @@ public class McpToolSettingsControllerTests
             Is.EqualTo(AuthorizationPolicies.BackOfficeAccess));
         Assert.That(PolicyOf(nameof(McpToolSettingsController.GetToolSettings)), Is.EqualTo(AuthorizationPolicies.SectionAccessSettings));
         Assert.That(PolicyOf(nameof(McpToolSettingsController.PutToolSettings)), Is.EqualTo(AuthorizationPolicies.SectionAccessSettings));
+        Assert.That(PolicyOf(nameof(McpToolSettingsController.GetUserToolSettings)), Is.EqualTo(AuthorizationPolicies.SectionAccessSettings));
+        Assert.That(PolicyOf(nameof(McpToolSettingsController.PutUserToolSettings)), Is.EqualTo(AuthorizationPolicies.SectionAccessSettings));
         Assert.That(PolicyOf(nameof(McpToolSettingsController.PostCatalogue)), Is.Null);
     }
 
@@ -364,6 +367,22 @@ public class McpToolSettingsControllerTests
 
         Assert.That(body.ApiUsers.Single().LastReportedAt, Is.Null);
         Assert.That(body.ApiUsers.Single().OverriddenProducts, Is.Empty);
+    }
+
+    [Test]
+    public async Task Get_still_returns_the_defaults_when_the_api_user_directory_fails()
+    {
+        var store = new FakeToolSettingsStore { Disabled = new() { ["forms"] = ["prevalue-source"] }, ReadOnly = ["cms"], NoDestructive = ["forms"] };
+        var directory = new FakeApiUserDirectory { Throws = new InvalidOperationException("database is down") };
+
+        IActionResult result = await Controller(store, directory: directory).GetToolSettings();
+
+        var body = (McpToolSettingsResponse)((OkObjectResult)result).Value!;
+        Assert.That(body.ApiUsers, Is.Empty);
+        Assert.That(body.Products.Select(p => p.Id), Is.EqualTo(new[] { "cms", "forms" }));
+        Assert.That(body.DisabledCollections["forms"], Is.EqualTo(new[] { "prevalue-source" }));
+        Assert.That(body.ReadOnlyModules, Is.EqualTo(new[] { "cms" }));
+        Assert.That(body.NoDestructiveModules, Is.EqualTo(new[] { "forms" }));
     }
 
     [Test]

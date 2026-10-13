@@ -13,7 +13,8 @@ public sealed class ConnectedMcpApiUserProvider(IMcpConnectionStore connections,
         foreach (McpConnection connection in connections.GetAll().OrderByDescending(c => c.LastConnected))
         {
             IUser? user = await users.GetAsync(connection.UserKey);
-            if (user is null)
+            // A connection row outlives its user being deleted, or turned into a normal backoffice user.
+            if (user is null || user.Kind != UserKind.Api)
             {
                 continue;
             }
