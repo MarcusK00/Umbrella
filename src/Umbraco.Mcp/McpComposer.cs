@@ -3,7 +3,6 @@ using Umbraco.Cms.Core.Composing;
 using Umbraco.Cms.Core.DependencyInjection;
 using Umbraco.Mcp.ApiUser;
 using Umbraco.Mcp.Capabilities;
-using Umbraco.Mcp.Client;
 using Umbraco.Mcp.Connections;
 using Umbraco.Mcp.Detection;
 using Umbraco.Mcp.Detection.Detectors;
@@ -31,7 +30,5 @@ public sealed class McpComposer : IComposer
         builder.Services.AddScoped<IMcpApiUserProvider, ConnectedMcpApiUserProvider>();
         builder.Services.AddScoped<IMcpApiUserDirectory, UserServiceMcpApiUserDirectory>();
         builder.Services.AddScoped<IMcpOverviewService, McpOverviewService>();
-        builder.Services.AddSingleton<IMcpJsonFile, McpJsonFile>();
-        builder.Services.AddHostedService<McpJsonWriter>();
     }
 }

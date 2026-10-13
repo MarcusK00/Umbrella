@@ -34,8 +34,7 @@ describe("buildHealthReport", () => {
     ));
     expect(r.notes).toContain(
       "umbrella-mcp 17.0.0-alpha.1 is running, but the site's Umbraco.Community.Umbrella add-on is 17.0.0-alpha.2. " +
-      "The two are released together: set umbrella-mcp@17.0.0-alpha.2 in your MCP client config. " +
-      "A .mcp.json the site wrote and nobody edited is upgraded when the site next starts in Development.",
+      "The two are released together: set umbrella-mcp@17.0.0-alpha.2 in your MCP client config.",
     );
   });
 

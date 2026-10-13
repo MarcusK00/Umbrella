@@ -16,7 +16,6 @@ public sealed class McpOverviewService(
     IMcpToolSettingsStore toolSettings,
     IMcpApiUserProvider apiUsers,
     IEnumerable<IMcpProductDetector> detectors,
-    IMcpJsonFile mcpJson,
     IConfiguration configuration,
     ILogger<McpOverviewService> logger) : IMcpOverviewService
 {
@@ -51,8 +50,7 @@ public sealed class McpOverviewService(
                 sectionByProduct,
                 userCatalogues.GetValueOrDefault(u.Key),
                 Read(() => capabilities.GetCapabilities(u.Key), $"the tool access of \"{u.Name}\""))).ToList(),
-            McpClientSnippets.Build(siteUrl, McpClientConfig.ReadClientId(configuration), addonVersion),
-            new McpJsonStatus(mcpJson.IsAvailable, mcpJson.Path));
+            McpClientSnippets.Build(siteUrl, McpClientConfig.ReadClientId(configuration), addonVersion));
     }
 
     private T? Read<T>(Func<T> read, string what) where T : class
@@ -246,8 +244,7 @@ public sealed class McpOverviewService(
         {
             serverFindings.Add(new(McpFinding.Warning, McpFindingArea.Server,
                 $"The MCP server last started as umbrella-mcp {catalogue.UmbrellaVersion} on {FormatUtc(LatestReportedAt(catalogue))}, but the add-on is {addonVersion}. " +
-                $"The two are released together: set {McpClientConfig.NpmPackage}@{addonVersion} in your AI tool's MCP configuration. " +
-                "A .mcp.json the site wrote and nobody edited is upgraded when the site next starts in Development."));
+                $"The two are released together: set {McpClientConfig.NpmPackage}@{addonVersion} in your AI tool's MCP configuration."));
         }
 
         if (users is null)
@@ -287,8 +284,7 @@ public sealed class McpOverviewService(
             {
                 yield return new(McpFinding.Warning, McpFindingArea.Server,
                     $"\"{user.Name}\" last started umbrella-mcp {own.UmbrellaVersion} on {FormatUtc(LatestReportedAt(own))}, but the add-on is {addonVersion}. " +
-                    $"The two are released together: set {McpClientConfig.NpmPackage}@{addonVersion} in your AI tool's MCP configuration. " +
-                    "A .mcp.json the site wrote and nobody edited is upgraded when the site next starts in Development.");
+                    $"The two are released together: set {McpClientConfig.NpmPackage}@{addonVersion} in your AI tool's MCP configuration.");
             }
         }
     }

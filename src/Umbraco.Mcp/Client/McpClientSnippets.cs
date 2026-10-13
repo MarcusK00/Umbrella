@@ -49,8 +49,8 @@ internal static class McpClientSnippets
 
         return
         [
-            new("claude-code", "Claude Code", McpJsonFile.FileName, "json",
-                McpJsonFile.BuildJson(url, clientId, addonVersion, new McpJsonOptions())),
+            new("claude-code", "Claude Code", ".mcp.json", "json",
+                McpClientConfig.Build("npx", args, Env($"${{{McpClientConfig.SecretEnvironmentVariable}}}"))),
             new("claude-code-cli", "Claude Code (command)", null, "shell",
                 $"claude mcp add --transport stdio {cliEnv} {McpClientConfig.ServerName} -- npx {string.Join(' ', args)}"),
             new("vscode", "VS Code", ".vscode/mcp.json", "json", BuildVsCode(args, Env($"${{input:{VsCodeInputId}}}"))),

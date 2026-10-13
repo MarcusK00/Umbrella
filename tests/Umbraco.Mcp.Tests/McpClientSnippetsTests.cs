@@ -33,8 +33,8 @@ public class McpClientSnippetsTests
     }
 
     [Test]
-    public void Claude_code_is_exactly_what_the_writer_writes() =>
-        Assert.That(Get("claude-code").Content, Is.EqualTo(McpJsonFile.BuildJson(Site, ClientId, Version, new McpJsonOptions())));
+    public void Claude_code_reads_the_secret_from_the_environment() =>
+        Assert.That(Env("claude-code").GetProperty("UMBRACO_CLIENT_SECRET").GetString(), Is.EqualTo("${UMBRELLA_CLIENT_SECRET}"));
 
     [Test]
     public void Cli_command_adds_a_local_stdio_server_with_npx()

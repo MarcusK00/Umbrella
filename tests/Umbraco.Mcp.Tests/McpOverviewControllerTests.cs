@@ -20,7 +20,7 @@ public class McpOverviewControllerTests
     {
         public string? SeenSiteUrl { get; private set; } = "not called";
 
-        public McpOverview Result { get; } = new("17.0.0", [], [], null, [], [], new McpJsonStatus(false, null));
+        public McpOverview Result { get; } = new("17.0.0", [], [], null, [], []);
 
         public Task<McpOverview> GetOverviewAsync(string? siteUrl)
         {
@@ -32,10 +32,8 @@ public class McpOverviewControllerTests
     private static McpOverviewController Controller(
         StubOverview? overview = null,
         FakeConnectionStore? connections = null,
-        FakeMcpJsonFile? mcpJson = null,
         FakeToolSettingsStore? settings = null) =>
-        new(overview ?? new StubOverview(), connections ?? new FakeConnectionStore(), settings ?? new FakeToolSettingsStore(),
-            mcpJson ?? new FakeMcpJsonFile(), NullLogger<McpOverviewController>.Instance);
+        new(overview ?? new StubOverview(), connections ?? new FakeConnectionStore(), settings ?? new FakeToolSettingsStore());
 
     private static string? PolicyOf(string method) =>
         typeof(McpOverviewController).GetMethod(method)!.GetCustomAttribute<AuthorizeAttribute>()?.Policy;
@@ -47,7 +45,6 @@ public class McpOverviewControllerTests
             Is.EqualTo(AuthorizationPolicies.BackOfficeAccess));
         Assert.That(PolicyOf(nameof(McpOverviewController.GetOverview)), Is.EqualTo(AuthorizationPolicies.SectionAccessSettings));
         Assert.That(PolicyOf(nameof(McpOverviewController.ForgetConnection)), Is.EqualTo(AuthorizationPolicies.SectionAccessSettings));
-        Assert.That(PolicyOf(nameof(McpOverviewController.WriteMcpJson)), Is.EqualTo(AuthorizationPolicies.SectionAccessSettings));
     }
 
     [Test]
@@ -106,44 +103,5 @@ public class McpOverviewControllerTests
         Assert.That(settings.ClearedCatalogues, Is.EqualTo(new[] { key }));
         Assert.That(settings.UserCatalogues, Does.Not.ContainKey(key));
         Assert.That(settings.UserOverrides[key], Is.SameAs(overrides));
-    }
-
-    [Test]
-    public void Write_when_unavailable_is_not_found_and_writes_nothing()
-    {
-        var file = new FakeMcpJsonFile(isAvailable: false);
-
-        Assert.That(Controller(mcpJson: file).WriteMcpJson(), Is.InstanceOf<NotFoundResult>());
-        Assert.That(file.Writes, Is.Zero);
-    }
-
-    [Test]
-    public void Write_returns_the_outcome()
-    {
-        var file = new FakeMcpJsonFile(isAvailable: true, path: "/site/.mcp.json");
-
-        var result = (McpJsonResult)((OkObjectResult)Controller(mcpJson: file).WriteMcpJson()).Value!;
-
-        Assert.That(result.Outcome, Is.EqualTo(McpJsonOutcome.Written));
-        Assert.That(result.Path, Is.EqualTo("/site/.mcp.json"));
-        Assert.That(file.Writes, Is.EqualTo(1));
-    }
-
-    [Test]
-    public void Write_io_failure_is_a_500_problem_with_the_reason()
-    {
-        var file = new FakeMcpJsonFile(isAvailable: true, path: "/site/.mcp.json") { Throws = new IOException("disk full") };
-
-        var result = (ObjectResult)Controller(mcpJson: file).WriteMcpJson();
-
-        Assert.That(result.StatusCode, Is.EqualTo(500));
-        Assert.That(((ProblemDetails)result.Value!).Detail, Does.Contain("disk full"));
-    }
-
-    [Test]
-    public void SiteUrlFrom_is_null_without_a_request_or_host()
-    {
-        Assert.That(McpOverviewController.SiteUrlFrom(null), Is.Null);
-        Assert.That(McpOverviewController.SiteUrlFrom(new DefaultHttpContext().Request), Is.Null);
     }
 }
