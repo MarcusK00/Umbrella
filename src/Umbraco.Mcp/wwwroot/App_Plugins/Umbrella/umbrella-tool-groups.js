@@ -2,7 +2,6 @@ import { css, html, nothing } from "@umbraco-cms/backoffice/external/lit";
 import { UmbLitElement } from "@umbraco-cms/backoffice/lit-element";
 import { UMB_AUTH_CONTEXT } from "@umbraco-cms/backoffice/auth";
 import { UMB_NOTIFICATION_CONTEXT } from "@umbraco-cms/backoffice/notification";
-import { umbConfirmModal } from "@umbraco-cms/backoffice/modal";
 import { UmbTextStyles } from "@umbraco-cms/backoffice/style";
 import { formatDate, request } from "./umbrella-api.js";
 
@@ -27,6 +26,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     _overrides: { state: true },
     _dirty: { state: true },
     _busy: { state: true },
+    _switchTo: { state: true },
   };
 
   #auth;
@@ -47,6 +47,8 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     this._overrides = {};
     this._dirty = false;
     this._busy = false;
+    // The picker value the user asked for while there were unsaved changes ("" = the defaults); null when no prompt is showing.
+    this._switchTo = null;
     this.consumeContext(UMB_NOTIFICATION_CONTEXT, (ctx) => (this.#notifications = ctx));
     this.consumeContext(UMB_AUTH_CONTEXT, (ctx) => {
       if (!ctx) return;
@@ -89,31 +91,50 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
       Object.entries(user.overrides ?? {}).map(([id, o]) => [id, { disabled: new Set(o.disabledCollections ?? []), level: o.level ?? "full" }]),
     );
     this._dirty = false;
+    this._switchTo = null;
   }
 
-  /** Asks before unsaved changes are thrown away; true when there is nothing to lose or the user agrees. */
-  async #confirmDiscard() {
-    if (!this._dirty) return true;
-    try {
-      await umbConfirmModal(this, {
-        headline: "Discard changes?",
-        content: "You have unsaved changes. Discard them?",
-        color: "danger",
-        confirmLabel: "Discard",
-      });
-      return true;
-    } catch {
-      return false; // Cancelled.
-    }
+  #picker() {
+    return this.shadowRoot?.querySelector("uui-select");
   }
 
+  /**
+   * The picker changed. With unsaved changes nothing is switched: the picker goes back to the current view and an inline
+   * notice asks first. A native select fires `change` on every arrow key, so a modal opened here would take the Return
+   * that commits the choice as its own confirmation; the notice's buttons are not focused, so that keystroke does nothing.
+   */
   async #pick(e) {
     const select = e.target;
     const value = select.value === DEFAULTS ? "" : select.value;
-    if (value === this._selected) return;
-    // The picker already shows the new value, so a cancel or a failure puts the old one back.
-    const keep = () => (select.value = this._selected || DEFAULTS);
-    if (!(await this.#confirmDiscard())) return keep();
+    if (value === this._selected) {
+      this._switchTo = null; // Back on the current view: nothing left to ask.
+      return;
+    }
+    if (this._dirty) {
+      select.value = this._selected || DEFAULTS;
+      this._switchTo = value;
+      return;
+    }
+    this._switchTo = null;
+    await this.#switchTo(value, select);
+  }
+
+  /** "Discard and switch": the unsaved changes are given up and the view the user asked for is shown. */
+  async #discardAndSwitch() {
+    const value = this._switchTo;
+    this._switchTo = null;
+    if (value === null || value === this._selected) return;
+    const select = this.#picker();
+    // The picker was put back when the notice appeared, so show the choice again.
+    if (select) select.value = value || DEFAULTS;
+    await this.#switchTo(value, select);
+  }
+
+  async #switchTo(value, select) {
+    // The picker already shows the new value, so a failure puts the old one back.
+    const keep = () => {
+      if (select) select.value = this._selected || DEFAULTS;
+    };
     this._busy = true;
     try {
       if (value === "") {
@@ -121,6 +142,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
         this._user = null;
         this._overrides = {};
         this._dirty = false;
+        this._switchTo = null;
         return;
       }
       let user;
@@ -204,6 +226,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
         data: { headline: "Tool settings saved", message: "Reconnect the MCP server in your AI tool to apply the change." },
       });
       this._dirty = false;
+      this._switchTo = null;
       await this.#load();
     } catch (error) {
       this.#notifications?.peek("danger", { data: { headline: "Could not save tool settings", message: error.message } });
@@ -237,6 +260,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
         data: { headline: "Tool settings saved", message: `${name}'s MCP server picks this up on its next start.` },
       });
       this._dirty = false;
+      this._switchTo = null;
       // The defaults view names the users that differ, so refresh that list too.
       await this.#load();
       this.#showUser(key, await this.#fetchUser(key));
@@ -366,6 +390,23 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     ></uui-select>`;
   }
 
+  /** Shown instead of switching view while there are unsaved changes. Neither button takes focus. */
+  #renderDiscardNotice() {
+    if (this._switchTo === null || !this._dirty) return nothing;
+    return html`<div class="discard-notice" role="alert">
+      <strong>Discard changes?</strong>
+      <p>You have unsaved changes. Discard them?</p>
+      <uui-button
+        look="primary"
+        color="danger"
+        label="Discard and switch"
+        ?disabled=${this._saving || this._busy}
+        @click=${this.#discardAndSwitch}
+      ></uui-button>
+      <uui-button look="secondary" label="Keep editing" @click=${() => (this._switchTo = null)}></uui-button>
+    </div>`;
+  }
+
   /** The version of the MCP server the shown catalogue comes from, and a note when the counts are another user's. */
   #renderCatalogueNotes() {
     const addonVersion = this._data.addonVersion;
@@ -408,6 +449,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     return html`
       <uui-box headline="Umbrella – MCP tool groups">
         ${this.#renderPicker()}
+        ${this.#renderDiscardNotice()}
         ${this.#renderCatalogueNotes()}
         <p>
           ${user
@@ -436,6 +478,8 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
       uui-select { min-width: 20rem; max-width: 100%; margin-bottom: var(--uui-size-space-4); }
       uui-toggle { display: block; margin-bottom: var(--uui-size-space-4); }
       .groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: var(--uui-size-space-3); }
+      .discard-notice { margin-bottom: var(--uui-size-space-4); padding: var(--uui-size-space-4); border: 1px solid var(--uui-color-danger); border-radius: var(--uui-border-radius); }
+      .discard-notice p { margin: var(--uui-size-space-2) 0 var(--uui-size-space-3); }
       .warning { color: var(--uui-color-warning-standalone); }
       .level { display: flex; flex-direction: column; margin-bottom: var(--uui-size-space-4); }
       .dimmed { opacity: 0.55; }
