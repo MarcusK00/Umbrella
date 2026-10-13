@@ -1,5 +1,3 @@
-Nuget: https://www.nuget.org/packages/Umbraco.Community.Umbrella/
-
 # Umbrella
 
 One MCP server for your Umbraco 17 site. Umbrella detects which Umbraco products the site has installed and gives your AI tool (Claude Code, VS Code, Cursor, Claude Desktop) the tools for exactly those products.
@@ -26,22 +24,6 @@ The site only needs the NuGet package, but installing it doesn't connect your AI
 
 ## How it works
 
-```mermaid
-sequenceDiagram
-    participant AI as AI tool
-    participant MCP as umbrella-mcp (npx)
-    participant Site as Umbraco site + add-on
-    AI->>MCP: start (stdio)
-    MCP->>Site: sign in as the API user (client credentials)
-    MCP->>Site: GET /mcp/capabilities
-    Site-->>MCP: installed products, tool settings for this API user
-    Note over MCP: load CMS + the detected products,<br/>apply filters, prefix tool names
-    MCP->>Site: POST /mcp/catalogue (tool groups, for the dashboard)
-    MCP-->>AI: tools + routing instructions
-    AI->>MCP: forms--list-forms
-    MCP->>Site: Forms Management API
-```
-
 1. The add-on finds each product by its assembly and checks that its Management API is live.
 2. When your AI tool starts `umbrella-mcp`, the server signs in as an Umbraco API user and asks the site which products it has.
 3. It loads the CMS tools, plus the tools of every detected product, and prefixes each tool with its product (`forms--list-forms`).
@@ -61,7 +43,7 @@ You need Umbraco 17, and Node.js 22 or later on the machine that runs your AI to
 
 2. **Create an API user** in the backoffice (Users → Create → API user) and add client credentials with a client id and a secret of your choice, for example `umbraco-back-office-mcp`. Keep a copy of the secret: Umbraco stores only its hash. Give the user's groups access to the sections of the products you want the AI to use (Content, Media, Settings, Forms, Automate, Engage, …). Each person who uses an AI tool with the site gets an API user of their own: see [Teams, editors and hosted sites](#teams-editors-and-hosted-sites).
 
-3. **Copy the config for your AI tool.** In the backoffice, open Settings → **Umbrella** → **Overview** → **Connect an AI tool**, expand **Set up an MCP client for this site**, pick the API user to sign in as, and pick your tool:
+3. **Copy the config for your AI tool.** In the backoffice, open Settings → **Umbrella** → **Overview** → **Connect an AI tool** (click **Open** if it is closed), pick the API user to sign in as, and pick your tool:
 
    | Tab | Where it goes |
    |---|---|
@@ -106,7 +88,7 @@ Every tab on the Overview is a variant of this config:
   "mcpServers": {
     "umbraco": {
       "command": "npx",
-      "args": ["-y", "umbrella-mcp@17.0.0-alpha.5"],
+      "args": ["-y", "umbrella-mcp@17.0.0-alpha.6"],
       "env": {
         "UMBRACO_BASE_URL": "https://your-site",
         "UMBRACO_CLIENT_ID": "umbraco-back-office-mcp",
@@ -125,8 +107,8 @@ Every tab on the Overview is a variant of this config:
 
 Give each person who connects an AI tool their own API user:
 
-- **Why one each:** the Overview's **MCP Users** table shows each API user that connected, and [Tool Permissions](#different-settings-per-api-user) can give each one their own settings. People who share an API user share its settings and show up as one user.
-- **Setting someone up:** create their API user with its own client id, and give its groups the sections they need. On Settings → **Umbrella** → **Overview** → **Connect an AI tool**, expand **Set up an MCP client for this site**, pick that user, copy the config for their AI tool, and send it to them. Send the client secret separately.
+- **Why one each:** the Overview's **MCP users** list shows each API user that connected, and [Tool Permissions](#different-settings-per-api-user) can give each one their own settings. People who share an API user share its settings and show up as one user.
+- **Setting someone up:** create their API user with its own client id, and give its groups the sections they need. On Settings → **Umbrella** → **Overview** → **Connect an AI tool**, click **Open**, pick that user, copy the config for their AI tool, and send it to them. Send the client secret separately.
 - **Editors:** an editor doesn't need the site's source code. They need Node.js 22 or later and an AI tool, for example Claude Desktop. The Umbrella dashboard is in the Settings section, so someone with access to it sets them up.
 - **Hosted sites, such as Umbraco Cloud:** the MCP server runs on each person's machine and connects to the site over HTTPS, so it works with any environment. Open the dashboard on the environment the AI tools should use, so the config gets its address. Tool settings and the connection list are stored in that environment's database, so each environment has its own; create the API users on the environment the AI tools connect to.
 - **Shared repositories:** a `.mcp.json` committed to a repository holds one client id, so everyone who uses it signs in as the same API user. Use the `claude mcp add` command instead, which Claude Code keeps in each person's own settings, or keep `.mcp.json` out of the repository.
@@ -195,7 +177,7 @@ When each developer has their own API user, the tool settings can differ per use
 - **Any API user:** every API user on the site can be picked, also one that has never connected, so you can set up a new developer before their first start. Under a default, the card names the users that have their own settings for that product.
 - **When it applies:** the next time that user's MCP server starts, so they reconnect it in their AI tool. `get-mcp-health` says when the settings are the user's own ("for this API user").
 - **Counts:** for a single API user, the tool counts come from that user's own last start. A user whose MCP server hasn't started yet shows its groups and access without counts until it has, because the counts depend on each API user's permissions (the CMS tools in particular). A product that was off for the user isn't in its last report, so its groups come from the defaults until the user's server starts with it on. Under **Defaults**, each group shows the highest count any API user's MCP server reported.
-- **Overview:** the **MCP Users** table on Settings → Umbrella → **Overview** shows, per connected API user, when it last connected, which products it can reach, and under **Tools** its access per product (own settings or defaults) with the number of tools its last start got with those settings. **Edit permissions** opens Tool Permissions with that user picked. An `umbrella-mcp` version mismatch is a warning per user at the top of the Overview, which only shows when something needs attention.
+- **Overview:** Settings → Umbrella → **Overview** starts with one status line: **All good**, or how many things need attention with the list below it (an `umbrella-mcp` version mismatch is one warning per user). Under **MCP users**, each connected API user has a card with its client id, when it last connected and its `umbrella-mcp` version, one chip per product with its access and the number of tools its last start got (outlined chips are the user's own settings, filled ones the defaults), the total, and a warning when it can't reach a product's section. **Edit permissions** opens Tool Permissions with that user picked; **Forget connection** is under **⋯**.
 
 ## Health checks
 
