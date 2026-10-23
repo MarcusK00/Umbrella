@@ -350,6 +350,27 @@ public class McpOverviewServiceTests
     }
 
     [Test]
+    public async Task User_row_lists_its_user_groups_sorted()
+    {
+        McpApiUser user = NamedUser("Anna") with { Groups = ["Sensitive data", "Administrators", "editors"] };
+        var service = Service(users: new FakeApiUserProvider(user));
+
+        McpOverviewApiUser row = (await service.GetOverviewAsync()).ApiUsers.Single();
+
+        Assert.That(row.Groups, Is.EqualTo(new[] { "Administrators", "editors", "Sensitive data" }));
+    }
+
+    [Test]
+    public async Task User_row_without_read_groups_lists_none()
+    {
+        var service = Service(users: new FakeApiUserProvider(NamedUser("Anna")));
+
+        McpOverviewApiUser row = (await service.GetOverviewAsync()).ApiUsers.Single();
+
+        Assert.That(row.Groups, Is.Empty);
+    }
+
+    [Test]
     public async Task User_row_shows_its_own_report_and_access()
     {
         McpApiUser user = NamedUser("Anna");

@@ -161,7 +161,8 @@ public sealed class McpOverviewService(
             ownCatalogue?.UmbrellaVersion,
             ownCatalogue is null ? null : LatestReportedAt(ownCatalogue),
             access.Count == 0 || access.Any(a => a.ToolCount is null) ? null : access.Sum(a => a.ToolCount),
-            access);
+            access,
+            (user.Groups ?? []).Order(StringComparer.OrdinalIgnoreCase).ToList());
     }
 
     /// <summary>
