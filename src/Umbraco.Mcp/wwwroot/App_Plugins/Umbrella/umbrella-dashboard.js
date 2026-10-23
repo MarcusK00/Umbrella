@@ -29,34 +29,59 @@ export class UmbrellaDashboardElement extends UmbLitElement {
       return;
     }
     this._tab = tab;
-    this.updateComplete.then(this.#measureTop);
+    this.updateComplete.then(this.#measureHeight);
     // Settings changed on Tool Permissions show in the Overview's MCP Users table.
     if (tab === "overview") this.shadowRoot?.querySelector("umbrella-overview")?.reload();
   }
 
   /**
-   * Fills the rest of the window, so Tool Permissions' footer sits at the bottom even when the page is short. The
-   * dashboard's distance from the top of the window changes with the bar above it (tabs that wrap, a resized window), so
-   * it is measured again when the window is resized or a tab is shown.
+   * Fills the backoffice's scroll area, so Tool Permissions' footer sits at the bottom even when the page is short. The
+   * area's height changes with the window and with the bars above it (Umbraco's dashboard tabs reflow after they first
+   * render), so a ResizeObserver on it measures again; a measurement taken once would leave a gap under the footer.
    */
+  #scrollArea = null;
+  #resizeObserver = new ResizeObserver(() => this.#measureHeight());
+
   connectedCallback() {
     super.connectedCallback();
-    window.addEventListener("resize", this.#measureTop);
+    window.addEventListener("resize", this.#measureHeight);
+    // Attached again after a first render: firstUpdated won't run again.
+    if (this.hasUpdated) this.#observeScrollArea();
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
-    window.removeEventListener("resize", this.#measureTop);
+    window.removeEventListener("resize", this.#measureHeight);
+    this.#resizeObserver.disconnect();
+    this.#scrollArea = null;
   }
 
   firstUpdated() {
-    this.#measureTop();
-    // Once the bar above has been laid out.
-    requestAnimationFrame(() => this.#measureTop());
+    this.#observeScrollArea();
   }
 
-  #measureTop = () => {
-    this.style.setProperty("--umbrella-top", `${Math.max(0, Math.round(this.getBoundingClientRect().top))}px`);
+  #observeScrollArea() {
+    this.#scrollArea = this.#findScrollArea();
+    if (this.#scrollArea) this.#resizeObserver.observe(this.#scrollArea);
+    this.#measureHeight();
+  }
+
+  /** The nearest ancestor that scrolls, across shadow roots and slots (Umbraco's uui-scroll-container). */
+  #findScrollArea() {
+    let node = this;
+    while ((node = node.assignedSlot ?? (node.parentNode instanceof ShadowRoot ? node.parentNode.host : node.parentElement))) {
+      if (/(auto|scroll)/.test(getComputedStyle(node).overflowY)) return node;
+    }
+    return null;
+  }
+
+  #measureHeight = () => {
+    const area = this.#scrollArea;
+    // Without a scroll area, fill the rest of the window.
+    const height = area
+      ? area.clientHeight - (this.getBoundingClientRect().top - area.getBoundingClientRect().top + area.scrollTop)
+      : window.innerHeight - Math.max(0, this.getBoundingClientRect().top);
+    this.style.setProperty("--umbrella-height", `${Math.max(0, Math.round(height))}px`);
   };
 
   /** The Overview's "Edit permissions": open Tool Permissions with that API user selected. */
@@ -81,7 +106,7 @@ export class UmbrellaDashboardElement extends UmbLitElement {
   static styles = [
     UmbTextStyles,
     css`
-      :host { display: flex; flex-direction: column; min-height: calc(100dvh - var(--umbrella-top, 0px)); }
+      :host { display: flex; flex-direction: column; min-height: var(--umbrella-height, auto); }
       [hidden] { display: none !important; }
       umbrella-tool-groups { flex: 1; }
       uui-tab-group { padding: 0 var(--uui-size-layout-1); border-bottom: 1px solid var(--uui-color-divider-standalone); }
