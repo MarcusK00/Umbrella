@@ -15,7 +15,7 @@ How to build, run and test Umbrella from a fresh clone. How the code fits togeth
    ```bash
    cd npm
    npm install
-   npm ls @umbraco-cms/mcp-server-sdk   # must show one 1.0.0-beta.46, deduped
+   npm ls @umbraco-cms/mcp-server-sdk   # must show one 1.0.0-beta.47, deduped
    npm run build
    ```
 

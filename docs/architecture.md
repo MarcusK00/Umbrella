@@ -113,7 +113,7 @@ A team can give each developer an API user, and the settings can differ per user
 1. **Sign in.** `initializeUmbracoFetch` with the three `UMBRACO_*` variables (missing → exit).
 2. **Load CMS** and install the client context with the CMS client as the default.
 3. **Credentials check.** `getUserCurrent()` fails fast on bad credentials (exit), and its result is the `user` that `collection.tools(user)` needs.
-4. **Version check** against Umbraco major 17 (the toolkit's `checkUmbracoVersion`). A mismatch does not stop startup: its message goes into the server instructions and `get-mcp-health`.
+4. **Version check.** The site's version goes to CMS first (`LoadedModule.setUmbracoVersion`), so CMS lists the tools that need Umbraco 17.4 or 17.6. Then the check against Umbraco major 17 (the toolkit's `checkUmbracoVersion`). A mismatch does not stop startup: its message goes into the server instructions and `get-mcp-health`.
 5. **Capabilities.** `fetchCapabilities()` returns `ok`, `no-addon` (HTTP 404) or `unavailable`.
 6. **Select modules** (below).
 7. **Phase 1: load** each selected product module. A product package that isn't installed, or that has its own nested toolkit copy, is skipped with an issue. A load failure becomes an issue, never a crash.
@@ -147,7 +147,7 @@ A module (`npm/src/modules/<id>.ts`) is data plus a dynamic import:
 { id, displayName, toolPrefix: `${id}--`, packageName, expectedMajor, description, useWhen, defaultDisabledCollections?, required?, load() }
 ```
 
-`load()` imports the product package's `./collections` entry point and returns its `collections`, `allModes`, `allModeNames`, `allSliceNames` and `createApiClient`. Absent products are never imported. `npm/src/modules/index.ts` lists the modules, CMS first, because it is the default module for unprefixed filter entries.
+`load()` imports the product package's `./collections` entry point and returns its `collections`, `allModes`, `allModeNames`, `allSliceNames`, `createApiClient` and, optionally, `setUmbracoVersion` (CMS only; its `load()` also calls `setAllowFilePathUploads(true)`, so media tools accept local file paths as in the standalone CMS server). Absent products are never imported. `npm/src/modules/index.ts` lists the modules, CMS first, because it is the default module for unprefixed filter entries.
 
 ### Per-call client isolation
 
@@ -157,7 +157,7 @@ This only works because product handlers call `getApiClient()` lazily, inside th
 
 ### Exactly one toolkit copy
 
-The shared provider only exists once if every product uses the same toolkit copy. `npm/package.json` pins `@umbraco-cms/mcp-server-sdk` to `1.0.0-beta.46` and forces it on every product with `overrides`. npm only applies `overrides` in the root project, though, and under `npx` `umbrella-mcp` is a dependency. For users, single-copy relies on every product package depending on a compatible toolkit version. `scripts/pack-check.sh` installs the packed package that way to catch a mismatch, and at runtime `checkSingleSdk` skips a product that has its own nested copy rather than letting it break the provider.
+The shared provider only exists once if every product uses the same toolkit copy. `npm/package.json` pins `@umbraco-cms/mcp-server-sdk` to `1.0.0-beta.47` and forces it on every product with `overrides`. npm only applies `overrides` in the root project, though, and under `npx` `umbrella-mcp` is a dependency. For users, single-copy relies on every product package depending on a compatible toolkit version. `scripts/pack-check.sh` installs the packed package that way to catch a mismatch, and at runtime `checkSingleSdk` skips a product that has its own nested copy rather than letting it break the provider.
 
 ### Tool names, descriptions and routing
 

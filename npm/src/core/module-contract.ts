@@ -8,6 +8,8 @@ export interface LoadedModule {
   allSliceNames: readonly string[];
   /** The product's Orval API client factory. Bound per tool call by the client context. */
   createApiClient: () => unknown;
+  /** Passes the site's Umbraco version to the package, for tools gated on a minimum version. Called before tools are listed. */
+  setUmbracoVersion?: (version: string | null) => void;
 }
 
 /** One HQ product. Adding a product = one file implementing this + one entry in modules/index.ts. */

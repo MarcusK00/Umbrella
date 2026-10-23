@@ -64,6 +64,8 @@ export async function startServer(options: {
     CAPTURE_RAW_HTTP_RESPONSE,
   )) as unknown as HttpResponse<{ version?: string }>;
   const umbracoVersion = info.data?.version ?? null;
+  // Before any collection.tools(user) call: CMS only lists version-gated tools once it knows the site's version.
+  cmsLoaded.setUmbracoVersion?.(umbracoVersion);
   await checkUmbracoVersion({
     mcpVersion: version,
     expectedUmbracoMajor: EXPECTED_UMBRACO_MAJOR,

@@ -9,7 +9,7 @@
 | Check | Runs | Does not cover |
 |---|---|---|
 | `dotnet` | `dotnet test Umbraco.Mcp.slnx`, which also builds the demo site | Running the site |
-| `npm` | `npm ci`, single toolkit copy (`@umbraco-cms/mcp-server-sdk` `1.0.0-beta.46`, one copy), `npm run compile`, `npm test`, `npm run build` | Installing `umbrella-mcp` as a dependency, where npm ignores `overrides` (that is `pack-check.sh`) |
+| `npm` | `npm ci`, single toolkit copy (`@umbraco-cms/mcp-server-sdk` `1.0.0-beta.47`, one copy), `npm run compile`, `npm test`, `npm run build` | Installing `umbrella-mcp` as a dependency, where npm ignores `overrides` (that is `pack-check.sh`) |
 | `guards` | `scripts/check-guards.test.sh`, `scripts/check-guards.sh`, gitleaks secret scan | — |
 
 `e2e.sh` and `pack-check.sh` need your machine and the running demo site, so they are items in the PR checklist (`.github/pull_request_template.md`).
