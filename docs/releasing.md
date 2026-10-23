@@ -25,7 +25,7 @@ Merging a new version into `v17/main` publishes both: `.github/workflows/release
    ```bash
    node scripts/sync-tracker-docs.mjs ../Umbrella-Issues   # a checkout of the tracker
    ```
-   The script drops the Develop section, adds "Report a problem", and copies `LICENSE` and the logo. It fails when the README no longer has the sections it edits, or links to a file the tracker doesn't have.
+   The script drops the Develop section, adds "Report a problem", and copies `LICENSE` and `docs/images`. The NuGet readme shows `docs/images/umbrella-overview.png` from the tracker (nuget.org only shows images from allowed domains such as `raw.githubusercontent.com`, not packed or relative ones), so push the tracker before the package is published, or the picture is missing on nuget.org. It fails when the README no longer has the sections it edits, or links to a file the tracker doesn't have.
 7. **Check** that `npx -y umbrella-mcp@<version> --list-tools` works against a site with the new add-on, with `UMBRACO_BASE_URL`, `UMBRACO_CLIENT_ID` and `UMBRACO_CLIENT_SECRET` set. In that site, Settings → Health Check → MCP → "MCP client setup" should show the same version.
 
 ## What the workflow does

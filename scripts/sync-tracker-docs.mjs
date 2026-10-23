@@ -4,14 +4,15 @@
  * Copies the user docs into a checkout of the public tracker, MarcusK00/Umbrella-Issues, where the NuGet readme and
  * PackageProjectUrl point. This repository is private, so README.md is not readable here by users.
  *
- * Writes README.md (this README without "Develop", plus "Report a problem"), LICENSE and the logo. It does not
- * commit or push: review the diff in the tracker checkout and push it by hand (docs/releasing.md).
+ * Writes README.md (this README without "Develop", plus "Report a problem"), LICENSE and docs/images: the logo, and
+ * the picture the NuGet readme links to on raw.githubusercontent.com (nuget.org shows no packed or relative images).
+ * It does not commit or push: review the diff in the tracker checkout and push it by hand (docs/releasing.md).
  *
  * Usage:
  *   node scripts/sync-tracker-docs.mjs <path to an Umbrella-Issues checkout>
  */
 
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -69,6 +70,7 @@ if (relativeLinks.length > 0) {
 writeFileSync(join(target, "README.md"), readme);
 copyFileSync(join(root, "LICENSE"), join(target, "LICENSE"));
 mkdirSync(join(target, "docs", "images"), { recursive: true });
-copyFileSync(join(root, "docs", "images", "umbrella-icon.png"), join(target, "docs", "images", "umbrella-icon.png"));
+const images = readdirSync(join(root, "docs", "images"));
+for (const image of images) copyFileSync(join(root, "docs", "images", image), join(target, "docs", "images", image));
 
-console.log(`Wrote README.md, LICENSE and docs/images/umbrella-icon.png to ${target}. Review the diff there, then commit and push.`);
+console.log(`Wrote README.md, LICENSE and docs/images (${images.join(", ")}) to ${target}. Review the diff there, then commit and push.`);
