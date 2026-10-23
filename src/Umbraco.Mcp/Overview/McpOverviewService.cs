@@ -48,7 +48,7 @@ public sealed class McpOverviewService(
         return new McpOverview(
             addonVersion,
             BuildFindings(caps, catalogue, users, sectionByProduct, addonVersion, userCatalogues, userCapabilities),
-            products.Select(p => BuildProduct(p, catalogue, userCatalogues)).ToList(),
+            products.Select(BuildProduct).ToList(),
             BuildServer(catalogue, addonVersion),
             (users ?? []).Select(u => BuildUser(
                 u,
@@ -105,33 +105,11 @@ public sealed class McpOverviewService(
     /// </summary>
     private static DateTimeOffset LatestReportedAt(McpToolCatalogue catalogue) => catalogue.Modules.Values.Max(m => m.ReportedAt);
 
-    /// <summary>The module's entry when it was part of the catalogue's latest report, else null.</summary>
-    private static McpModuleCatalogue? FindLoadedModule(McpToolCatalogue? catalogue, string productId) =>
-        HasReport(catalogue)
-        && catalogue!.Modules.TryGetValue(productId, out McpModuleCatalogue? module)
-        && module.ReportedAt == LatestReportedAt(catalogue)
-            ? module
-            : null;
-
     private static string AccessLevel(McpProductStatus p) =>
         p.Off ? McpToolLevel.Off : p.ReadOnly ? McpToolLevel.ReadOnly : p.NoDestructive ? McpToolLevel.NoDestructive : McpToolLevel.Full;
 
-    /// <summary>
-    /// A product is loaded when a connected API user's MCP server loaded it; its tool count is from the most recent such
-    /// start. Without any per-user report, the shared one decides.
-    /// </summary>
-    private static McpOverviewProduct BuildProduct(
-        McpProductStatus p,
-        McpToolCatalogue? catalogue,
-        IReadOnlyDictionary<Guid, McpToolCatalogue> userCatalogues)
-    {
-        McpModuleCatalogue? module = userCatalogues.Count > 0
-            ? userCatalogues.Values.Select(c => FindLoadedModule(c, p.Id)).OfType<McpModuleCatalogue>().MaxBy(m => m.ReportedAt)
-            : FindLoadedModule(catalogue, p.Id);
-        int toolCount = module?.Collections.Sum(c => c.ToolCount) ?? 0;
-        return new McpOverviewProduct(
-            p.Id, p.DisplayName, p.Installed, p.Enabled, p.Version, p.Issues, module is not null, toolCount, AccessLevel(p));
-    }
+    private static McpOverviewProduct BuildProduct(McpProductStatus p) =>
+        new(p.Id, p.DisplayName, p.Installed, p.Enabled, p.Version, p.Issues, AccessLevel(p));
 
     private static McpServerReport? BuildServer(McpToolCatalogue? catalogue, string addonVersion)
     {
@@ -234,11 +212,19 @@ public sealed class McpOverviewService(
         }
         else
         {
-            foreach (McpProductStatus p in caps.Products.Where(p => p.Issues.Count > 0 || (p.Installed && !p.Enabled)))
+            foreach (McpProductStatus p in caps.Products.Where(p => p.Issues.Count > 0 || p.Installed))
             {
                 string name = p.Version is null ? p.DisplayName : $"{p.DisplayName} {p.Version}";
-                string detail = p.Issues.Count > 0 ? string.Join(" ", p.Issues) : "Installed, but its API is not available.";
-                productFindings.Add(new(McpFinding.Warning, McpFindingArea.Products, $"{name}: {detail}"));
+                if (p.Issues.Count > 0 || !p.Enabled)
+                {
+                    string detail = p.Issues.Count > 0 ? string.Join(" ", p.Issues) : "Installed, but its API is not available.";
+                    productFindings.Add(new(McpFinding.Warning, McpFindingArea.Products, $"{name}: {detail}"));
+                }
+                else if (NotLoadedBy(p, users ?? [], sectionByProduct, userCatalogues, userCapabilities) is { Count: > 0 } missed)
+                {
+                    productFindings.Add(new(McpFinding.Warning, McpFindingArea.Products,
+                        $"{name}: installed, but not loaded when {JoinNames(missed)} last started umbrella-mcp. Its get-mcp-health tool says why."));
+                }
             }
         }
 
@@ -286,6 +272,41 @@ public sealed class McpOverviewService(
             .OrderBy(f => f.Severity == McpFinding.Warning ? 0 : 1)
             .ToList();
     }
+
+    /// <summary>
+    /// The connected API users whose last start should have loaded the product but did not: their own settings (else the
+    /// defaults) leave it on and their groups grant its section. Only users with a report of their own count; that report
+    /// is replaced on every start, so a module missing from it was not loaded.
+    /// </summary>
+    private static List<string> NotLoadedBy(
+        McpProductStatus product,
+        IReadOnlyList<McpApiUser> users,
+        IReadOnlyDictionary<string, string?> sectionByProduct,
+        IReadOnlyDictionary<Guid, McpToolCatalogue>? userCatalogues,
+        IReadOnlyDictionary<Guid, McpCapabilities>? userCapabilities)
+    {
+        var missed = new List<string>();
+        foreach (McpApiUser user in users)
+        {
+            if (userCatalogues?.GetValueOrDefault(user.Key) is not { } own || own.Modules.ContainsKey(product.Id))
+            {
+                continue;
+            }
+
+            McpProductStatus resolved = userCapabilities?.GetValueOrDefault(user.Key)?.Products.FirstOrDefault(p => p.Id == product.Id) ?? product;
+            bool sectionAccess = sectionByProduct.GetValueOrDefault(product.Id) is not { } section
+                || user.AllowedSections.Contains(section, StringComparer.OrdinalIgnoreCase);
+            if (!resolved.Off && sectionAccess)
+            {
+                missed.Add($"\"{user.Name}\"");
+            }
+        }
+
+        return missed;
+    }
+
+    private static string JoinNames(IReadOnlyList<string> names) =>
+        names.Count == 1 ? names[0] : $"{string.Join(", ", names.Take(names.Count - 1))} and {names[^1]}";
 
     private static string FormatUtc(DateTimeOffset at) => $"{at.UtcDateTime.ToString("dd-MM-yyyy HH:mm", CultureInfo.InvariantCulture)} UTC";
 
