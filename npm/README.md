@@ -45,3 +45,5 @@ Every tool group is on until the dashboard saves a list for that product (the de
 `umbrella-mcp --list-tools`, run with the same environment variables, prints the tool names it would register, then exits.
 
 Requires Node.js 22 or later and Umbraco 17. The add-on this server pairs with, including setup and configuration: https://www.nuget.org/packages/Umbraco.Community.Umbrella
+
+Bugs, ideas and questions: https://github.com/MarcusK00/Umbrella-Issues/issues

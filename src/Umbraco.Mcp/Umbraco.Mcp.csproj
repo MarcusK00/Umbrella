@@ -13,7 +13,7 @@
     <Authors>MarcusK00</Authors>
     <!-- No umbraco-marketplace tag while releases are for testing: that tag lists the package on the Umbraco Marketplace (docs/releasing.md). -->
     <PackageTags>umbraco;mcp;ai;model-context-protocol</PackageTags>
-    <PackageProjectUrl>https://github.com/MarcusK00/Umbrella</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/MarcusK00/Umbrella-Issues</PackageProjectUrl>
     <RepositoryUrl>https://github.com/MarcusK00/Umbrella</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
