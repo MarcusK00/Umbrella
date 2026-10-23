@@ -37,9 +37,11 @@ public sealed record McpServerReport(string Version, DateTimeOffset ReportedAt, 
 /// What an API user's MCP server gets from one product. <paramref name="Level"/> is "full", "noDestructive" or
 /// "readOnly"; <paramref name="Scope"/> is "site" (the defaults) or "user" (the user's own settings).
 /// <paramref name="ToolCount"/> is how many tools its last start got with these settings: 0 when it did not load the
-/// product, null without a report of its own or when its environment sets its own collection filters.
+/// product or has no access to its section, null without a report of its own or when its environment sets its own
+/// collection filters. <paramref name="SectionAccess"/> is false when none of the user's groups grant the product's
+/// backoffice section (a product switched off for the user counts as reachable).
 /// </summary>
-public sealed record McpOverviewAccess(string ProductId, string DisplayName, string Level, string Scope, int? ToolCount);
+public sealed record McpOverviewAccess(string ProductId, string DisplayName, string Level, string Scope, int? ToolCount, bool SectionAccess);
 
 /// <summary>
 /// An API user the MCP server has connected as. <paramref name="State"/> is "active", "disabled" or "lockedOut".

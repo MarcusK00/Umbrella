@@ -694,7 +694,7 @@ footer { margin-block-start: 72px; padding-block-start: 20px; border-top: 1px so
           <text class="s" x="928" y="218">no</text>
         </svg>
       </div>
-      <figcaption>Between the first two checks, a product switched <b>Off</b> in the backoffice is skipped, even when forced; <code>get-mcp-health</code> shows that as a note. Without the add-on the server still works, with CMS tools only (plus anything forced). Selected is not yet loaded: phase 1 can still skip a module whose package is missing, that brings its own nested toolkit copy, or whose <code>load()</code> throws.</figcaption>
+      <figcaption>Between the first two checks, a product switched <b>Off</b> in the backoffice is skipped, even when forced, and so is a product whose section the API user's groups don't grant (<code>noSectionAccess</code>), since its API would refuse every tool; <code>get-mcp-health</code> shows both as notes. Without the add-on the server still works, with CMS tools only (plus anything forced). Selected is not yet loaded: phase 1 can still skip a module whose package is missing, that brings its own nested toolkit copy, or whose <code>load()</code> throws.</figcaption>
     </figure>
   </section>
 

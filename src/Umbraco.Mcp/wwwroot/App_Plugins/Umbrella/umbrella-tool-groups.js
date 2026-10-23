@@ -367,6 +367,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
       .defaultLevel=${this._selected ? this.#defaultsFor(id).level : null}
       .isRequired=${id === REQUIRED_PRODUCT}
       .notes=${this.#notesFor(product, module, state.level)}
+      .noSectionAccess=${!!this._selected && (this._user?.noSectionAccess ?? []).includes(id)}
     ></umbrella-product-card>`;
   }
 

@@ -14,7 +14,7 @@ import {
 import { fetchCapabilities, siteDisabledCollections, siteNoDestructive, siteReadOnly, siteSettingsScope } from "./capabilities.js";
 import { buildCatalogue, reportCatalogue, type CatalogueReportResult } from "./catalogue.js";
 import { installClientContext } from "./client-context.js";
-import { buildEffectiveFilterInput, envNoDestructive } from "./filter-config.js";
+import { buildEffectiveFilterInput, envNoDestructive, envReadOnly } from "./filter-config.js";
 import { HEALTH_TOOL_NAME, registerHealthTool, type HealthState, type ModuleRuntimeState } from "./health.js";
 import type { LoadedModule, McpProductModule } from "./module-contract.js";
 import { parseForcedModules, selectModules } from "./module-selection.js";
@@ -169,7 +169,13 @@ export async function startServer(options: {
     ));
   }
 
-  const healthState: HealthState = { capabilities, serverVersion: version, umbracoVersion, versionCheckMessage, forcedModules, modules: states, catalogueReport, noDestructiveFromEnv: envNoDestructive(env) };
+  const apiUserName = (user as { name?: unknown } | undefined)?.name;
+  const healthState: HealthState = {
+    capabilities, serverVersion: version, umbracoVersion, versionCheckMessage, forcedModules, modules: states, catalogueReport,
+    noDestructiveFromEnv: envNoDestructive(env),
+    readOnlyFromEnv: envReadOnly(env),
+    apiUserName: typeof apiUserName === "string" && apiUserName.length > 0 ? apiUserName : null,
+  };
   registerHealthTool(server, () => healthState);
 
   // Must run after every registerTool call.

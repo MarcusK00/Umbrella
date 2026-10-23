@@ -8,6 +8,8 @@ export interface ModuleDecision {
   reason: string;
   /** Set only when the module was skipped because the site switched it off in the backoffice. */
   switchedOff?: true;
+  /** Set only when the module was skipped because the API user's user groups don't grant the product's section. */
+  noSectionAccess?: true;
 }
 
 export function parseForcedModules(value: string | undefined): string[] {
@@ -39,6 +41,13 @@ export function selectModules(
         ? "Switched off for this API user in the backoffice (Settings → Umbrella)."
         : "Switched off in the backoffice (Settings → Umbrella).";
       return { ...decide(false, reason), switchedOff: true };
+    }
+    // Without the section the product's API refuses every tool, so forcing it on would only add tools that fail.
+    if (product?.noSectionAccess === true) {
+      const reason =
+        `This API user's user groups don't grant the ${module.displayName} section, so its tools were not loaded. ` +
+        "Grant the section to one of its user groups in the backoffice if it should use them, then restart the MCP server.";
+      return { ...decide(false, reason), noSectionAccess: true };
     }
     if (forced.includes(module.id)) return decide(true, "Forced on via UMBRACO_MCP_MODULES.");
     if (capabilities.kind === "no-addon") {

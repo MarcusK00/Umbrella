@@ -219,6 +219,29 @@ public class McpCapabilitiesServiceTests
     }
 
     [Test]
+    public void Products_whose_section_the_caller_lacks_are_marked()
+    {
+        var a = new FakeAssemblies();
+        var r = new FakeApis();
+        var service = Service([new StubDetector("cms"), new FormsDetector(a, r), new AutomateDetector(a, r)]);
+
+        McpCapabilities caps = service.GetCapabilities(ApiUser, ["umb.section.forms"]);
+
+        Assert.That(caps.Products.Where(p => p.NoSectionAccess).Select(p => p.Id), Is.EqualTo(new[] { "automate" }));
+        Assert.That(JsonSerializer.Serialize(caps, new JsonSerializerOptions(JsonSerializerDefaults.Web)), Does.Contain("\"noSectionAccess\":true"));
+    }
+
+    [Test]
+    public void Without_sections_no_product_is_marked()
+    {
+        var a = new FakeAssemblies();
+        var r = new FakeApis();
+        var service = Service([new FormsDetector(a, r), new AutomateDetector(a, r)]);
+
+        Assert.That(service.GetCapabilities(ApiUser).Products.Any(p => p.NoSectionAccess), Is.False);
+    }
+
+    [Test]
     public void Api_user_override_applies_to_that_product_only()
     {
         var store = new FakeToolSettingsStore

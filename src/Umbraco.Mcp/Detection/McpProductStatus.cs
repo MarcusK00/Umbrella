@@ -24,6 +24,12 @@ public sealed record McpProductStatus(
     public bool Off { get; init; }
 
     /// <summary>
+    /// The calling API user's user groups don't grant the product's backoffice section, so the product's API would refuse
+    /// its tools and the npm server does not load it. Always false for callers that are not API users.
+    /// </summary>
+    public bool NoSectionAccess { get; init; }
+
+    /// <summary>
     /// Whose settings the values above are: "site" for the defaults, "user" when the calling API user has its own
     /// settings for this product. The npm server treats a missing or unknown value as "site".
     /// </summary>

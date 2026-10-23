@@ -19,9 +19,12 @@ public class McpCapabilitiesControllerTests
     {
         public List<Guid?> Requested { get; } = [];
 
-        public McpCapabilities GetCapabilities(Guid? apiUserKey = null)
+        public List<IReadOnlyCollection<string>?> RequestedSections { get; } = [];
+
+        public McpCapabilities GetCapabilities(Guid? apiUserKey = null, IReadOnlyCollection<string>? allowedSections = null)
         {
             Requested.Add(apiUserKey);
+            RequestedSections.Add(allowedSections);
             return caps;
         }
     }
@@ -82,6 +85,17 @@ public class McpCapabilitiesControllerTests
     }
 
     [Test]
+    public void Api_caller_sections_reach_the_service()
+    {
+        // A user without groups has no sections: every product with a section is marked as out of reach.
+        var service = new StubService(Caps);
+
+        Controller(User(UserKind.Api), new FakeConnectionStore(), service).GetCapabilities();
+
+        Assert.That(service.RequestedSections.Single(), Is.Not.Null.And.Empty);
+    }
+
+    [Test]
     public void Backoffice_caller_gets_the_defaults()
     {
         var service = new StubService(Caps);
@@ -89,6 +103,7 @@ public class McpCapabilitiesControllerTests
         Controller(User(UserKind.Default), new FakeConnectionStore(), service).GetCapabilities();
 
         Assert.That(service.Requested, Is.EqualTo(new Guid?[] { null }));
+        Assert.That(service.RequestedSections, Is.EqualTo(new IReadOnlyCollection<string>?[] { null }));
     }
 
     [Test]

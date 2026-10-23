@@ -39,9 +39,19 @@ export interface HealthState {
   modules: ModuleRuntimeState[];
   /** UMBRACO_NO_DESTRUCTIVE is set, which removes destructive tools for every module. */
   noDestructiveFromEnv: boolean;
+  /** UMBRACO_READONLY is set, which keeps only read-only tools for every module. */
+  readOnlyFromEnv: boolean;
+  /** The name of the API user the server signed in as, when the site returned one. */
+  apiUserName: string | null;
   /** Absent when the catalogue was not reported (no add-on). */
   catalogueReport?: CatalogueReportResult;
 }
+
+/**
+ * What this API user's server got from a product: the level of the tools it loaded, `off` when the backoffice switched
+ * it off, `noSectionAccess` when the user's groups don't grant its section, `notLoaded` for any other reason (see issues).
+ */
+export type HealthAccess = "full" | "noDestructive" | "readOnly" | "off" | "noSectionAccess" | "notLoaded";
 
 export interface HealthProduct {
   id: string;
@@ -53,12 +63,15 @@ export interface HealthProduct {
   hasModule: boolean;
   loaded: boolean;
   toolCount: number;
+  access: HealthAccess;
   /** Destructive tools removed by the no-destructive level; 0 when the level is off or the module did not load. */
   destructiveRemoved: number;
   issues: string[];
 }
 
 export interface HealthReport {
+  /** The products and tools this API user can use, in one sentence, and which it cannot. */
+  access: { apiUser: string | null; summary: string };
   server: { version: string };
   addon: { installed: boolean; version: string | null; status: "ok" | "not-installed" | "unavailable"; detail?: string };
   umbraco: { version: string | null; versionCheck: string };
@@ -130,8 +143,8 @@ export function buildHealthReport(state: HealthState): HealthReport {
     if (hasDashboard && loaded && siteNoDestructive) {
       notes.push(`${name}: no destructive tools (${destructiveRemoved} removed), as set ${inBackoffice}.`);
     }
-    // Switched off on purpose: a note, not an issue.
-    if (decision.switchedOff) {
+    // Switched off on purpose, or no section on purpose more often than not: a note, not an issue.
+    if (decision.switchedOff || decision.noSectionAccess) {
       notes.push(`${name}: ${decision.reason}`);
     }
     const p = detected.find((d) => d.id === decision.module.id) ?? null;
@@ -148,14 +161,19 @@ export function buildHealthReport(state: HealthState): HealthReport {
       hasModule: true,
       loaded,
       toolCount,
+      access: accessOf(decision, loaded, siteReadOnly || state.readOnlyFromEnv, siteNoDestructive || state.noDestructiveFromEnv),
       destructiveRemoved: loaded ? destructiveRemoved : 0,
-      issues: [...(p?.issues ?? []), ...issues, ...(decision.load || decision.switchedOff ? [] : [decision.reason])],
+      issues: [
+        ...(p?.issues ?? []),
+        ...issues,
+        ...(decision.load || decision.switchedOff || decision.noSectionAccess ? [] : [decision.reason]),
+      ],
     };
   });
 
   for (const p of detected) {
     if (products.some((x) => x.id === p.id)) continue;
-    products.push({ ...p, description: null, hasModule: false, loaded: false, toolCount: 0, destructiveRemoved: 0 });
+    products.push({ ...p, description: null, hasModule: false, loaded: false, toolCount: 0, access: "notLoaded", destructiveRemoved: 0 });
     if (p.installed) notes.push(`${p.displayName} is installed, but this MCP has no ${p.displayName} module yet.`);
   }
 
@@ -170,6 +188,7 @@ export function buildHealthReport(state: HealthState): HealthReport {
   }
 
   return {
+    access: { apiUser: state.apiUserName, summary: summarizeAccess(state.apiUserName, products) },
     server: { version: state.serverVersion },
     addon,
     umbraco: { version: state.umbracoVersion, versionCheck: state.versionCheckMessage ?? "ok" },
@@ -179,12 +198,37 @@ export function buildHealthReport(state: HealthState): HealthReport {
   };
 }
 
+function accessOf(decision: ModuleDecision, loaded: boolean, readOnly: boolean, noDestructive: boolean): HealthAccess {
+  if (decision.noSectionAccess) return "noSectionAccess";
+  if (decision.switchedOff) return "off";
+  if (!loaded) return "notLoaded";
+  return readOnly ? "readOnly" : noDestructive ? "noDestructive" : "full";
+}
+
+const LEVEL_WORDS: Partial<Record<HealthAccess, string>> = { full: "full", readOnly: "read-only", noDestructive: "no deletes" };
+
+/** "API user "Ann" can use Umbraco CMS (full, 180 tools). No access to its section, so no tools: Umbraco Automate." */
+export function summarizeAccess(apiUserName: string | null, products: HealthProduct[]): string {
+  const names = (access: HealthAccess) => products.filter((p) => p.access === access).map((p) => p.displayName).join(", ");
+  const usable = products
+    .filter((p) => p.loaded && LEVEL_WORDS[p.access])
+    .map((p) => `${p.displayName} (${LEVEL_WORDS[p.access]}, ${p.toolCount} ${p.toolCount === 1 ? "tool" : "tools"})`);
+  const who = apiUserName ? `API user "${apiUserName}"` : "This API user";
+  const parts = [usable.length > 0 ? `${who} can use ${usable.join(", ")}.` : `${who} can use no product tools.`];
+  const noSection = names("noSectionAccess");
+  if (noSection) parts.push(`Its user groups don't grant the section, so no tools: ${noSection}.`);
+  const off = names("off");
+  if (off) parts.push(`Switched off in the backoffice: ${off}.`);
+  return parts.join(" ");
+}
+
 export function registerHealthTool(server: { registerTool: McpServer["registerTool"] }, getState: () => HealthState): void {
   server.registerTool(
     HEALTH_TOOL_NAME,
     {
       description:
         "Reports which Umbraco products this MCP detected on the site, which tool modules loaded (with tool counts), " +
+        "what this API user can use per product (access level, or no section access), " +
         "the Umbraco version check result, and how to fix anything missing. Call this first when product tools seem absent.",
       annotations: { readOnlyHint: true },
     },

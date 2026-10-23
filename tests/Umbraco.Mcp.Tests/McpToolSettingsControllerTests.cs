@@ -18,10 +18,14 @@ namespace Umbraco.Mcp.Tests;
 [TestFixture]
 public class McpToolSettingsControllerTests
 {
+    /// <summary>Every product but CMS needs a section named like its id.</summary>
     private sealed class StubCapabilities(params string[] ids) : IMcpCapabilitiesService
     {
-        public McpCapabilities GetCapabilities(Guid? apiUserKey = null) =>
-            new("17.0.0", ids.Select(id => new McpProductStatus(id, id, true, true, "17.0.0", [])).ToList());
+        public McpCapabilities GetCapabilities(Guid? apiUserKey = null, IReadOnlyCollection<string>? allowedSections = null) =>
+            new("17.0.0", ids.Select(id => new McpProductStatus(id, id, true, true, "17.0.0", [])
+            {
+                NoSectionAccess = allowedSections is not null && id != "cms" && !allowedSections.Contains(id),
+            }).ToList());
     }
 
     private static IUser User(UserKind kind) => new User(new GlobalSettings()) { Key = Guid.NewGuid(), Kind = kind };
@@ -499,6 +503,20 @@ public class McpToolSettingsControllerTests
         Assert.That(body.Overrides.Keys, Is.EqualTo(new[] { "forms" }));
         Assert.That(body.Catalogue, Is.SameAs(bobs));
         Assert.That(body.CatalogueSource, Is.EqualTo(new McpCatalogueSource("latest", T2, "bob")));
+    }
+
+    [Test]
+    public async Task Get_user_lists_the_products_whose_section_it_lacks()
+    {
+        McpApiUserInfo editor = new(Guid.NewGuid(), "Editor", UserState.Active, [], AllowedSections: ["content"]);
+        McpApiUserInfo unknown = ApiUser("Unknown sections");
+        var directory = new FakeApiUserDirectory(editor, unknown);
+
+        var body = (McpUserToolSettingsResponse)((OkObjectResult)await Controller(new FakeToolSettingsStore(), directory: directory).GetUserToolSettings(editor.Key)).Value!;
+        var none = (McpUserToolSettingsResponse)((OkObjectResult)await Controller(new FakeToolSettingsStore(), directory: directory).GetUserToolSettings(unknown.Key)).Value!;
+
+        Assert.That(body.NoSectionAccess, Is.EqualTo(new[] { "forms" }));
+        Assert.That(none.NoSectionAccess, Is.Empty);
     }
 
     [Test]

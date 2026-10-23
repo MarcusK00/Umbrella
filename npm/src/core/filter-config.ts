@@ -59,7 +59,7 @@ export function buildModuleFilterInput(
     const entries = split(env[envName]);
     if (entries.length > 0) config[key] = entries;
   }
-  if (env.UMBRACO_READONLY?.trim().toLowerCase() === "true") config.readonly = true;
+  if (envReadOnly(env)) config.readonly = true;
   return config;
 }
 
@@ -105,4 +105,9 @@ export function buildEffectiveFilterInput(
 /** `UMBRACO_NO_DESTRUCTIVE=true` removes the tools products flag as destructive, for every module. */
 export function envNoDestructive(env: NodeJS.ProcessEnv): boolean {
   return env.UMBRACO_NO_DESTRUCTIVE?.trim().toLowerCase() === "true";
+}
+
+/** `UMBRACO_READONLY=true` keeps only read-only tools, for every module. */
+export function envReadOnly(env: NodeJS.ProcessEnv): boolean {
+  return env.UMBRACO_READONLY?.trim().toLowerCase() === "true";
 }
