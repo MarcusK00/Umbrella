@@ -90,7 +90,7 @@ Every tab on the Overview is a variant of this config:
   "mcpServers": {
     "umbraco": {
       "command": "npx",
-      "args": ["-y", "umbrella-mcp@17.0.0-alpha.6"],
+      "args": ["-y", "umbrella-mcp@17.0.0-alpha.7"],
       "env": {
         "UMBRACO_BASE_URL": "https://your-site",
         "UMBRACO_CLIENT_ID": "umbraco-back-office-mcp",
