@@ -31,7 +31,12 @@ Nothing in the repo publishes: both steps below are run by hand. Releases are fo
    dotnet nuget push artifacts/Umbraco.Community.Umbrella.<version>.nupkg --source https://api.nuget.org/v3/index.json --api-key <key>
    ```
    The API key needs the "Push new packages and package versions" scope for the first push, which creates the package id; after that, "Push only new package versions" is enough. Limit it to the glob `Umbraco.Community.Umbrella`.
-7. **Check** that `npx -y umbrella-mcp@<version> --list-tools` works against a site with the new add-on, with `UMBRACO_BASE_URL`, `UMBRACO_CLIENT_ID` and `UMBRACO_CLIENT_SECRET` set. In that site, Settings → Health Check → MCP → "MCP client setup" should show the same version.
+7. **Public docs.** This repository is private, so users read the docs in the public tracker, [MarcusK00/Umbrella-Issues](https://github.com/MarcusK00/Umbrella-Issues), where the NuGet readme and `PackageProjectUrl` link. Copy `README.md` there and push it:
+   ```bash
+   node scripts/sync-tracker-docs.mjs ../Umbrella-Issues   # a checkout of the tracker
+   ```
+   The script drops the Develop section, adds "Report a problem", and copies `LICENSE` and the logo. It fails when the README no longer has the sections it edits, or links to a file the tracker doesn't have.
+8. **Check** that `npx -y umbrella-mcp@<version> --list-tools` works against a site with the new add-on, with `UMBRACO_BASE_URL`, `UMBRACO_CLIENT_ID` and `UMBRACO_CLIENT_SECRET` set. In that site, Settings → Health Check → MCP → "MCP client setup" should show the same version.
 
 ## Test and Marketplace releases
 
