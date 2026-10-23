@@ -32,7 +32,11 @@ public class McpApiUserHealthCheckTests
     public void Warnings_and_healthy_users_both_show()
     {
         List<HealthCheckStatus> rows = Rows(Make(
-            findings: [new(McpFinding.Warning, McpFindingArea.ApiUsers, "The API user \"Bad\" is disabled.")],
+            findings:
+            [
+                new(McpFinding.Warning, McpFindingArea.ApiUsers, "The API user \"Bad\" is disabled."),
+                new(McpFinding.Info, McpFindingArea.ApiUsers, "The API user \"Limited\" has no access to Umbraco Forms."),
+            ],
             users:
             [
                 User("Bad", state: "disabled"),
@@ -40,10 +44,13 @@ public class McpApiUserHealthCheckTests
                 User("Good", reachable: ["Umbraco CMS"]),
             ]));
 
-        Assert.That(rows, Has.Count.EqualTo(2));
-        Assert.That(rows[0].ResultType, Is.EqualTo(StatusResultType.Warning));
-        Assert.That(rows[1].ResultType, Is.EqualTo(StatusResultType.Success));
-        Assert.That(rows[1].Message, Does.StartWith("The API user &quot;Good&quot;"));
+        Assert.That(rows.Select(r => r.ResultType), Is.EqualTo(new[]
+        {
+            StatusResultType.Warning, StatusResultType.Info, StatusResultType.Success, StatusResultType.Success,
+        }));
+        // Missing section access is a choice, not a fault: the user still gets its success row.
+        Assert.That(rows[2].Message, Does.StartWith("The API user &quot;Limited&quot;"));
+        Assert.That(rows[3].Message, Does.StartWith("The API user &quot;Good&quot;"));
     }
 
     [Test]

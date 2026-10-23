@@ -9,6 +9,7 @@ const mod = (id: string, displayName: string, required = false): McpProductModul
 
 const state = (capabilities: CapabilitiesResult, modules: ModuleRuntimeState[], forced: string[] = [], serverVersion = "17.0.0"): HealthState => ({
   capabilities, serverVersion, umbracoVersion: "17.7.0", versionCheckMessage: null, forcedModules: forced, modules, noDestructiveFromEnv: false,
+  readOnlyFromEnv: false, apiUserName: null,
 });
 
 const cmsLoaded: ModuleRuntimeState = {
@@ -52,7 +53,7 @@ describe("buildHealthReport", () => {
     expect(r.addon).toEqual({ installed: true, version: "17.0.0", status: "ok" });
     expect(r.products.find((p) => p.id === "forms")).toEqual({
       id: "forms", displayName: "Umbraco Forms", description: "forms description", installed: true, enabled: true, version: "17.6.1",
-      hasModule: true, loaded: true, toolCount: 118, destructiveRemoved: 0, issues: [],
+      hasModule: true, loaded: true, toolCount: 118, access: "full", destructiveRemoved: 0, issues: [],
     });
   });
 
@@ -92,7 +93,53 @@ describe("buildHealthReport", () => {
       loaded: false, toolCount: 0, issues: [],
     }]));
     expect(r.products.find((p) => p.id === "forms")!.issues).toEqual([]);
+    expect(r.products.find((p) => p.id === "forms")!.access).toBe("off");
     expect(r.notes).toContain(`Umbraco Forms: ${reason}`);
+  });
+
+  describe("API user access", () => {
+    const automate = { id: "automate", displayName: "Umbraco Automate", installed: true, enabled: true, version: "17.4.0", issues: [], noSectionAccess: true };
+    const forms = { id: "forms", displayName: "Umbraco Forms", installed: true, enabled: true, version: "17.6.1", issues: [] };
+    const caps = { kind: "ok" as const, payload: { addonVersion: "17.0.0", products: [forms, automate] } };
+    const reason = "This API user's user groups don't grant the Umbraco Automate section, so its tools were not loaded.";
+    const modules = (formsState: Partial<ModuleRuntimeState> = {}): ModuleRuntimeState[] => [
+      cmsLoaded,
+      { decision: { module: mod("forms", "Umbraco Forms"), product: forms, load: true, reason: "ok" }, loaded: true, toolCount: 63, issues: [], ...formsState },
+      { decision: { module: mod("automate", "Umbraco Automate"), product: automate, load: false, reason, noSectionAccess: true }, loaded: false, toolCount: 0, issues: [] },
+    ];
+
+    it("reports a product without section access as a note, not an issue", () => {
+      const r = buildHealthReport(state(caps, modules()));
+      const p = r.products.find((x) => x.id === "automate")!;
+      expect(p.access).toBe("noSectionAccess");
+      expect(p.issues).toEqual([]);
+      expect(r.notes).toContain(`Umbraco Automate: ${reason}`);
+    });
+
+    it("sums up what the API user can use and what it cannot", () => {
+      const r = buildHealthReport({ ...state(caps, modules({ siteReadOnly: true })), apiUserName: "EricMCPDev" });
+      expect(r.access).toEqual({
+        apiUser: "EricMCPDev",
+        summary:
+          'API user "EricMCPDev" can use Umbraco CMS (full, 300 tools), Umbraco Forms (read-only, 63 tools). ' +
+          "Its user groups don't grant the section, so no tools: Umbraco Automate.",
+      });
+    });
+
+    it("takes the level from the environment too", () => {
+      const r = buildHealthReport({ ...state(caps, modules()), readOnlyFromEnv: true });
+      expect(r.products.map((p) => p.access)).toEqual(["readOnly", "readOnly", "noSectionAccess"]);
+      expect(r.access.summary).toMatch(/^This API user can use/);
+    });
+
+    it("names switched-off products in the summary", () => {
+      const off = { ...forms, off: true };
+      const r = buildHealthReport(state({ kind: "ok", payload: { addonVersion: "17.0.0", products: [off] } }, [cmsLoaded, {
+        decision: { module: mod("forms", "Umbraco Forms"), product: off, load: false, reason: "Switched off.", switchedOff: true },
+        loaded: false, toolCount: 0, issues: [],
+      }]));
+      expect(r.access.summary).toBe("This API user can use Umbraco CMS (full, 300 tools). Switched off in the backoffice: Umbraco Forms.");
+    });
   });
 
   // Review Focus 4: unknown forced ids are reported, not thrown

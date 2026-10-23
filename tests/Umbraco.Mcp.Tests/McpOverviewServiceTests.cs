@@ -25,7 +25,7 @@ public class McpOverviewServiceTests
 
     private sealed class StubCapabilities(McpCapabilities caps, Dictionary<Guid, McpCapabilities>? perUser = null) : IMcpCapabilitiesService
     {
-        public McpCapabilities GetCapabilities(Guid? apiUserKey = null) =>
+        public McpCapabilities GetCapabilities(Guid? apiUserKey = null, IReadOnlyCollection<string>? allowedSections = null) =>
             apiUserKey is { } key && perUser is not null && perUser.TryGetValue(key, out McpCapabilities? own) ? own : caps;
     }
 
@@ -160,13 +160,14 @@ public class McpOverviewServiceTests
     }
 
     [Test]
-    public void Missing_section_is_a_warning_naming_the_section()
+    public void Missing_section_is_a_note_naming_the_section()
     {
         McpFinding finding = Findings(users: [User(UserState.Active, "Ua.Section.Automate")]).Single();
 
-        Assert.That(finding.Severity, Is.EqualTo(McpFinding.Warning));
+        Assert.That(finding.Severity, Is.EqualTo(McpFinding.Info));
+        Assert.That(finding.Area, Is.EqualTo(McpFindingArea.ApiUsers));
         Assert.That(finding.Message, Is.EqualTo(
-            "The API user \"MCP API user\" cannot use Umbraco Forms tools: none of its user groups grant the Umb.Section.Forms section."));
+            "The API user \"MCP API user\" has no access to Umbraco Forms: none of its user groups grant Umb.Section.Forms."));
     }
 
     [Test]
@@ -191,8 +192,8 @@ public class McpOverviewServiceTests
 
         McpOverview overview = await service.GetOverviewAsync();
 
-        Assert.That(overview.Findings.Select(f => f.Message), Has.None.Contains("\"Anna\" cannot use Umbraco Forms"));
-        Assert.That(overview.Findings.Select(f => f.Message), Has.Some.Contains("\"Bob\" cannot use Umbraco Forms"));
+        Assert.That(overview.Findings.Select(f => f.Message), Has.None.Contains("\"Anna\" has no access to Umbraco Forms"));
+        Assert.That(overview.Findings.Select(f => f.Message), Has.Some.Contains("\"Bob\" has no access to Umbraco Forms"));
     }
 
     [Test]
@@ -416,9 +417,37 @@ public class McpOverviewServiceTests
         Assert.That(row.ToolCount, Is.EqualTo(6));
         Assert.That(row.Access, Is.EqualTo(new[]
         {
-            new McpOverviewAccess("cms", "Umbraco CMS", "full", "site", 3),
-            new McpOverviewAccess("forms", "Umbraco Forms", "readOnly", "user", 3),
+            new McpOverviewAccess("cms", "Umbraco CMS", "full", "site", 3, true),
+            new McpOverviewAccess("forms", "Umbraco Forms", "readOnly", "user", 3, true),
         }));
+    }
+
+    [Test]
+    public async Task User_without_a_section_gets_no_tools_from_that_product()
+    {
+        McpApiUser user = new(Guid.NewGuid(), "Editor", UserState.Active, ["Umb.Section.Forms"], ["e"], Reported);
+        // An older umbrella-mcp still loaded Automate; its API refuses the tools all the same.
+        var catalogue = new McpToolCatalogue(Addon, new Dictionary<string, McpModuleCatalogue>
+        {
+            ["cms"] = new(Reported, false, [new McpCollectionInfo("a", 3)]),
+            ["forms"] = new(Reported, false, [new McpCollectionInfo("a", 4)]),
+            ["automate"] = new(Reported, false, [new McpCollectionInfo("a", 9)]),
+        });
+        var service = Service(
+            settings: new FakeToolSettingsStore { UserCatalogues = { [user.Key] = catalogue } },
+            users: new FakeApiUserProvider(user),
+            caps: new StubCapabilities(
+                new McpCapabilities(Addon, AllProducts),
+                new Dictionary<Guid, McpCapabilities> { [user.Key] = new McpCapabilities(Addon, AllProducts) }));
+
+        McpOverview overview = await service.GetOverviewAsync();
+
+        McpOverviewApiUser row = overview.ApiUsers.Single();
+        Assert.That(row.Access.Single(a => a.ProductId == "automate"),
+            Is.EqualTo(new McpOverviewAccess("automate", "Umbraco Automate", "full", "site", 0, false)));
+        Assert.That(row.Access.Single(a => a.ProductId == "forms").SectionAccess, Is.True);
+        Assert.That(row.ToolCount, Is.EqualTo(7));
+        Assert.That(overview.Findings.Where(f => f.Severity == McpFinding.Warning), Is.Empty);
     }
 
     [Test]

@@ -83,6 +83,26 @@ describe("selectModules", () => {
     });
   });
 
+  describe("no section access", () => {
+    it("does not load a product the API user has no section for", () => {
+      const d = decision(selectModules(modules, ok(product("forms", { noSectionAccess: true })), []), "forms");
+      expect(d.load).toBe(false);
+      expect(d.noSectionAccess).toBe(true);
+      expect(d.reason).toMatch(/^This API user's user groups don't grant the forms section, so its tools were not loaded\./);
+    });
+
+    it("wins over UMBRACO_MCP_MODULES, since the API would refuse every tool", () => {
+      const d = decision(selectModules(modules, ok(product("forms", { noSectionAccess: true })), ["forms"]), "forms");
+      expect(d.load).toBe(false);
+    });
+
+    it.each([[null], [undefined], [false]])("loads as before when noSectionAccess is %s", (noSectionAccess) => {
+      const d = decision(selectModules(modules, ok(product("forms", { noSectionAccess })), []), "forms");
+      expect(d.load).toBe(true);
+      expect(d.noSectionAccess).toBeUndefined();
+    });
+  });
+
   it("forced modules load regardless of capabilities", () => {
     const ds = selectModules(modules, { kind: "unavailable", reason: "HTTP 500" }, ["automate"]);
     expect(decision(ds, "automate").load).toBe(true);

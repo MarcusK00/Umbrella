@@ -9,7 +9,7 @@ public sealed class McpCapabilitiesService(
     IMcpToolSettingsStore toolSettings,
     ILogger<McpCapabilitiesService> logger) : IMcpCapabilitiesService
 {
-    public McpCapabilities GetCapabilities(Guid? apiUserKey = null)
+    public McpCapabilities GetCapabilities(Guid? apiUserKey = null, IReadOnlyCollection<string>? allowedSections = null)
     {
         IReadOnlyDictionary<string, IReadOnlyList<string>> disabled = SafeDisabledCollections();
         IReadOnlyList<string> readOnly = SafeReadOnlyModules();
@@ -20,7 +20,7 @@ public sealed class McpCapabilitiesService(
             McpAddon.Version,
             detectors.Select(d =>
             {
-                McpProductStatus status = SafeDetect(d);
+                McpProductStatus status = SafeDetect(d) with { NoSectionAccess = LacksSection(d, allowedSections) };
                 if (overrides.TryGetValue(d.Id, out McpProductOverride? own))
                 {
                     // All or nothing: a product the user overrides ignores the defaults completely.
@@ -43,6 +43,12 @@ public sealed class McpCapabilitiesService(
                 };
             }).ToList());
     }
+
+    /// <summary>The product's tools need a backoffice section that the caller's user groups don't grant.</summary>
+    private static bool LacksSection(IMcpProductDetector detector, IReadOnlyCollection<string>? allowedSections) =>
+        allowedSections is not null
+        && detector.SectionAlias is { } section
+        && !allowedSections.Contains(section, StringComparer.OrdinalIgnoreCase);
 
     private IReadOnlyDictionary<string, McpProductOverride> SafeUserOverrides(Guid? apiUserKey)
     {

@@ -48,17 +48,17 @@ export class UmbrellaAccessTableElement extends UmbLitElement {
   #renderUserCell(u, product) {
     const a = u.access?.find((x) => x.productId === product.id);
     if (!a) return html`<uui-table-cell><span class="count">Not reported</span></uui-table-cell>`;
-    const unreachable = a.level !== "off" && u.unreachable?.includes(product.displayName);
+    // Without the product's section its API refuses every tool, whatever the level: often on purpose, so no warning.
+    if (a.sectionAccess === false) {
+      return html`<uui-table-cell>
+        <div class="cell" title="None of this API user's user groups grant the ${product.displayName} section, so it gets no ${product.displayName} tools.">
+          <span class="level off">${levelGlyph("off")}<span>No access</span></span>
+          <span class="count">No section access</span>
+        </div>
+      </uui-table-cell>`;
+    }
     return html`<uui-table-cell>
-      <div class="cell">
-        ${this.#renderLevel(a.level, a.toolCount, a.scope === "user")}
-        ${unreachable
-          ? html`<span class="unreachable">
-              <umb-icon name="icon-alert"></umb-icon>
-              No section access
-            </span>`
-          : nothing}
-      </div>
+      <div class="cell">${this.#renderLevel(a.level, a.toolCount, a.scope === "user")}</div>
     </uui-table-cell>`;
   }
 
@@ -170,11 +170,6 @@ export class UmbrellaAccessTableElement extends UmbLitElement {
       .level.off { color: var(--uui-color-text-alt); font-weight: normal; }
       .count { color: var(--uui-color-text-alt); font-size: var(--uui-type-small-size); white-space: nowrap; }
       .own { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--uui-color-interactive-emphasis); flex: none; }
-      .unreachable {
-        display: inline-flex; align-items: center; gap: var(--uui-size-space-1);
-        font-size: var(--uui-type-small-size); white-space: nowrap;
-      }
-      .unreachable umb-icon { color: var(--uui-color-warning-standalone); }
       .total { text-align: right; font-variant-numeric: tabular-nums; }
       .actions { white-space: nowrap; }
       .row-actions { display: flex; align-items: stretch; justify-content: flex-end; gap: var(--uui-size-space-1); }

@@ -17,6 +17,8 @@ export interface ProductCapability {
   noDestructive?: boolean | null;
   /** Switched off in the backoffice: the server does not load this product. Missing on older add-ons. */
   off?: boolean | null;
+  /** The calling API user's user groups don't grant the product's backoffice section, so its API would refuse every tool and the server does not load it. Missing on older add-ons. */
+  noSectionAccess?: boolean | null;
   /** "user" when the settings above are an override for the calling API user, "site" for the defaults. Missing on older add-ons; any other value counts as "site". */
   settingsScope?: string | null;
 }
@@ -48,6 +50,7 @@ const isProduct = (p: unknown): p is ProductCapability => {
     (o.readOnly === undefined || o.readOnly === null || typeof o.readOnly === "boolean") &&
     (o.noDestructive === undefined || o.noDestructive === null || typeof o.noDestructive === "boolean") &&
     (o.off === undefined || o.off === null || typeof o.off === "boolean") &&
+    (o.noSectionAccess === undefined || o.noSectionAccess === null || typeof o.noSectionAccess === "boolean") &&
     Array.isArray(o.issues)
   );
 };

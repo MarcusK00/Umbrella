@@ -8,6 +8,7 @@ using Umbraco.Cms.Api.Management.Routing;
 using Umbraco.Cms.Core.Models.Membership;
 using Umbraco.Cms.Core.Security;
 using Umbraco.Cms.Web.Common.Authorization;
+using Umbraco.Mcp.ApiUser;
 using Umbraco.Mcp.Capabilities;
 using Umbraco.Mcp.Connections;
 
@@ -28,21 +29,23 @@ public sealed class McpCapabilitiesController(
     [ProducesResponseType(typeof(McpCapabilities), StatusCodes.Status200OK)]
     public IActionResult GetCapabilities()
     {
-        Guid? apiUserKey = CurrentApiUserKey();
-        RecordConnection(apiUserKey);
-        return Ok(capabilities.GetCapabilities(apiUserKey));
+        IUser? apiUser = CurrentApiUser();
+        RecordConnection(apiUser?.Key);
+        return Ok(capabilities.GetCapabilities(
+            apiUser?.Key,
+            apiUser is null ? null : ConnectedMcpApiUserProvider.ToSectionNames(apiUser.AllowedSections)));
     }
 
     /// <summary>
-    /// The key of the calling API user, or null for a normal backoffice user (for example someone trying the endpoint in
-    /// Swagger), who gets the site defaults and is not the MCP server.
+    /// The calling API user, or null for a normal backoffice user (for example someone trying the endpoint in Swagger),
+    /// who gets the site defaults and is not the MCP server.
     /// </summary>
-    private Guid? CurrentApiUserKey()
+    private IUser? CurrentApiUser()
     {
         try
         {
             IUser? user = backOfficeSecurityAccessor.BackOfficeSecurity?.CurrentUser;
-            return user?.Kind == UserKind.Api ? user.Key : null;
+            return user?.Kind == UserKind.Api ? user : null;
         }
         catch (Exception ex)
         {

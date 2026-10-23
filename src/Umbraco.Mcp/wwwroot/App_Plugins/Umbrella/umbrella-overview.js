@@ -48,6 +48,7 @@ export class UmbrellaOverviewElement extends UmbLitElement {
     _client: { state: true },
     _busy: { state: true },
     _connectOpen: { state: true },
+    _notesOpen: { state: true },
   };
 
   #auth;
@@ -65,6 +66,7 @@ export class UmbrellaOverviewElement extends UmbLitElement {
     this._busy = false;
     // null until the user opens or closes it; until then it follows #connectOpenByDefault().
     this._connectOpen = null;
+    this._notesOpen = false;
     this.consumeContext(UMB_NOTIFICATION_CONTEXT, (ctx) => (this.#notifications = ctx));
     this.consumeContext(UMB_AUTH_CONTEXT, (ctx) => {
       if (!ctx) return;
@@ -222,9 +224,22 @@ export class UmbrellaOverviewElement extends UmbLitElement {
             )}
           </div>`
         : nothing}
-      ${notes.length ? html`<ul class="notes">${notes.map((f) => html`<li><umb-icon name="icon-info"></umb-icon>${f.message}</li>`)}</ul>` : nothing}
+      ${this.#renderNotes(notes)}
       ${this.#renderFacts()}
     </uui-box>`;
+  }
+
+  /** Info findings, collapsed behind a small toggle: they are often on purpose (an API user for content only). */
+  #renderNotes(notes) {
+    if (!notes.length) return nothing;
+    return html`<div class="notes">
+      <button class="notes-toggle" aria-expanded=${this._notesOpen ? "true" : "false"} @click=${() => (this._notesOpen = !this._notesOpen)}>
+        <umb-icon name="icon-info"></umb-icon>
+        ${notes.length} ${notes.length === 1 ? "note" : "notes"}
+        <umb-icon class="chevron" name=${this._notesOpen ? "icon-navigation-up" : "icon-navigation-down"}></umb-icon>
+      </button>
+      ${this._notesOpen ? html`<ul>${notes.map((f) => html`<li>${f.message}</li>`)}</ul>` : nothing}
+    </div>`;
   }
 
   #renderUsers() {
@@ -441,8 +456,15 @@ export class UmbrellaOverviewElement extends UmbLitElement {
       .finding-group h3 { font-size: var(--uui-type-small-size); color: var(--uui-color-text-alt); font-weight: 700; }
       .finding-group ul { margin: var(--uui-size-space-2) 0 0; padding-left: 1.1em; }
       .finding-group li { margin-bottom: var(--uui-size-space-2); max-width: 75ch; }
-      .notes { list-style: none; margin: var(--uui-size-space-4) 0 0; padding-left: calc(2.5rem + var(--uui-size-space-4)); }
-      .notes li { display: flex; gap: var(--uui-size-space-2); align-items: baseline; color: var(--uui-color-text-alt); max-width: 75ch; }
+      .notes { margin: var(--uui-size-space-4) 0 0; padding-left: calc(2.5rem + var(--uui-size-space-4)); }
+      .notes-toggle {
+        display: inline-flex; align-items: center; gap: var(--uui-size-space-2); padding: 2px 0; border: 0; background: none;
+        font: inherit; font-size: var(--uui-type-small-size); color: var(--uui-color-text-alt); cursor: pointer;
+      }
+      .notes-toggle:hover { color: var(--uui-color-interactive-emphasis); }
+      .notes-toggle .chevron { font-size: 0.75em; }
+      .notes ul { margin: var(--uui-size-space-2) 0 0; padding-left: 1.1em; }
+      .notes li { color: var(--uui-color-text-alt); font-size: var(--uui-type-small-size); max-width: 75ch; margin-bottom: var(--uui-size-space-1); }
       .facts {
         display: flex; flex-wrap: wrap; gap: var(--uui-size-space-3) var(--uui-size-layout-2);
         margin: var(--uui-size-space-5) 0 0; padding: var(--uui-size-space-4) 0 0 calc(2.5rem + var(--uui-size-space-4));

@@ -92,7 +92,8 @@ internal static class McpHealthCheckRows
         }
     }
 
-    private static bool IsHealthy(McpOverviewApiUser user) => user.State == "active" && user.Unreachable.Count == 0;
+    /// <summary>A user that can sign in. Missing section access is only a note, so such a user still gets its success row.</summary>
+    private static bool IsHealthy(McpOverviewApiUser user) => user.State == "active";
 
     private static string UserSuccess(McpOverviewApiUser user)
     {

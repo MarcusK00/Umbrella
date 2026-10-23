@@ -162,9 +162,15 @@ public sealed class McpOverviewService(
             (user.AllowedSections.Contains(section, StringComparer.OrdinalIgnoreCase) ? reachable : unreachable).Add(p.DisplayName);
         }
 
+        // Without the section the product's API refuses every tool, so the user gets none of them.
         List<McpOverviewAccess> access = (userCapabilities?.Products ?? [])
             .Where(p => p.Installed && p.Enabled)
-            .Select(p => new McpOverviewAccess(p.Id, p.DisplayName, AccessLevel(p), p.SettingsScope, ToolCount(ownCatalogue, p)))
+            .Select(p =>
+            {
+                bool sectionAccess = !unreachable.Contains(p.DisplayName);
+                return new McpOverviewAccess(
+                    p.Id, p.DisplayName, AccessLevel(p), p.SettingsScope, sectionAccess ? ToolCount(ownCatalogue, p) : 0, sectionAccess);
+            })
             .ToList();
         return new McpOverviewApiUser(
             user.Key,
@@ -324,8 +330,9 @@ public sealed class McpOverviewService(
         {
             if (!user.AllowedSections.Contains(section, StringComparer.OrdinalIgnoreCase))
             {
-                yield return new(McpFinding.Warning, McpFindingArea.ApiUsers,
-                    $"The API user \"{user.Name}\" cannot use {p.DisplayName} tools: none of its user groups grant the {section} section.");
+                // Often on purpose (an API user for content only), so a note rather than something to fix.
+                yield return new(McpFinding.Info, McpFindingArea.ApiUsers,
+                    $"The API user \"{user.Name}\" has no access to {p.DisplayName}: none of its user groups grant {section}.");
             }
         }
     }

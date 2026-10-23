@@ -40,10 +40,15 @@ public sealed record McpToolSettingsApiUser(
 /// <param name="Kind">"user" (its own report), "latest" (the most recent report of another user or of the site) or "none".</param>
 public sealed record McpCatalogueSource(string Kind, DateTimeOffset? ReportedAt = null, string? UserName = null);
 
+/// <param name="NoSectionAccess">
+/// The ids of the products whose backoffice section none of the user's groups grant: its MCP server doesn't load them,
+/// whatever the settings say.
+/// </param>
 public sealed record McpUserToolSettingsResponse(
     IReadOnlyDictionary<string, McpProductOverride> Overrides,
     McpToolCatalogue Catalogue,
-    McpCatalogueSource CatalogueSource);
+    McpCatalogueSource CatalogueSource,
+    IReadOnlyList<string> NoSectionAccess);
 
 public sealed record McpProductOverrideRequest(IReadOnlyList<string?>? DisabledCollections, string? Level);
 
@@ -146,7 +151,7 @@ public sealed class McpToolSettingsController(
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetUserToolSettings(Guid userKey)
     {
-        if (await apiUsers.GetAsync(userKey) is null)
+        if (await apiUsers.GetAsync(userKey) is not { } user)
         {
             return NotFound();
         }
@@ -154,7 +159,11 @@ public sealed class McpToolSettingsController(
         var names = (await apiUsers.GetAllAsync()).ToDictionary(u => u.Key, u => u.Name);
         (McpToolCatalogue catalogue, McpCatalogueSource source) =
             McpCatalogueFallback.Resolve(userKey, store.GetAllUserCatalogues(), store.GetCatalogue(), names);
-        return Ok(new McpUserToolSettingsResponse(store.GetUserOverrides(userKey), catalogue, source));
+        List<string> noSectionAccess = capabilities.GetCapabilities(userKey, user.AllowedSections).Products
+            .Where(p => p.NoSectionAccess)
+            .Select(p => p.Id)
+            .ToList();
+        return Ok(new McpUserToolSettingsResponse(store.GetUserOverrides(userKey), catalogue, source, noSectionAccess));
     }
 
     /// <summary>Replaces one API user's overrides. An empty map makes the user follow the defaults.</summary>
