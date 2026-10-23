@@ -4,7 +4,7 @@
 
 ## What CI checks
 
-`.github/workflows/ci.yml` runs on every PR to `main` and on every push to `main`.
+`.github/workflows/ci.yml` runs on every PR to `v17/main` and on every push to `v17/main`.
 
 | Check | Runs | Does not cover |
 |---|---|---|
@@ -35,7 +35,7 @@ bash scripts/check-guards.sh
 
 ## Branch protection
 
-Set once, by hand, in GitHub → Settings → Branches (or Rules → Rulesets) for `main`:
+Set once, by hand, in GitHub → Settings → Branches (or Rules → Rulesets) for `v17/main`:
 
 - Require a pull request before merging.
 - Require status checks to pass: `dotnet`, `npm`, `guards`. They only appear in the picker after the workflow has run once.

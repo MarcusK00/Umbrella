@@ -1,11 +1,11 @@
-# Checks every PR to main must pass before it is safe to merge. See docs/merging.md.
+# Checks every PR to v17/main must pass before it is safe to merge. See docs/merging.md.
 name: CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [v17/main]
   push:
-    branches: [main]
+    branches: [v17/main]
 
 concurrency:
   group: ci-${{ github.ref }}
