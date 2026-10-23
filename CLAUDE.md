@@ -158,6 +158,6 @@ No changes in `npm/src/core/`. The contract test then covers the new module auto
 - **Secrets:**
   - `npm/.env` (real client secret), `appsettings.local.json`, `npm/vendor/*.tgz` (local product tarballs), `demo-site/.mcp.json` and `demo-site/umbraco/` (SQLite data, logs, media) are gitignored.
   - `npm/.env.example` holds placeholders only.
-  - On boot the demo site may write a generated `Imaging:HMACSecretKey` into `demo-site/appsettings.json`. Don't commit it: the committed value is `""`. Stage files explicitly rather than with `git add -A`.
+  - On boot Umbraco writes a generated `Imaging:HMACSecretKey` into `demo-site/appsettings.json` unless one is configured. Keep the key in the gitignored `demo-site/appsettings.Local.json` (loaded in Debug builds) so the tracked file stays at `""`. Stage files explicitly rather than with `git add -A`.
 - **Docs:** dates use DD-MM-YYYY. User docs (`README.md`, `npm/README.md`, `src/Umbraco.Mcp/README.md`) describe the released packages; keep the version in their config examples equal to the package version.
 - **Publishing:** never publish to npm or NuGet unless asked; nothing guards against it any more, since `"private": true` is gone. Don't add the `umbraco-marketplace` tag back unless asked.
