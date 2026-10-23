@@ -198,6 +198,8 @@ In your AI tool, the `get-mcp-health` tool shows what the server loaded and why:
 
 Start with `get-mcp-health` in your AI tool and the **MCP** health checks in the backoffice. They cover most of the cases below.
 
+If none of this explains it, [open an issue](https://github.com/MarcusK00/Umbrella-Issues/issues/new/choose) with the add-on and `umbrella-mcp` versions and the `get-mcp-health` output. Report security vulnerabilities privately, see the tracker's [security policy](https://github.com/MarcusK00/Umbrella-Issues/blob/main/SECURITY.md).
+
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | The server exits with `Could not authenticate against Umbraco` | Wrong URL, client id or secret; the API user is disabled; or `UMBRACO_BASE_URL` is `http://` | Check the three `UMBRACO_*` values. The URL must be `https://`. The "MCP API user" check shows whether the user can still sign in |

@@ -21,7 +21,12 @@ Merging a new version into `v17/main` publishes both: `.github/workflows/release
    ```
    `pack-check.sh` installs the packed package with `npx` in an empty folder, where npm ignores our `overrides`. It catches a product package that would end up on its own toolkit copy.
 5. **Merge `v17/dev` into `v17/main`.** The Release workflow then publishes (see [What the workflow does](#what-the-workflow-does)). Follow it under Actions → Release.
-6. **Check** that `npx -y umbrella-mcp@<version> --list-tools` works against a site with the new add-on, with `UMBRACO_BASE_URL`, `UMBRACO_CLIENT_ID` and `UMBRACO_CLIENT_SECRET` set. In that site, Settings → Health Check → MCP → "MCP client setup" should show the same version.
+6. **Public docs.** This repository is private, so users read the docs in the public tracker, [MarcusK00/Umbrella-Issues](https://github.com/MarcusK00/Umbrella-Issues), where the NuGet readme and `PackageProjectUrl` link. After the release, copy `README.md` there and push it (the workflow doesn't do this):
+   ```bash
+   node scripts/sync-tracker-docs.mjs ../Umbrella-Issues   # a checkout of the tracker
+   ```
+   The script drops the Develop section, adds "Report a problem", and copies `LICENSE` and the logo. It fails when the README no longer has the sections it edits, or links to a file the tracker doesn't have.
+7. **Check** that `npx -y umbrella-mcp@<version> --list-tools` works against a site with the new add-on, with `UMBRACO_BASE_URL`, `UMBRACO_CLIENT_ID` and `UMBRACO_CLIENT_SECRET` set. In that site, Settings → Health Check → MCP → "MCP client setup" should show the same version.
 
 ## What the workflow does
 
