@@ -13,6 +13,11 @@
   "bugs": {
     "url": "https://github.com/MarcusK00/Umbrella-Issues/issues"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MarcusK00/Umbrella.git",
+    "directory": "npm"
+  },
   "type": "module",
   "bin": {
     "umbrella-mcp": "./dist/index.js"

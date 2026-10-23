@@ -1,0 +1,137 @@
+# Publishes umbrella-mcp (npm) and Umbraco.Community.Umbrella (NuGet) when v17/main has a version that is not on the
+# registries yet. Both publish without stored keys (trusted publishing); the one-time setup is in docs/releasing.md.
+# The npm and NuGet trusted publisher settings name this file, so renaming it breaks publishing.
+name: Release
+
+on:
+  push:
+    branches: [v17/main]
+  workflow_dispatch: # retry from the Actions tab, for example after setting up trusted publishing
+
+concurrency:
+  group: release
+  cancel-in-progress: false # never stop a publish halfway
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    name: version
+    if: github.ref == 'refs/heads/v17/main'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.read.outputs.version }}
+      npm-tag: ${{ steps.read.outputs.npm-tag }}
+      npm-missing: ${{ steps.registries.outputs.npm-missing }}
+      nuget-missing: ${{ steps.registries.outputs.nuget-missing }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read version
+        id: read
+        run: |
+          npm_version=$(node -p 'require("./npm/package.json").version')
+          nuget_version=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' src/Umbraco.Mcp/Umbraco.Mcp.csproj)
+          [ "$npm_version" = "$nuget_version" ] || { echo "::error::npm/package.json is $npm_version, Umbraco.Mcp.csproj is $nuget_version"; exit 1; }
+          # The pre-release label is the npm dist-tag (17.0.0-alpha.8 -> alpha), as in docs/releasing.md; stable -> latest.
+          label=$(sed -n 's/^[0-9.]*-\([a-z]*\).*/\1/p' <<<"$npm_version")
+          echo "version=$npm_version" >> "$GITHUB_OUTPUT"
+          echo "npm-tag=${label:-latest}" >> "$GITHUB_OUTPUT"
+      - name: Check registries
+        id: registries
+        env:
+          VERSION: ${{ steps.read.outputs.version }}
+        run: |
+          if npm view "umbrella-mcp@$VERSION" version 2>/dev/null | grep -qxF "$VERSION"; then npm_missing=false; else npm_missing=true; fi
+          lower=$(tr '[:upper:]' '[:lower:]' <<<"$VERSION")
+          index=$(curl -fsS https://api.nuget.org/v3-flatcontainer/umbraco.community.umbrella/index.json)
+          if grep -qF "\"$lower\"" <<<"$index"; then nuget_missing=false; else nuget_missing=true; fi
+          { echo "npm-missing=$npm_missing"; echo "nuget-missing=$nuget_missing"; } >> "$GITHUB_OUTPUT"
+          { echo "### $VERSION"; echo "npm missing: $npm_missing"; echo; echo "NuGet missing: $nuget_missing"; } >> "$GITHUB_STEP_SUMMARY"
+
+  ci:
+    name: ci
+    needs: version
+    if: needs.version.outputs.npm-missing == 'true' || needs.version.outputs.nuget-missing == 'true'
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+      pull-requests: read
+
+  npm:
+    name: npm
+    needs: [version, ci]
+    if: needs.version.outputs.npm-missing == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # npm trusted publishing
+    defaults:
+      run:
+        working-directory: npm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - name: npm version
+        run: |
+          npm --version
+          # Trusted publishing needs npm 11.5.1 or later.
+          node -e 'const [a, b, c] = process.argv[1].split(".").map(Number); process.exit(a > 11 || (a === 11 && (b > 5 || (b === 5 && c >= 1))) ? 0 : 1)' "$(npm --version)" \
+            || { echo "::error::npm $(npm --version) is too old for trusted publishing (needs 11.5.1)"; exit 1; }
+      - name: Install
+        run: npm ci --no-audit --no-fund
+      - name: Publish
+        # prepack builds dist/. No --provenance: npm does not generate provenance for private repositories.
+        run: npm publish --tag "${{ needs.version.outputs.npm-tag }}"
+
+  nuget:
+    name: nuget
+    needs: [version, ci, npm]
+    # After npm, so the version the add-on points AI tools to exists. A skipped npm job means it was already published.
+    if: >-
+      !cancelled() && needs.version.outputs.nuget-missing == 'true' && needs.ci.result == 'success'
+      && (needs.npm.result == 'success' || needs.npm.result == 'skipped')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # NuGet trusted publishing
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Pack
+        run: dotnet pack src/Umbraco.Mcp/Umbraco.Mcp.csproj -c Release -o artifacts
+      - name: NuGet login
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }} # nuget.org profile name, not the email address
+      - name: Push
+        run: >-
+          dotnet nuget push "artifacts/Umbraco.Community.Umbrella.${{ needs.version.outputs.version }}.nupkg"
+          --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json
+
+  github-release:
+    name: github-release
+    needs: [version, npm, nuget]
+    if: >-
+      !cancelled() && (needs.npm.result == 'success' || needs.npm.result == 'skipped')
+      && (needs.nuget.result == 'success' || needs.nuget.result == 'skipped')
+      && (needs.npm.result == 'success' || needs.nuget.result == 'success')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # tag and release
+    steps:
+      - name: Tag and release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          if gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then echo "v$VERSION exists"; exit 0; fi
+          flags=(--repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "$VERSION" --generate-notes)
+          if [[ "$VERSION" == *-* ]]; then flags+=(--prerelease); fi
+          gh release create "v$VERSION" "${flags[@]}"
