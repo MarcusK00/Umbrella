@@ -83,8 +83,11 @@ jobs:
             || { echo "::error::npm $(npm --version) is too old for trusted publishing (needs 11.5.1)"; exit 1; }
       - name: Install
         run: npm ci --no-audit --no-fund
+      - name: Build
+        # Before publish, so dist/index.js exists when npm checks the bin entry (prepack builds it again).
+        run: npm run build
       - name: Publish
-        # prepack builds dist/. No --provenance: npm does not generate provenance for private repositories.
+        # No --provenance: npm does not generate provenance for private repositories.
         run: npm publish --tag "${{ needs.version.outputs.npm-tag }}"
 
   nuget:

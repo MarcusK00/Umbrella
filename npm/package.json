@@ -20,7 +20,7 @@
   },
   "type": "module",
   "bin": {
-    "umbrella-mcp": "./dist/index.js"
+    "umbrella-mcp": "dist/index.js"
   },
   "main": "dist/index.js",
   "files": [
