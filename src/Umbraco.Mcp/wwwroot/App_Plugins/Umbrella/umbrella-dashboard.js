@@ -29,17 +29,35 @@ export class UmbrellaDashboardElement extends UmbLitElement {
       return;
     }
     this._tab = tab;
+    this.updateComplete.then(this.#measureTop);
     // Settings changed on Tool Permissions show in the Overview's MCP Users table.
     if (tab === "overview") this.shadowRoot?.querySelector("umbrella-overview")?.reload();
   }
 
   /**
-   * Fills the rest of the window, so Tool Permissions' footer sits at the bottom even when the page is short. Measured
-   * on the first render, before anything has scrolled.
+   * Fills the rest of the window, so Tool Permissions' footer sits at the bottom even when the page is short. The
+   * dashboard's distance from the top of the window changes with the bar above it (tabs that wrap, a resized window), so
+   * it is measured again when the window is resized or a tab is shown.
    */
-  firstUpdated() {
-    this.style.setProperty("--umbrella-top", `${Math.max(0, this.getBoundingClientRect().top)}px`);
+  connectedCallback() {
+    super.connectedCallback();
+    window.addEventListener("resize", this.#measureTop);
   }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    window.removeEventListener("resize", this.#measureTop);
+  }
+
+  firstUpdated() {
+    this.#measureTop();
+    // Once the bar above has been laid out.
+    requestAnimationFrame(() => this.#measureTop());
+  }
+
+  #measureTop = () => {
+    this.style.setProperty("--umbrella-top", `${Math.max(0, Math.round(this.getBoundingClientRect().top))}px`);
+  };
 
   /** The Overview's "Edit permissions": open Tool Permissions with that API user selected. */
   async #editPermissions(e) {
