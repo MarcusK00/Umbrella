@@ -7,9 +7,9 @@ import { LEVEL_LABELS, formatRelative, glyphStyles, levelGlyph, tools } from "./
 const STATE_TAGS = { disabled: "Disabled", lockedOut: "Locked out" };
 
 /**
- * The Overview's access table: one row per API user an MCP server connected as, one column per product, and in each
- * cell the access that user's server gets. The first row is the defaults, which every user without its own settings
- * follows. It holds no state; "Edit permissions" and "Forget" are events for the Overview.
+ * The Overview's access table: one row per API user an MCP server connected as, one column per product (headed with
+ * its version), and in each cell the access that user's server gets. The first row is the defaults, which every user
+ * without its own settings follows. It holds no state; "Edit permissions" and "Forget" are events for the Overview.
  *
  * Events (bubbling, composed): `edit-permissions` { key } ("" for the defaults) and `forget` { key }.
  */
@@ -130,7 +130,12 @@ export class UmbrellaAccessTableElement extends UmbLitElement {
         <uui-table aria-label="Tool access per API user">
           <uui-table-head>
             <uui-table-head-cell>API user</uui-table-head-cell>
-            ${columns.map((p) => html`<uui-table-head-cell>${p.displayName.replace(/^Umbraco /, "")}</uui-table-head-cell>`)}
+            ${columns.map(
+              (p) => html`<uui-table-head-cell>
+                <span class="product">${p.displayName.replace(/^Umbraco /, "")}</span>
+                ${p.version ? html`<span class="version">${p.version}</span>` : nothing}
+              </uui-table-head-cell>`,
+            )}
             <uui-table-head-cell class="total">Tools</uui-table-head-cell>
             <uui-table-head-cell><span class="visually-hidden">Actions</span></uui-table-head-cell>
           </uui-table-head>
@@ -147,7 +152,9 @@ export class UmbrellaAccessTableElement extends UmbLitElement {
       :host { display: block; }
       .scroll { overflow-x: auto; }
       uui-table { min-width: 44rem; }
-      uui-table-head-cell { white-space: nowrap; }
+      uui-table-head-cell { white-space: nowrap; vertical-align: top; }
+      uui-table-head-cell .product, uui-table-head-cell .version { display: block; }
+      uui-table-head-cell .version { font-weight: normal; color: var(--uui-color-text-alt); font-size: var(--uui-type-small-size); font-variant-numeric: tabular-nums; }
       uui-table-cell { vertical-align: top; padding-top: var(--uui-size-space-4); padding-bottom: var(--uui-size-space-4); }
       .who { display: flex; align-items: center; gap: var(--uui-size-space-3); min-width: 12rem; }
       .who .name { flex-direction: row; align-items: center; flex-wrap: wrap; gap: var(--uui-size-space-2); }

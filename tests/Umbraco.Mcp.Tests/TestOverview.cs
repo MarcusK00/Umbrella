@@ -15,7 +15,7 @@ internal static class TestOverview
         new("17.0.0", findings ?? [], products ?? [], server, users ?? []);
 
     public static McpOverviewProduct Product(string name, bool installed = true, string? version = "17.0.0", string[]? issues = null) =>
-        new(name.ToLowerInvariant(), name, installed, installed, version, issues ?? [], installed, 0, "full");
+        new(name.ToLowerInvariant(), name, installed, installed, version, issues ?? [], "full");
 
     public static McpOverviewApiUser User(
         string name = "MCP API user",

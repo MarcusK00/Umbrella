@@ -16,8 +16,8 @@ public static class McpFindingArea
 }
 
 /// <summary>
-/// A detected product, and whether and with how many tools the MCP server has loaded it. <paramref name="Access"/> is
-/// "full", "noDestructive" or "readOnly" (the site's defaults).
+/// A detected product. <paramref name="Access"/> is "full", "noDestructive", "readOnly" or "off" (the site's defaults).
+/// A product a connected MCP server should have loaded but did not is a products finding.
 /// </summary>
 public sealed record McpOverviewProduct(
     string Id,
@@ -26,8 +26,6 @@ public sealed record McpOverviewProduct(
     bool Enabled,
     string? Version,
     IReadOnlyList<string> Issues,
-    bool Loaded,
-    int ToolCount,
     string Access);
 
 /// <summary>What the MCP server last reported, and whether it is the add-on's version.</summary>
