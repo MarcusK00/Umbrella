@@ -307,9 +307,13 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     }
   }
 
-  /** The products to show: those the site detects, and those an MCP server reported. */
+  /**
+   * The products to show: those the site detects, and those an MCP server reported. A user view leaves out the products
+   * whose section none of the user's groups grant: its MCP server doesn't load them, so there is nothing to set.
+   */
   #visibleProducts() {
-    return (this._data?.products ?? []).filter((p) => p.installed || this.#moduleFor(p.id));
+    const noAccess = this._selected ? (this._user?.noSectionAccess ?? []) : [];
+    return (this._data?.products ?? []).filter((p) => (p.installed || this.#moduleFor(p.id)) && !noAccess.includes(p.id));
   }
 
   /** In the defaults view: the API users that override a product and so don't follow these defaults. */
@@ -367,7 +371,6 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
       .defaultLevel=${this._selected ? this.#defaultsFor(id).level : null}
       .isRequired=${id === REQUIRED_PRODUCT}
       .notes=${this.#notesFor(product, module, state.level)}
-      .noSectionAccess=${!!this._selected && (this._user?.noSectionAccess ?? []).includes(id)}
     ></umbrella-product-card>`;
   }
 
