@@ -308,12 +308,13 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
   }
 
   /**
-   * The products to show: those the site detects, and those an MCP server reported. A user view leaves out the products
-   * whose section none of the user's groups grant: its MCP server doesn't load them, so there is nothing to set.
+   * The products to show: those the site detects as installed. A catalogue entry alone is not enough, as the shared
+   * catalogue keeps a product after it is uninstalled. A user view also leaves out the products whose section none of the
+   * user's groups grant: its MCP server doesn't load them, so there is nothing to set.
    */
   #visibleProducts() {
     const noAccess = this._selected ? (this._user?.noSectionAccess ?? []) : [];
-    return (this._data?.products ?? []).filter((p) => (p.installed || this.#moduleFor(p.id)) && !noAccess.includes(p.id));
+    return (this._data?.products ?? []).filter((p) => p.installed && !noAccess.includes(p.id));
   }
 
   /** In the defaults view: the API users that override a product and so don't follow these defaults. */
