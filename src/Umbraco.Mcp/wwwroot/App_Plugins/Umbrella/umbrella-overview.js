@@ -5,7 +5,7 @@ import { UMB_NOTIFICATION_CONTEXT } from "@umbraco-cms/backoffice/notification";
 import { umbConfirmModal } from "@umbraco-cms/backoffice/modal";
 import { UmbTextStyles } from "@umbraco-cms/backoffice/style";
 import { formatDate, request } from "./umbrella-api.js";
-import { LEVEL_LABELS, formatRelative, glyphStyles, levelGlyph, tools } from "./umbrella-access.js";
+import { formatRelative } from "./umbrella-access.js";
 import "./umbrella-access-table.js";
 
 const AREAS = { products: "Products", server: "MCP server", apiUsers: "API users" };
@@ -36,8 +36,7 @@ const CLIENTS = {
 
 /**
  * Settings → Umbrella → Overview: a status banner (all good, or what needs attention, with the versions in play), the
- * access table of the API users MCP servers have connected as, the detected products, and how to connect an AI tool as
- * a chosen API user.
+ * access table of the API users MCP servers have connected as, and how to connect an AI tool as a chosen API user.
  */
 export class UmbrellaOverviewElement extends UmbLitElement {
   static properties = {
@@ -265,35 +264,6 @@ export class UmbrellaOverviewElement extends UmbLitElement {
     </uui-box>`;
   }
 
-  /** What a product's row says: why it is not in use, or its default level and how many tools the server loaded. */
-  #renderProductState(p) {
-    if (!p.installed) return html`<span class="muted">Not installed</span>`;
-    if (!p.enabled) return html`<uui-tag color="warning" look="primary">Not enabled</uui-tag>`;
-    if (p.access === "off") return html`<span class="level off">${levelGlyph("off")} Off</span>`;
-    if (!p.loaded) return html`<uui-tag color="warning" look="secondary">Not loaded</uui-tag>`;
-    return html`<span class="level">${levelGlyph(p.access)} ${LEVEL_LABELS[p.access] ?? LEVEL_LABELS.full}</span>
-      <span class="muted small">${tools(p.toolCount)}</span>`;
-  }
-
-  #renderProducts() {
-    const products = [...this._data.products].sort((a, b) => Number(b.installed) - Number(a.installed));
-    return html`<uui-box headline="Products" headline-variant="h2">
-      <span slot="header-actions" class="muted small">Default access, and tools from the MCP server's most recent start</span>
-      <ul class="products">
-        ${products.map(
-          (p) => html`<li class=${p.installed ? "" : "absent"}>
-            <div class="product-name">
-              <strong>${p.displayName}</strong>
-              ${p.version ? html`<span class="muted small">${p.version}</span>` : nothing}
-            </div>
-            <div class="product-state">${this.#renderProductState(p)}</div>
-            ${p.issues?.length ? html`<ul class="issues">${p.issues.map((i) => html`<li><umb-icon name="icon-alert"></umb-icon>${i}</li>`)}</ul>` : nothing}
-          </li>`,
-        )}
-      </ul>
-    </uui-box>`;
-  }
-
   /** One option per client id of each API user, plus the configured client id when no API user has it yet. */
   #renderClientIdPicker() {
     const { apiUsers, clientId, configuredClientId } = this._setup;
@@ -424,19 +394,18 @@ export class UmbrellaOverviewElement extends UmbLitElement {
   render() {
     if (this._error) return html`<uui-box headline="Umbrella"><p>Could not load the overview: ${this._error}</p></uui-box>`;
     if (!this._data) return html`<uui-loader></uui-loader>`;
-    return html`${this.#renderStatus()} ${this.#renderUsers()} ${this.#renderProducts()} ${this.#renderConnect()}`;
+    return html`${this.#renderStatus()} ${this.#renderUsers()} ${this.#renderConnect()}`;
   }
 
   static styles = [
     UmbTextStyles,
-    glyphStyles,
     css`
       :host { display: flex; flex-direction: column; gap: var(--uui-size-layout-1); padding: var(--uui-size-layout-1); }
       h2, h3 { margin: 0; }
       .muted { color: var(--uui-color-text-alt); margin: 0; }
       .small { font-size: var(--uui-type-small-size); }
       .warning { display: flex; align-items: center; gap: var(--uui-size-space-2); margin: 0 0 var(--uui-size-space-3); }
-      .warning umb-icon, .issues umb-icon { color: var(--uui-color-warning-standalone); flex: none; }
+      .warning umb-icon { color: var(--uui-color-warning-standalone); flex: none; }
 
       .status { border-left: 4px solid var(--uui-color-positive-standalone); }
       .status.ready { border-left-color: var(--uui-color-interactive-emphasis); }
@@ -478,20 +447,6 @@ export class UmbrellaOverviewElement extends UmbLitElement {
       .empty > umb-icon { font-size: 2rem; color: var(--uui-color-text-alt); }
       .empty p { margin: 0; max-width: 50ch; }
       .empty uui-button { margin-top: var(--uui-size-space-3); }
-
-      .products { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: var(--uui-size-space-4); }
-      .products > li {
-        display: flex; flex-direction: column; gap: var(--uui-size-space-3);
-        padding: var(--uui-size-space-4); border: 1px solid var(--uui-color-border); border-radius: var(--uui-border-radius);
-      }
-      .products > li.absent { border-style: dashed; }
-      .products > li.absent strong { color: var(--uui-color-text-alt); font-weight: normal; }
-      .product-name { display: flex; align-items: baseline; justify-content: space-between; gap: var(--uui-size-space-2); min-width: 0; }
-      .product-state { display: flex; align-items: center; justify-content: space-between; gap: var(--uui-size-space-2); }
-      .level { display: inline-flex; align-items: center; gap: var(--uui-size-space-2); font-weight: 600; white-space: nowrap; }
-      .level.off { color: var(--uui-color-text-alt); font-weight: normal; }
-      .issues { list-style: none; margin: 0; padding: 0; font-size: var(--uui-type-small-size); }
-      .issues li { display: flex; gap: var(--uui-size-space-1); align-items: baseline; }
 
       .connect { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: var(--uui-size-layout-1); align-items: start; }
       @media (max-width: 64rem) { .connect { grid-template-columns: minmax(0, 1fr); } }
