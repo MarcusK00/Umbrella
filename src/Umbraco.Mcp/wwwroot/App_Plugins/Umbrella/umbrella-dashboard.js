@@ -33,10 +33,21 @@ export class UmbrellaDashboardElement extends UmbLitElement {
     if (tab === "overview") this.shadowRoot?.querySelector("umbrella-overview")?.reload();
   }
 
+  /**
+   * Fills the rest of the window, so Tool Permissions' footer sits at the bottom even when the page is short. Measured
+   * on the first render, before anything has scrolled.
+   */
+  firstUpdated() {
+    this.style.setProperty("--umbrella-top", `${Math.max(0, this.getBoundingClientRect().top)}px`);
+  }
+
   /** The Overview's "Edit permissions": open Tool Permissions with that API user selected. */
-  #editPermissions(e) {
-    this.#show("tool-groups");
-    this.shadowRoot?.querySelector("umbrella-tool-groups")?.selectUser(e.detail.key);
+  async #editPermissions(e) {
+    await this.#show("tool-groups");
+    const toolGroups = this.shadowRoot?.querySelector("umbrella-tool-groups");
+    await toolGroups?.selectUser(e.detail.key);
+    // The button that was clicked is hidden now, so focus moves to what opened.
+    toolGroups?.focusEditor();
   }
 
   render() {
@@ -52,8 +63,9 @@ export class UmbrellaDashboardElement extends UmbLitElement {
   static styles = [
     UmbTextStyles,
     css`
-      :host { display: block; }
-      [hidden] { display: none; }
+      :host { display: flex; flex-direction: column; min-height: calc(100dvh - var(--umbrella-top, 0px)); }
+      [hidden] { display: none !important; }
+      umbrella-tool-groups { flex: 1; }
       uui-tab-group { padding: 0 var(--uui-size-layout-1); border-bottom: 1px solid var(--uui-color-divider-standalone); }
     `,
   ];

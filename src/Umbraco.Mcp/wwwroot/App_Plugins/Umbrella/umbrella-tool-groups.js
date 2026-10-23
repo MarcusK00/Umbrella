@@ -1,4 +1,4 @@
-import { css, html, nothing } from "@umbraco-cms/backoffice/external/lit";
+import { css, html, nothing, repeat } from "@umbraco-cms/backoffice/external/lit";
 import { UmbLitElement } from "@umbraco-cms/backoffice/lit-element";
 import { UMB_AUTH_CONTEXT } from "@umbraco-cms/backoffice/auth";
 import { umbConfirmModal } from "@umbraco-cms/backoffice/modal";
@@ -10,12 +10,13 @@ import { UmbrellaUnsavedGuard } from "./umbrella-unsaved-guard.js";
 
 /** The product the MCP server signs in through; the add-on refuses to switch it off. */
 const REQUIRED_PRODUCT = "cms";
-const STATE_TAGS = { disabled: "disabled", lockedOut: "locked out" };
+const STATE_TAGS = { disabled: "Disabled", lockedOut: "Locked out" };
 
 /**
  * Settings → Umbrella → Tool Permissions. On the left, who is being edited: the defaults (every API user) or one API
- * user. On the right, one card per product with its access level (off, read-only, no deletes or full) and its tool
- * groups. An API user can override a product, all-or-nothing, with its own level and groups.
+ * user. On the right, who that is, then one card per product with its access level (off, read-only, no deletes or full)
+ * and its tool groups. An API user can override a product, all-or-nothing, with its own level and groups. Save and
+ * discard sit in a footer pinned to the bottom, as in Umbraco's workspaces.
  *
  * Unsaved changes are what differs from the last saved state, so changing something back makes the page clean again.
  * Every way of leaving with unsaved changes asks first (`confirmLeave`).
@@ -157,8 +158,15 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
       this.#pendingUser = key;
       return;
     }
-    if (key === this._selected || this._busy) return;
+    if (key === this._selected) return;
+    // A user asked for while another loads opens after it.
+    if (this._busy) {
+      this.#pendingUser = key;
+      return;
+    }
     if (!(await this.confirmLeave())) return;
+    // An API user that connected after this page loaded: load the list again so it shows up.
+    if (key && !this._data.apiUsers?.some((u) => u.key === key)) await this.#load();
     if (key === "") {
       this.#showDefaults();
       return;
@@ -171,6 +179,15 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     } finally {
       this._busy = false;
     }
+    const next = this.#pendingUser;
+    this.#pendingUser = null;
+    if (next !== null) await this.selectUser(next);
+  }
+
+  /** Moves focus to the heading of who is being edited, after the Overview handed over with "Edit permissions". */
+  async focusEditor() {
+    await this.updateComplete;
+    this.shadowRoot?.querySelector(".editor-title h2")?.focus();
   }
 
   /** The catalogue entry to show for a product: in the user view the user's own report, else the defaults' one. */
@@ -216,7 +233,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
   }
 
   #setLevel(id, level) {
-    if (this._busy) return;
+    if (this._busy || this._saving) return;
     if (this._selected) {
       const override = this._edit.overrides[id];
       if (!override) return;
@@ -226,12 +243,15 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     }
   }
 
-  #setGroup(id, name, enabled) {
-    if (this._busy) return;
+  /** Switches tool groups on or off: one from its toggle, or every shown one from "Switch all on/off". */
+  #setGroups(id, names, enabled) {
+    if (this._busy || this._saving) return;
     const edit = (current) => {
       const set = new Set(current ?? []);
-      if (enabled) set.delete(name);
-      else set.add(name);
+      for (const name of names) {
+        if (enabled) set.delete(name);
+        else set.add(name);
+      }
       return set;
     };
     if (this._selected) {
@@ -245,11 +265,17 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
 
   /** "Customise for …" starts an override from a copy of the saved defaults; "Reset to defaults" drops it. */
   #setOverride(id, customise) {
-    if (this._busy) return;
+    if (this._busy || this._saving) return;
     const overrides = { ...this._edit.overrides };
     if (customise) overrides[id] = this.#defaultsFor(id);
     else delete overrides[id];
     this._edit = { overrides };
+  }
+
+  /** "Use the defaults for everything": drops every override of the user being shown. */
+  #resetAll() {
+    if (this._busy || this._saving) return;
+    this._edit = { overrides: {} };
   }
 
   async #save() {
@@ -318,7 +344,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
   #renderCard(product) {
     const id = product.id;
     const module = this.#moduleFor(id);
-    const userName = this._data.apiUsers?.find((u) => u.key === this._selected)?.name ?? "this API user";
+    const userName = this.#userName();
     let state;
     let mode = "defaults";
     if (this._selected) {
@@ -334,131 +360,257 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
       .level=${state.level}
       .disabled=${state.disabled}
       .editable=${mode !== "follows" && !this._saving && !this._busy}
+      .locked=${this._saving || this._busy}
       .showCounts=${this.#showCounts(id)}
       .mode=${mode}
       .userName=${userName}
+      .defaultLevel=${this._selected ? this.#defaultsFor(id).level : null}
       .isRequired=${id === REQUIRED_PRODUCT}
       .notes=${this.#notesFor(product, module, state.level)}
     ></umbrella-product-card>`;
   }
 
+  #userName() {
+    return this._data.apiUsers?.find((u) => u.key === this._selected)?.name ?? "this API user";
+  }
+
   #renderList() {
     const users = this._data.apiUsers ?? [];
-    const entry = (key, name, sub, tags) => html`<button
-      class="entry"
-      aria-current=${this._selected === key ? "true" : "false"}
-      ?disabled=${this._saving || this._busy}
-      @click=${() => this.selectUser(key)}
-    >
-      <span class="entry-name">${name} ${tags.map((t) => html`<uui-tag look="secondary">${t}</uui-tag>`)}</span>
-      ${sub ? html`<span class="entry-sub">${sub}</span>` : nothing}
-    </button>`;
+    const entry = (key, name, sub, avatar, tag) => html`<li>
+      <button
+        class="entry"
+        aria-current=${this._selected === key ? "true" : "false"}
+        ?disabled=${this._saving || this._busy}
+        @click=${() => this.selectUser(key)}
+      >
+        ${avatar}
+        <span class="entry-text">
+          <span class="entry-name">${name}</span>
+          ${sub ? html`<span class="entry-sub">${sub}</span>` : nothing}
+        </span>
+        ${tag ?? nothing}
+      </button>
+    </li>`;
     return html`<nav class="list" aria-label="Whose tool permissions">
-      ${entry("", "Defaults", "All API users", [])}
+      <ul>
+        ${entry(
+          "",
+          "Defaults",
+          "All API users",
+          html`<span class="defaults-icon"><umb-icon name="icon-settings"></umb-icon></span>`,
+        )}
+      </ul>
       ${users.length
-        ? html`<h4 class="list-heading">API users</h4>
-            ${users.map((u) =>
-              entry(
-                u.key,
-                u.name,
-                u.clientIds?.join(", "),
-                [...(u.overriddenProducts?.length ? ["custom"] : []), ...(STATE_TAGS[u.state] ? [STATE_TAGS[u.state]] : [])],
-              ),
-            )}`
-        : nothing}
+        ? html`<h3 class="list-heading">API users</h3>
+            <ul>
+              ${users.map((u) => {
+                const own = u.overriddenProducts?.length ?? 0;
+                const tag = html`${STATE_TAGS[u.state] ? html`<uui-tag look="secondary" color="warning">${STATE_TAGS[u.state]}</uui-tag>` : nothing}
+                ${own
+                  ? html`<uui-tag look="secondary" title=${`Own settings for ${own} ${own === 1 ? "product" : "products"}`}>${own} own</uui-tag>`
+                  : nothing}`;
+                return entry(u.key, u.name, u.clientIds?.join(", "), html`<uui-avatar name=${u.name}></uui-avatar>`, tag);
+              })}
+            </ul>`
+        : html`<p class="list-empty">API users appear here once you create one in Users.</p>`}
     </nav>`;
+  }
+
+  /** Who is being edited, and what that means; in the user view also the way back to the defaults for everything. */
+  #renderEditorHead() {
+    if (!this._selected) {
+      const following = (this._data.apiUsers ?? []).filter((u) => !u.overriddenProducts?.length).length;
+      return html`<div class="editor-head">
+        <span class="defaults-icon large"><umb-icon name="icon-settings"></umb-icon></span>
+        <div class="editor-title">
+          <h2 tabindex="-1">Defaults</h2>
+          <p class="muted">
+            What every API user's MCP server gets, unless the user has its own settings for a product.
+            ${following ? html`${following} of ${this._data.apiUsers.length} API users follow these for every product.` : nothing}
+          </p>
+        </div>
+      </div>
+      ${this.#renderCatalogueNote()}`;
+    }
+    const user = this._data.apiUsers?.find((u) => u.key === this._selected);
+    const own = Object.keys(this._edit.overrides ?? {}).length;
+    return html`<div class="editor-head">
+        <uui-avatar class="large" name=${user?.name ?? ""}></uui-avatar>
+        <div class="editor-title">
+          <h2 tabindex="-1">
+            ${user?.name ?? "API user"}
+            ${STATE_TAGS[user?.state] ? html`<uui-tag look="secondary" color="warning">${STATE_TAGS[user.state]}</uui-tag>` : nothing}
+          </h2>
+          <p class="muted">
+            ${user?.clientIds?.length ? html`Client id ${user.clientIds.join(", ")}. ` : nothing}
+            ${own
+              ? `Own settings for ${own} ${own === 1 ? "product" : "products"}; the rest follow the defaults.`
+              : "Follows the defaults for every product. Customise a product to give this user its own settings."}
+          </p>
+        </div>
+        ${own
+          ? html`<uui-button
+              look="secondary"
+              label="Use the defaults for everything"
+              ?disabled=${this._saving || this._busy}
+              @click=${this.#resetAll}
+            ></uui-button>`
+          : nothing}
+      </div>
+      ${this.#renderCatalogueNote()}`;
   }
 
   /** Where the counts come from; in the user view also the version that user's server ran. */
   #renderCatalogueNote() {
     if (!this._selected) {
-      return html`<p class="muted">Tool counts are the highest any API user's MCP server reported. Each user's own counts depend on its Umbraco permissions.</p>`;
+      return html`<p class="note">
+        <umb-icon name="icon-info"></umb-icon>
+        <span>Tool counts are the highest any API user's MCP server reported. Each user's own counts depend on its Umbraco permissions.</span>
+      </p>`;
     }
     if (this._user?.catalogueSource?.kind !== "user") {
-      return html`<p class="muted">Counts appear after this user's MCP server has started once.</p>`;
+      return html`<p class="note"><umb-icon name="icon-info"></umb-icon><span>Counts appear after this user's MCP server has started once.</span></p>`;
     }
     const addonVersion = this._data.addonVersion;
     const umbrellaVersion = this._user.catalogue?.umbrellaVersion;
     return addonVersion && umbrellaVersion && umbrellaVersion !== addonVersion
-      ? html`<p class="warning">
-          The add-on is ${addonVersion}, but this user's MCP server ran umbrella-mcp ${umbrellaVersion}. The two are released
-          together: set umbrella-mcp@${addonVersion} in the AI tool's MCP configuration.
+      ? html`<p class="note warning">
+          <umb-icon name="icon-alert"></umb-icon>
+          <span>
+            The add-on is ${addonVersion}, but this user's MCP server ran umbrella-mcp ${umbrellaVersion}. The two are released
+            together: set umbrella-mcp@${addonVersion} in the AI tool's MCP configuration.
+          </span>
         </p>`
       : nothing;
+  }
+
+  /** Save and discard, pinned to the bottom like a workspace footer. */
+  #renderFooter() {
+    const dirty = this.dirty;
+    const who = this._selected ? `${this.#userName()}'s settings` : "the defaults";
+    return html`<footer class="footer">
+      <span class="footer-status" role="status">
+        ${dirty
+          ? html`<span class="unsaved"><span class="dot"></span>Unsaved changes to ${who}</span>`
+          : html`<span class="muted">Saved changes apply the next time the MCP server starts.</span>`}
+      </span>
+      ${dirty
+        ? html`<uui-button look="secondary" label="Discard changes" ?disabled=${this._saving || this._busy} @click=${this.#discard}></uui-button>`
+        : nothing}
+      <uui-button
+        look="primary"
+        color="positive"
+        label="Save"
+        .state=${this._saving ? "waiting" : undefined}
+        ?disabled=${!dirty || this._saving || this._busy}
+        @click=${this.#save}
+      ></uui-button>
+    </footer>`;
   }
 
   render() {
     if (this._error) return html`<uui-box headline="Umbrella"><p>Could not load the tool permissions: ${this._error}</p></uui-box>`;
     if (!this._data) return html`<uui-loader></uui-loader>`;
     if (Object.keys(this._data.catalogue?.modules ?? {}).length === 0) {
-      return html`<uui-box headline="Tool permissions">
-        <p>No tool groups reported yet. Start your MCP client once (it runs umbrella-mcp), then reload this page.</p>
+      return html`<uui-box>
+        <div class="empty">
+          <umb-icon name="icon-lock"></umb-icon>
+          <p><strong>No tool groups reported yet</strong></p>
+          <p class="muted">Start your MCP client once (it runs umbrella-mcp). Its tool groups are reported to this site, and you can set them here after reloading the page.</p>
+        </div>
       </uui-box>`;
     }
-    const dirty = this.dirty;
     return html`
-      <header class="bar">
-        <h3>Tool permissions</h3>
-        ${dirty
-          ? html`<span class="unsaved" role="status"><span class="dot"></span>Unsaved changes</span>
-              <uui-button look="secondary" label="Discard" ?disabled=${this._saving || this._busy} @click=${this.#discard}></uui-button>`
-          : nothing}
-        <uui-button
-          look="primary"
-          color="positive"
-          label="Save"
-          .state=${this._saving ? "waiting" : undefined}
-          ?disabled=${!dirty || this._saving || this._busy}
-          @click=${this.#save}
-        ></uui-button>
-      </header>
       <div class="layout">
         ${this.#renderList()}
         <div
-          class="cards"
+          class="editor"
           @level-change=${(e) => this.#setLevel(e.detail.productId, e.detail.level)}
-          @group-change=${(e) => this.#setGroup(e.detail.productId, e.detail.name, e.detail.enabled)}
+          @groups-change=${(e) => this.#setGroups(e.detail.productId, e.detail.names, e.detail.enabled)}
           @customise=${(e) => this.#setOverride(e.detail.productId, true)}
           @reset=${(e) => this.#setOverride(e.detail.productId, false)}
         >
           ${this._busy ? html`<uui-loader-bar></uui-loader-bar>` : nothing}
-          ${this.#renderCatalogueNote()}
-          ${this.#visibleProducts().map((p) => this.#renderCard(p))}
+          ${this.#renderEditorHead()}
+          ${repeat(
+            this.#visibleProducts(),
+            // A new card per user, so an open group list or a filter does not carry over to the next user.
+            (p) => `${this._selected}:${p.id}`,
+            (p) => this.#renderCard(p),
+          )}
         </div>
       </div>
+      ${this.#renderFooter()}
     `;
   }
 
   static styles = [
     UmbTextStyles,
     css`
-      :host { display: block; padding: 0 var(--uui-size-layout-1) var(--uui-size-layout-1); }
-      .bar {
-        position: sticky; top: 0; z-index: 1;
-        display: flex; align-items: center; gap: var(--uui-size-space-4); flex-wrap: wrap;
-        padding: var(--uui-size-space-4) 0; margin-bottom: var(--uui-size-space-4);
-        background: var(--uui-color-background); border-bottom: 1px solid var(--uui-color-divider-standalone);
+      :host { display: flex; flex-direction: column; padding: var(--uui-size-layout-1) var(--uui-size-layout-1) 0; }
+      h2 { margin: 0; }
+      .muted { color: var(--uui-color-text-alt); margin: 0; }
+      .layout {
+        display: grid; grid-template-columns: 17rem minmax(0, 1fr); gap: var(--uui-size-layout-1); align-items: start;
+        margin-bottom: var(--uui-size-layout-1);
       }
-      .bar h3 { margin: 0; margin-right: auto; }
-      .unsaved { display: inline-flex; align-items: center; gap: var(--uui-size-space-2); color: var(--uui-color-warning-standalone); font-weight: 600; }
-      .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
-      .layout { display: grid; grid-template-columns: 16rem minmax(0, 1fr); gap: var(--uui-size-layout-1); align-items: start; }
       @media (max-width: 48rem) { .layout { grid-template-columns: minmax(0, 1fr); } }
-      .list { display: flex; flex-direction: column; gap: var(--uui-size-space-1); }
-      .list-heading { margin: var(--uui-size-space-4) 0 var(--uui-size-space-1); padding: 0 var(--uui-size-space-3); font-size: var(--uui-type-small-size); color: var(--uui-color-text-alt); text-transform: uppercase; letter-spacing: 0.04em; }
+
+      .list {
+        position: sticky; top: var(--uui-size-layout-1);
+        padding: var(--uui-size-space-3); border-radius: var(--uui-border-radius);
+        background: var(--uui-color-surface); box-shadow: var(--uui-shadow-depth-1);
+      }
+      @media (max-width: 48rem) { .list { position: static; } }
+      .list ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+      .list-heading { margin: var(--uui-size-space-4) 0 var(--uui-size-space-2); padding: 0 var(--uui-size-space-3); font-size: var(--uui-type-small-size); color: var(--uui-color-text-alt); }
+      .list-empty { margin: var(--uui-size-space-4) var(--uui-size-space-3) var(--uui-size-space-2); color: var(--uui-color-text-alt); font-size: var(--uui-type-small-size); }
       .entry {
-        display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%;
-        padding: var(--uui-size-space-3); border: 0; border-radius: var(--uui-border-radius);
+        display: flex; align-items: center; gap: var(--uui-size-space-3); width: 100%;
+        padding: var(--uui-size-space-2) var(--uui-size-space-3); border: 0; border-radius: var(--uui-border-radius);
         background: none; font: inherit; color: inherit; text-align: left; cursor: pointer;
       }
       .entry:hover { background: var(--uui-color-surface-emphasis); }
+      .entry:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offset: 1px; }
       .entry[aria-current="true"] { background: var(--uui-color-current); color: var(--uui-color-current-contrast); }
       .entry:disabled { cursor: default; }
-      .entry-name { display: flex; align-items: center; gap: var(--uui-size-space-2); flex-wrap: wrap; font-weight: 600; }
-      .entry-sub { font-size: var(--uui-type-small-size); opacity: 0.75; overflow-wrap: anywhere; }
-      .cards { display: flex; flex-direction: column; gap: var(--uui-size-space-5); min-width: 0; }
-      .muted { color: var(--uui-color-text-alt); margin: 0; }
-      .warning { color: var(--uui-color-warning-standalone); margin: 0; }
+      .entry-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+      .entry-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .entry-sub { font-size: var(--uui-type-small-size); opacity: 0.75; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      uui-avatar { flex: none; width: 2rem; height: 2rem; font-size: 0.75rem; }
+      uui-avatar.large { width: 3rem; height: 3rem; font-size: 1rem; }
+      .defaults-icon {
+        display: inline-grid; place-items: center; flex: none; width: 2rem; height: 2rem; border-radius: 50%;
+        background: var(--uui-color-surface-emphasis); color: var(--uui-color-text-alt);
+      }
+      .defaults-icon.large { width: 3rem; height: 3rem; font-size: 1.25rem; }
+
+      .editor { display: flex; flex-direction: column; gap: var(--uui-size-space-5); min-width: 0; }
+      .editor-head { display: flex; align-items: center; gap: var(--uui-size-space-4); flex-wrap: wrap; }
+      .editor-title { flex: 1 1 20rem; min-width: 0; }
+      .editor-title h2:focus { outline: none; }
+      .editor-title h2 { display: flex; align-items: center; gap: var(--uui-size-space-3); font-size: var(--uui-type-h4-size, 1.5rem); }
+      .editor-title p { margin-top: var(--uui-size-space-1); max-width: 75ch; }
+      .note { display: flex; gap: var(--uui-size-space-2); align-items: baseline; margin: calc(var(--uui-size-space-3) * -1) 0 0; color: var(--uui-color-text-alt); max-width: 85ch; }
+      .note umb-icon { flex: none; }
+      .note.warning umb-icon { color: var(--uui-color-warning-standalone); }
+      .note.warning { color: var(--uui-color-text); }
+
+      .footer {
+        position: sticky; bottom: 0; z-index: 1;
+        display: flex; align-items: center; justify-content: flex-end; gap: var(--uui-size-space-3);
+        margin: auto calc(var(--uui-size-layout-1) * -1) 0;
+        padding: var(--uui-size-space-3) var(--uui-size-layout-1);
+        background: var(--uui-color-surface); box-shadow: var(--uui-shadow-depth-1);
+      }
+      .footer-status { margin-right: auto; }
+      .unsaved { display: inline-flex; align-items: center; gap: var(--uui-size-space-2); font-weight: 600; }
+      .dot { color: var(--uui-color-warning-standalone); }
+      .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+      .empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--uui-size-space-2); padding: var(--uui-size-layout-2) var(--uui-size-space-5); }
+      .empty > umb-icon { font-size: 2rem; color: var(--uui-color-text-alt); }
+      .empty p { margin: 0; max-width: 55ch; }
     `,
   ];
 }
