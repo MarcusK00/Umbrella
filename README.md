@@ -149,7 +149,7 @@ The command `npx -y umbrella-mcp@<version> --list-tools`, run with the same envi
 
 ## Tool permissions
 
-Settings → **Umbrella** → **Tool Permissions** sets which tools the MCP server exposes. On the left you pick whose settings you edit: **Defaults** (every API user) or one API user. On the right, each product the site has installed (and any the MCP server reported) has a card with an **access** setting, four steps from least to most:
+Settings → **Umbrella** → **Tool Permissions** sets which tools the MCP server exposes. On the left you pick whose settings you edit: **Defaults** (every API user) or one API user. On the right, each product the site has installed has a card with an **access** setting, four steps from least to most:
 
 - **Off:** the MCP server doesn't load the product at all. Your AI tool sees none of its tools, and the server's instructions don't mention it. `get-mcp-health` notes that it was switched off in the backoffice. Umbraco CMS can't be switched off, because the MCP server signs in through it.
 - **Read-only:** only tools marked read-only (the ones that list and fetch), so the AI can look at that product but not change it.
