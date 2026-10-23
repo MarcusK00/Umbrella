@@ -156,26 +156,32 @@ export class UmbrellaOverviewElement extends UmbLitElement {
     this.updateComplete.then(() => this.shadowRoot.querySelector("#connect")?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
 
-  /** The versions in play and when an MCP server last started, under the status headline. */
+  /** When an MCP server last started, and as which API user, under the status headline. */
   #renderFacts() {
-    const { addonVersion, server, apiUsers } = this._data;
-    const latest = apiUsers.map((u) => u.lastConnected).sort().at(-1);
+    const { apiUsers } = this._data;
+    const latest = apiUsers.reduce((a, u) => (!a || u.lastConnected > a.lastConnected ? u : a), null);
     return html`<dl class="facts">
-      <div><dt>Add-on</dt><dd>${addonVersion}</dd></div>
-      <div>
-        <dt>MCP server</dt>
-        <dd>
-          ${server
-            ? html`umbrella-mcp ${server.version}
-              ${server.matchesAddon ? nothing : html`<uui-tag color="warning" look="primary">Version differs</uui-tag>`}`
-            : html`<span class="muted">Not reported yet</span>`}
-        </dd>
-      </div>
       <div>
         <dt>Last connection</dt>
-        <dd>${latest ? html`<span title=${formatDate(latest)}>${formatRelative(latest)}</span>` : html`<span class="muted">None yet</span>`}</dd>
+        <dd>
+          ${latest
+            ? html`<span title=${formatDate(latest.lastConnected)}>${formatRelative(latest.lastConnected)}</span>
+                <span class="muted">·</span> ${latest.name}`
+            : html`<span class="muted">None yet</span>`}
+        </dd>
       </div>
     </dl>`;
+  }
+
+  /** The one version of the add-on and the MCP server, which are released together; a differing server is called out. */
+  #renderVersion() {
+    const { addonVersion, server } = this._data;
+    return html`<p class="version muted small">
+      Umbrella: ${addonVersion}
+      ${server && !server.matchesAddon
+        ? html`<uui-tag color="warning" look="primary">MCP server ${server.version} differs</uui-tag>`
+        : nothing}
+    </p>`;
   }
 
   /** All good (or ready to connect) with any notes, or what needs attention grouped by area. */
@@ -394,7 +400,7 @@ export class UmbrellaOverviewElement extends UmbLitElement {
   render() {
     if (this._error) return html`<uui-box headline="Umbrella"><p>Could not load the overview: ${this._error}</p></uui-box>`;
     if (!this._data) return html`<uui-loader></uui-loader>`;
-    return html`${this.#renderStatus()} ${this.#renderUsers()} ${this.#renderConnect()}`;
+    return html`${this.#renderStatus()} ${this.#renderUsers()} ${this.#renderConnect()} ${this.#renderVersion()}`;
   }
 
   static styles = [
@@ -404,6 +410,7 @@ export class UmbrellaOverviewElement extends UmbLitElement {
       h2, h3 { margin: 0; }
       .muted { color: var(--uui-color-text-alt); margin: 0; }
       .small { font-size: var(--uui-type-small-size); }
+      .version { display: flex; align-items: center; gap: var(--uui-size-space-2); margin-top: calc(var(--uui-size-space-3) * -1); }
       .warning { display: flex; align-items: center; gap: var(--uui-size-space-2); margin: 0 0 var(--uui-size-space-3); }
       .warning umb-icon { color: var(--uui-color-warning-standalone); flex: none; }
 
