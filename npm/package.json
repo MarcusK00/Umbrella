@@ -9,12 +9,7 @@
     "ai"
   ],
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/MarcusK00/Umbraco.Community.Umbrella.git",
-    "directory": "npm"
-  },
-  "homepage": "https://github.com/MarcusK00/Umbraco.Community.Umbrella#readme",
+  "homepage": "https://www.nuget.org/packages/Umbraco.Community.Umbrella",
   "type": "module",
   "bin": {
     "umbrella-mcp": "./dist/index.js"
