@@ -4,6 +4,8 @@
 
 Install this package in your site, then connect Claude Code, VS Code, Cursor or Claude Desktop with the config the backoffice gives you: each person connects their own AI tool. It gets tools for exactly the Umbraco products your site has. No product installed, no tools for it, so the AI isn't buried in tools it can't use.
 
+![Settings → Umbrella → Overview: access per API user for CMS, Forms, Automate and Engage](https://raw.githubusercontent.com/MarcusK00/Umbrella-Issues/main/docs/images/umbrella-overview.png)
+
 > "Create a contact form with name, email and message fields."
 > "Add a news article under the News page and save it as a draft."
 > "Which personas do we have in Engage?"
@@ -38,7 +40,7 @@ Give the user's groups the sections the AI should work in (Content, Media, Setti
   "mcpServers": {
     "umbraco": {
       "command": "npx",
-      "args": ["-y", "umbrella-mcp@17.0.0-alpha.7"],
+      "args": ["-y", "umbrella-mcp@17.0.0-alpha.8"],
       "env": {
         "UMBRACO_BASE_URL": "https://your-site",
         "UMBRACO_CLIENT_ID": "umbraco-back-office-mcp",
@@ -84,6 +86,8 @@ Both are released together with the same version number. The package doesn't dep
 
 ## 📚 More
 
-Configuration, turning tool groups off, troubleshooting and known limitations: **[full documentation on GitHub](https://github.com/MarcusK00/Umbraco.Community.Umbrella#readme)**.
+Configuration, turning tool groups off, troubleshooting and known limitations: **[full documentation on GitHub](https://github.com/MarcusK00/Umbrella-Issues#readme)**.
+
+Bugs, ideas and questions: **[Umbrella issue tracker](https://github.com/MarcusK00/Umbrella-Issues/issues)**. Report security vulnerabilities privately, as described in its [security policy](https://github.com/MarcusK00/Umbrella-Issues/blob/main/SECURITY.md).
 
 Umbrella is a community project, not an official Umbraco HQ package. MIT licensed.

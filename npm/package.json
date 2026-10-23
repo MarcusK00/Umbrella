@@ -1,6 +1,6 @@
 {
   "name": "umbrella-mcp",
-  "version": "17.0.0-alpha.7",
+  "version": "17.0.0-alpha.8",
   "description": "One MCP server for your Umbraco 17 site: loads the tools for the Umbraco products the site has installed.",
   "keywords": [
     "umbraco",
@@ -10,6 +10,14 @@
   ],
   "license": "MIT",
   "homepage": "https://www.nuget.org/packages/Umbraco.Community.Umbrella",
+  "bugs": {
+    "url": "https://github.com/MarcusK00/Umbrella-Issues/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MarcusK00/Umbrella.git",
+    "directory": "npm"
+  },
   "type": "module",
   "bin": {
     "umbrella-mcp": "./dist/index.js"

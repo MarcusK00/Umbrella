@@ -90,7 +90,7 @@ Every tab on the Overview is a variant of this config:
   "mcpServers": {
     "umbraco": {
       "command": "npx",
-      "args": ["-y", "umbrella-mcp@17.0.0-alpha.7"],
+      "args": ["-y", "umbrella-mcp@17.0.0-alpha.8"],
       "env": {
         "UMBRACO_BASE_URL": "https://your-site",
         "UMBRACO_CLIENT_ID": "umbraco-back-office-mcp",
@@ -149,7 +149,7 @@ The command `npx -y umbrella-mcp@<version> --list-tools`, run with the same envi
 
 ## Tool permissions
 
-Settings → **Umbrella** → **Tool Permissions** sets which tools the MCP server exposes. On the left you pick whose settings you edit: **Defaults** (every API user) or one API user. On the right, each product the site has installed (and any the MCP server reported) has a card with an **access** setting, four steps from least to most:
+Settings → **Umbrella** → **Tool Permissions** sets which tools the MCP server exposes. On the left you pick whose settings you edit: **Defaults** (every API user) or one API user. On the right, each product the site has installed has a card with an **access** setting, four steps from least to most:
 
 - **Off:** the MCP server doesn't load the product at all. Your AI tool sees none of its tools, and the server's instructions don't mention it. `get-mcp-health` notes that it was switched off in the backoffice. Umbraco CMS can't be switched off, because the MCP server signs in through it.
 - **Read-only:** only tools marked read-only (the ones that list and fetch), so the AI can look at that product but not change it.
@@ -165,7 +165,7 @@ Under the access setting, a bar shows how many of the product's tools the AI too
 - **Environment wins for groups:** if the MCP server's environment sets `UMBRACO_INCLUDE_TOOL_COLLECTIONS` or `UMBRACO_EXCLUDE_TOOL_COLLECTIONS` for a product (including `forms:*`, or an unprefixed entry for CMS), the group settings are ignored for that product and the card says so. So `forms:*` brings back every Forms group switched off in the dashboard, and an exclude filter such as `UMBRACO_EXCLUDE_TOOL_COLLECTIONS=forms:folder` leaves out only the groups it names. An include filter such as `forms:folder` keeps only the groups it names. `UMBRACO_INCLUDE_TOOLS` also still includes a tool from a switched-off group.
 - **The access setting always applies:** it only removes tools, so the environment can't undo it, and it applies even when environment collection filters make the group settings ignored. A product switched off stays off even when `UMBRACO_MCP_MODULES` forces it on. `UMBRACO_READONLY=true` makes every product read-only and `UMBRACO_NO_DESTRUCTIVE=true` removes destructive tools from every product, whatever the dashboard says.
 - **If the site can't be read:** when the MCP server can't read the site's settings it can't apply the dashboard's access settings, so set `UMBRACO_NO_DESTRUCTIVE=true` (or `UMBRACO_READONLY=true`) in the AI tool's config to enforce it regardless.
-- **Older servers:** an MCP server from before the No deletes step ignores it, and one from before Off loads the product anyway. The version warnings on the Overview and in `get-mcp-health` flag a server that isn't the add-on's version. When the last report has no counts for No deletes, the card warns that the MCP server still includes destructive tools.
+- **Older servers:** an MCP server from before the No deletes step ignores it, and one from before Off loads the product anyway. The version notes on the Overview and in `get-mcp-health` flag a server that isn't the add-on's version. When the last report has no counts for No deletes, the card warns that the MCP server still includes destructive tools.
 - **Not a security control:** anyone with the API user's credentials can call the Management API directly. Use the API user's groups and sections to limit what it can do.
 
 The settings and the reported tool groups are stored in the `umbracoKeyValue` table, so they survive restarts and are shared by every server of a load-balanced site. Changing them needs access to the Settings section.
@@ -180,7 +180,7 @@ When each developer has their own API user, the tool settings can differ per use
 - **Any API user:** every API user on the site can be picked, also one that has never connected, so you can set up a new developer before their first start. Under a default, the card names the users that have their own settings for that product.
 - **When it applies:** the next time that user's MCP server starts, so they reconnect it in their AI tool. `get-mcp-health` says when the settings are the user's own ("for this API user").
 - **Counts:** for a single API user, the tool counts come from that user's own last start. A user whose MCP server hasn't started yet shows its groups and access without counts until it has, because the counts depend on each API user's permissions (the CMS tools in particular). A product that was off for the user isn't in its last report, so its groups come from the defaults until the user's server starts with it on. Under **Defaults**, each group shows the highest count any API user's MCP server reported.
-- **Overview:** Settings → Umbrella → **Overview** starts with a status banner: **Everything is working**, **Ready to connect**, or how many things need attention, grouped by products, MCP server and API users (an `umbrella-mcp` version mismatch is one warning per user), with the add-on and `umbrella-mcp` versions and the last connection. **Access per API user** is a table with a column per product: the first row is the defaults, then each connected API user by name, and per product its access and the number of tools its last start got (a dot marks the user's own settings), the total, and **No access** (no tools, not counted in the total) when its groups don't grant a product's section. Each column header shows the product's version. **Edit defaults** and **Edit permissions** open Tool Permissions with the defaults or that user picked; **⋯** shows the user's client id, when it last connected and its `umbrella-mcp` version, with **Forget connection**. A product that is installed but that an API user's MCP server didn't load at its last start (although it is on for that user and the user has its section) is a warning under products; ask the AI to call `get-mcp-health` for the reason.
+- **Overview:** Settings → Umbrella → **Overview** starts with a status banner: **Everything is working**, **Ready to connect**, or how many things need attention, grouped by products, MCP server and API users, with notes such as an older `umbrella-mcp` (one line per version, naming its users) behind an info toggle, with the add-on and `umbrella-mcp` versions and the last connection. **Access per API user** is a table with a column per product: the first row is the defaults, then each connected API user by name, and per product its access and the number of tools its last start got (a dot marks the user's own settings), the total, and **No access** (no tools, not counted in the total) when its groups don't grant a product's section. Each column header shows the product's version. **Edit defaults** and **Edit permissions** open Tool Permissions with the defaults or that user picked; **⋯** shows the user's client id, when it last connected and its `umbrella-mcp` version, with **Forget connection**. A product that is installed but that an API user's MCP server didn't load at its last start (although it is on for that user and the user has its section) is a warning under products; ask the AI to call `get-mcp-health` for the reason.
 
 ## Health checks
 
@@ -197,6 +197,8 @@ In your AI tool, the `get-mcp-health` tool shows what the server loaded and why:
 ## Troubleshooting
 
 Start with `get-mcp-health` in your AI tool and the **MCP** health checks in the backoffice. They cover most of the cases below.
+
+If none of this explains it, [open an issue](https://github.com/MarcusK00/Umbrella-Issues/issues/new/choose) with the add-on and `umbrella-mcp` versions and the `get-mcp-health` output. Report security vulnerabilities privately, see the tracker's [security policy](https://github.com/MarcusK00/Umbrella-Issues/blob/main/SECURITY.md).
 
 | Symptom | Likely cause | Fix |
 |---|---|---|

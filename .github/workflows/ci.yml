@@ -1,14 +1,17 @@
-# Checks every PR to main must pass before it is safe to merge. See docs/merging.md.
+# Checks every PR to v17/dev and v17/main must pass before it is safe to merge. See docs/merging.md.
+# release.yml also calls this workflow before it publishes; releases only happen from v17/main.
 name: CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [v17/dev, v17/main]
   push:
-    branches: [main]
+    branches: [v17/main]
+  workflow_call:
 
 concurrency:
-  group: ci-${{ github.ref }}
+  # github.workflow is the caller's name when release.yml calls this, so the two runs on a push don't cancel each other.
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -78,3 +81,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_ENABLE_COMMENTS: false # the token is read-only; findings show in the job log
+
+  workflows:
+    name: workflows
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Lints .github/workflows (syntax, expressions, job dependencies, and shellcheck on run: scripts), so a broken
+      # release.yml shows up on the PR instead of on the merge into v17/main.
+      - name: actionlint
+        uses: docker://rhysd/actionlint:1.7.7
+        with:
+          args: -color

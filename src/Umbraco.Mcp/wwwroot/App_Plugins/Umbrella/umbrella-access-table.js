@@ -112,7 +112,7 @@ export class UmbrellaAccessTableElement extends UmbLitElement {
                 <dt>Last connected</dt>
                 <dd>${formatRelative(u.lastConnected)} <span class="sub">(${formatDate(u.lastConnected)})</span></dd>
               </div>
-              <div><dt>MCP server</dt><dd>${u.serverVersion ? `umbrella-mcp ${u.serverVersion}` : "Not reported yet"}</dd></div>
+              <div><dt>User groups</dt><dd>${u.groups?.length ? u.groups.join(", ") : "None"}</dd></div>
             </dl>
             <uui-menu-item label="Forget connection" ?disabled=${this.busy} @click-label=${() => this.#emit("forget", u.key)}>
               <umb-icon slot="icon" name="icon-trash"></umb-icon>

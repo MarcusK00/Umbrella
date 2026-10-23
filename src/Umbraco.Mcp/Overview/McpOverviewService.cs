@@ -161,7 +161,8 @@ public sealed class McpOverviewService(
             ownCatalogue?.UmbrellaVersion,
             ownCatalogue is null ? null : LatestReportedAt(ownCatalogue),
             access.Count == 0 || access.Any(a => a.ToolCount is null) ? null : access.Sum(a => a.ToolCount),
-            access);
+            access,
+            (user.Groups ?? []).Order(StringComparer.OrdinalIgnoreCase).ToList());
     }
 
     /// <summary>
@@ -190,8 +191,8 @@ public sealed class McpOverviewService(
     /// <summary>
     /// The findings, with the wording of the MCP health checks, as plain text. A null input means reading it failed.
     /// Warnings come first; within a severity, products, then server, then API users. When connected API users have a
-    /// report of their own (<paramref name="userCatalogues"/>), the server findings are one version warning per such
-    /// user and the shared report is not looked at.
+    /// report of their own (<paramref name="userCatalogues"/>), the server findings are one version note per older
+    /// umbrella-mcp version, naming its users, and the shared report is not looked at.
     /// </summary>
     internal static IReadOnlyList<McpFinding> BuildFindings(
         McpCapabilities? caps,
@@ -243,9 +244,8 @@ public sealed class McpOverviewService(
         }
         else if (!string.Equals(catalogue.UmbrellaVersion, addonVersion, StringComparison.Ordinal))
         {
-            serverFindings.Add(new(McpFinding.Warning, McpFindingArea.Server,
-                $"The MCP server last started as umbrella-mcp {catalogue.UmbrellaVersion} on {FormatUtc(LatestReportedAt(catalogue))}, but the add-on is {addonVersion}. " +
-                $"The two are released together: set {McpClientConfig.NpmPackage}@{addonVersion} in your AI tool's MCP configuration."));
+            serverFindings.Add(new(McpFinding.Info, McpFindingArea.Server,
+                $"The MCP server last started as umbrella-mcp {catalogue.UmbrellaVersion} on {FormatUtc(LatestReportedAt(catalogue))}. {UseAddonVersion(addonVersion)}"));
         }
 
         if (users is null)
@@ -310,22 +310,28 @@ public sealed class McpOverviewService(
 
     private static string FormatUtc(DateTimeOffset at) => $"{at.UtcDateTime.ToString("dd-MM-yyyy HH:mm", CultureInfo.InvariantCulture)} UTC";
 
+    /// <summary>
+    /// A version mismatch is a note: the server still works, and after an add-on upgrade every user's config needs the new
+    /// version, so one line per version, naming its users, instead of one per user.
+    /// </summary>
     private static IEnumerable<McpFinding> BuildUserVersionFindings(
         IReadOnlyList<McpApiUser> users,
         IReadOnlyDictionary<Guid, McpToolCatalogue> userCatalogues,
         string addonVersion)
     {
-        foreach (McpApiUser user in users)
-        {
-            if (userCatalogues.TryGetValue(user.Key, out McpToolCatalogue? own)
+        IEnumerable<IGrouping<string?, McpApiUser>> byVersion = users
+            .Where(u => userCatalogues.TryGetValue(u.Key, out McpToolCatalogue? own)
                 && !string.Equals(own.UmbrellaVersion, addonVersion, StringComparison.Ordinal))
-            {
-                yield return new(McpFinding.Warning, McpFindingArea.Server,
-                    $"\"{user.Name}\" last started umbrella-mcp {own.UmbrellaVersion} on {FormatUtc(LatestReportedAt(own))}, but the add-on is {addonVersion}. " +
-                    $"The two are released together: set {McpClientConfig.NpmPackage}@{addonVersion} in your AI tool's MCP configuration.");
-            }
+            .GroupBy(u => userCatalogues[u.Key].UmbrellaVersion);
+        foreach (IGrouping<string?, McpApiUser> group in byVersion)
+        {
+            yield return new(McpFinding.Info, McpFindingArea.Server,
+                $"{JoinNames(group.Select(u => $"\"{u.Name}\"").ToList())} last started umbrella-mcp {group.Key}. {UseAddonVersion(addonVersion)}");
         }
     }
+
+    private static string UseAddonVersion(string addonVersion) =>
+        $"Set {McpClientConfig.NpmPackage}@{addonVersion}, the add-on's version, in the AI tool's MCP configuration.";
 
     private static IEnumerable<McpFinding> BuildUserFindings(
         McpApiUser user,

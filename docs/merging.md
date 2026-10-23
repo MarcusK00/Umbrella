@@ -4,13 +4,16 @@
 
 ## What CI checks
 
-`.github/workflows/ci.yml` runs on every PR to `main` and on every push to `main`.
+`.github/workflows/ci.yml` runs on every PR to `v17/dev` or `v17/main` and on every push to `v17/main`. The same checks apply to both branches, so a PR from `v17/dev` to `v17/main` should hold no surprises.
+
+A push to `v17/main` with a version that npm or NuGet doesn't have yet also runs `.github/workflows/release.yml`, which runs these checks again and then publishes both packages ([releasing.md](releasing.md)). Merging a version bump into `v17/main` is a release.
 
 | Check | Runs | Does not cover |
 |---|---|---|
 | `dotnet` | `dotnet test Umbraco.Mcp.slnx`, which also builds the demo site | Running the site |
 | `npm` | `npm ci`, single toolkit copy (`@umbraco-cms/mcp-server-sdk` `1.0.0-beta.47`, one copy), `npm run compile`, `npm test`, `npm run build` | Installing `umbrella-mcp` as a dependency, where npm ignores `overrides` (that is `pack-check.sh`) |
 | `guards` | `scripts/check-guards.test.sh`, `scripts/check-guards.sh`, gitleaks secret scan | — |
+| `workflows` | `actionlint` on `.github/workflows` (syntax, expressions, job dependencies, shellcheck on `run:` scripts) | Whether publishing works: trusted publishing is only exercised by a real release |
 
 `e2e.sh` and `pack-check.sh` need your machine and the running demo site, so they are items in the PR checklist (`.github/pull_request_template.md`).
 
@@ -31,14 +34,15 @@
 dotnet test Umbraco.Mcp.slnx
 cd npm && npm run compile && npm test && npm run build
 bash scripts/check-guards.sh
+docker run --rm -v "$PWD:/repo" --workdir /repo rhysd/actionlint:1.7.7   # the workflows check
 ```
 
 ## Branch protection
 
-Set once, by hand, in GitHub → Settings → Branches (or Rules → Rulesets) for `main`:
+Set once, by hand, in GitHub → Settings → Branches (or Rules → Rulesets) for both `v17/dev` and `v17/main`:
 
 - Require a pull request before merging.
-- Require status checks to pass: `dotnet`, `npm`, `guards`. They only appear in the picker after the workflow has run once.
+- Require status checks to pass: `dotnet`, `npm`, `guards`, `workflows`. They only appear in the picker after the workflow has run once.
 - Require branches to be up to date before merging.
 - Block force pushes.
 

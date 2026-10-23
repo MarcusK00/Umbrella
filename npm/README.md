@@ -11,7 +11,7 @@ Product detection needs the [`Umbraco.Community.Umbrella`](https://www.nuget.org
   "mcpServers": {
     "umbraco": {
       "command": "npx",
-      "args": ["-y", "umbrella-mcp@17.0.0-alpha.7"],
+      "args": ["-y", "umbrella-mcp@17.0.0-alpha.8"],
       "env": {
         "UMBRACO_BASE_URL": "https://your-site",
         "UMBRACO_CLIENT_ID": "umbraco-back-office-mcp",
@@ -45,3 +45,5 @@ Every tool group is on until the dashboard saves a list for that product (the de
 `umbrella-mcp --list-tools`, run with the same environment variables, prints the tool names it would register, then exits.
 
 Requires Node.js 22 or later and Umbraco 17. The add-on this server pairs with, including setup and configuration: https://www.nuget.org/packages/Umbraco.Community.Umbrella
+
+Bugs, ideas and questions: https://github.com/MarcusK00/Umbrella-Issues/issues

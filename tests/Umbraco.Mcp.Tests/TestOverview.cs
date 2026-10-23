@@ -23,5 +23,5 @@ internal static class TestOverview
         string[]? clientIds = null,
         string[]? reachable = null,
         string[]? unreachable = null) =>
-        new(Guid.NewGuid(), name, clientIds ?? ["umbraco-back-office-mcp"], state, At, reachable ?? [], unreachable ?? [], null, null, null, []);
+        new(Guid.NewGuid(), name, clientIds ?? ["umbraco-back-office-mcp"], state, At, reachable ?? [], unreachable ?? [], null, null, null, [], []);
 }

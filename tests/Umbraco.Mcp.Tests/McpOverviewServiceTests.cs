@@ -126,15 +126,15 @@ public class McpOverviewServiceTests
     }
 
     [Test]
-    public void Other_mcp_version_is_a_server_warning_with_the_version_to_run()
+    public void Other_mcp_version_is_a_server_note_with_the_version_to_run()
     {
         McpFinding finding = Findings(catalogue: Catalogue("16.9.0", ("cms", 5))).Single();
 
-        Assert.That(finding.Severity, Is.EqualTo(McpFinding.Warning));
+        Assert.That(finding.Severity, Is.EqualTo(McpFinding.Info));
         Assert.That(finding.Area, Is.EqualTo(McpFindingArea.Server));
         Assert.That(finding.Message, Is.EqualTo(
-            "The MCP server last started as umbrella-mcp 16.9.0 on 12-10-2026 08:46 UTC, but the add-on is 17.0.0. " +
-            "The two are released together: set umbrella-mcp@17.0.0 in your AI tool's MCP configuration."));
+            "The MCP server last started as umbrella-mcp 16.9.0 on 12-10-2026 08:46 UTC. " +
+            "Set umbrella-mcp@17.0.0, the add-on's version, in the AI tool's MCP configuration."));
     }
 
     [Test]
@@ -350,6 +350,27 @@ public class McpOverviewServiceTests
     }
 
     [Test]
+    public async Task User_row_lists_its_user_groups_sorted()
+    {
+        McpApiUser user = NamedUser("Anna") with { Groups = ["Sensitive data", "Administrators", "editors"] };
+        var service = Service(users: new FakeApiUserProvider(user));
+
+        McpOverviewApiUser row = (await service.GetOverviewAsync()).ApiUsers.Single();
+
+        Assert.That(row.Groups, Is.EqualTo(new[] { "Administrators", "editors", "Sensitive data" }));
+    }
+
+    [Test]
+    public async Task User_row_without_read_groups_lists_none()
+    {
+        var service = Service(users: new FakeApiUserProvider(NamedUser("Anna")));
+
+        McpOverviewApiUser row = (await service.GetOverviewAsync()).ApiUsers.Single();
+
+        Assert.That(row.Groups, Is.Empty);
+    }
+
+    [Test]
     public async Task User_row_shows_its_own_report_and_access()
     {
         McpApiUser user = NamedUser("Anna");
@@ -475,10 +496,12 @@ public class McpOverviewServiceTests
     }
 
     [Test]
-    public async Task Version_warning_per_user()
+    public async Task Version_note_per_older_version_naming_its_users()
     {
         McpApiUser anna = NamedUser("Anna");
         McpApiUser ben = NamedUser("Ben");
+        McpApiUser cleo = NamedUser("Cleo");
+        McpApiUser dan = NamedUser("Dan");
         var service = Service(
             settings: new FakeToolSettingsStore
             {
@@ -487,17 +510,19 @@ public class McpOverviewServiceTests
                 {
                     [anna.Key] = OwnCatalogue("16.9.0", Reported, ("cms", 5)),
                     [ben.Key] = OwnCatalogue(Addon, Reported, ("cms", 5)),
+                    [cleo.Key] = OwnCatalogue("16.8.0", Reported, ("cms", 5)),
+                    [dan.Key] = OwnCatalogue("16.9.0", Reported.AddHours(1), ("cms", 5)),
                 },
             },
-            users: new FakeApiUserProvider(anna, ben));
+            users: new FakeApiUserProvider(anna, ben, cleo, dan));
 
         McpOverview overview = await service.GetOverviewAsync();
 
-        McpFinding finding = overview.Findings.Single(f => f.Area == McpFindingArea.Server);
-        Assert.That(finding.Severity, Is.EqualTo(McpFinding.Warning));
-        Assert.That(finding.Message, Is.EqualTo(
-            "\"Anna\" last started umbrella-mcp 16.9.0 on 12-10-2026 08:46 UTC, but the add-on is 17.0.0. " +
-            "The two are released together: set umbrella-mcp@17.0.0 in your AI tool's MCP configuration."));
+        Assert.That(overview.Findings.Where(f => f.Area == McpFindingArea.Server).Select(f => (f.Severity, f.Message)), Is.EqualTo(new[]
+        {
+            (McpFinding.Info, "\"Anna\" and \"Dan\" last started umbrella-mcp 16.9.0. Set umbrella-mcp@17.0.0, the add-on's version, in the AI tool's MCP configuration."),
+            (McpFinding.Info, "\"Cleo\" last started umbrella-mcp 16.8.0. Set umbrella-mcp@17.0.0, the add-on's version, in the AI tool's MCP configuration."),
+        }));
     }
 
     [Test]
@@ -508,7 +533,7 @@ public class McpOverviewServiceTests
         McpOverview overview = await service.GetOverviewAsync();
 
         McpFinding finding = overview.Findings.Single(f => f.Area == McpFindingArea.Server);
-        Assert.That(finding.Severity, Is.EqualTo(McpFinding.Warning));
+        Assert.That(finding.Severity, Is.EqualTo(McpFinding.Info));
         Assert.That(finding.Message, Does.StartWith("The MCP server last started as umbrella-mcp 16.9.0 on 12-10-2026 08:46 UTC"));
     }
 
