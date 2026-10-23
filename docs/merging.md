@@ -9,7 +9,7 @@
 | Check | Runs | Does not cover |
 |---|---|---|
 | `dotnet` | `dotnet test Umbraco.Mcp.slnx`, which also builds the demo site | Running the site |
-| `npm` | `npm ci`, single toolkit copy (`@umbraco-cms/mcp-server-sdk` `1.0.0-beta.46`, one copy), `npm run compile`, `npm test`, `npm run build` | Installing `umbrella-mcp` as a dependency, where npm ignores `overrides` (that is `pack-check.sh`) |
+| `npm` | `npm ci`, single toolkit copy (`@umbraco-cms/mcp-server-sdk` `1.0.0-beta.47`, one copy), `npm run compile`, `npm test`, `npm run build` | Installing `umbrella-mcp` as a dependency, where npm ignores `overrides` (that is `pack-check.sh`) |
 | `guards` | `scripts/check-guards.test.sh`, `scripts/check-guards.sh`, gitleaks secret scan | — |
 
 `e2e.sh` and `pack-check.sh` need your machine and the running demo site, so they are items in the PR checklist (`.github/pull_request_template.md`).
@@ -20,7 +20,7 @@
 
 | Check | Fails when | Fix |
 |---|---|---|
-| `hmac-key` | `demo-site/appsettings.json` has a generated `Imaging:HMACSecretKey` (the demo site writes one on boot) | Set `HMACSecretKey` back to `""` in `demo-site/appsettings.json` and commit that |
+| `hmac-key` | `demo-site/appsettings.json` has a generated `Imaging:HMACSecretKey` (the demo site writes one on boot) | Set `HMACSecretKey` back to `""` in `demo-site/appsettings.json` and commit that; move the key to `demo-site/appsettings.Local.json` so it doesn't come back (`docs/development.md`) |
 | `no-local-deps` | an npm `dependencies` entry is a `file:`, `link:`, git or path reference | Use a registry version, or keep it in `devDependencies` + `external` (see [adding-a-product.md](adding-a-product.md), step 1) |
 | `no-tracked-secrets` | a `.env`, `*.tgz`, `appsettings.local.json`, `demo-site/.mcp.json` or demo-site data/logs file is tracked | `git rm --cached <file>` |
 | `readme-versions` | an `umbrella-mcp@<x>` in a README differs from the npm `version` | Update the README |

@@ -16,8 +16,8 @@ public static class McpFindingArea
 }
 
 /// <summary>
-/// A detected product, and whether and with how many tools the MCP server has loaded it. <paramref name="Access"/> is
-/// "full", "noDestructive" or "readOnly" (the site's defaults).
+/// A detected product. <paramref name="Access"/> is "full", "noDestructive", "readOnly" or "off" (the site's defaults).
+/// A product a connected MCP server should have loaded but did not is a products finding.
 /// </summary>
 public sealed record McpOverviewProduct(
     string Id,
@@ -26,8 +26,6 @@ public sealed record McpOverviewProduct(
     bool Enabled,
     string? Version,
     IReadOnlyList<string> Issues,
-    bool Loaded,
-    int ToolCount,
     string Access);
 
 /// <summary>What the MCP server last reported, and whether it is the add-on's version.</summary>
@@ -37,9 +35,11 @@ public sealed record McpServerReport(string Version, DateTimeOffset ReportedAt, 
 /// What an API user's MCP server gets from one product. <paramref name="Level"/> is "full", "noDestructive" or
 /// "readOnly"; <paramref name="Scope"/> is "site" (the defaults) or "user" (the user's own settings).
 /// <paramref name="ToolCount"/> is how many tools its last start got with these settings: 0 when it did not load the
-/// product, null without a report of its own or when its environment sets its own collection filters.
+/// product or has no access to its section, null without a report of its own or when its environment sets its own
+/// collection filters. <paramref name="SectionAccess"/> is false when none of the user's groups grant the product's
+/// backoffice section (a product switched off for the user counts as reachable).
 /// </summary>
-public sealed record McpOverviewAccess(string ProductId, string DisplayName, string Level, string Scope, int? ToolCount);
+public sealed record McpOverviewAccess(string ProductId, string DisplayName, string Level, string Scope, int? ToolCount, bool SectionAccess);
 
 /// <summary>
 /// An API user the MCP server has connected as. <paramref name="State"/> is "active", "disabled" or "lockedOut".

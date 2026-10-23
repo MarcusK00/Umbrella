@@ -8,7 +8,7 @@
     <StaticWebAssetBasePath>/</StaticWebAssetBasePath>
     <Title>Umbrella</Title>
     <!-- Released together with the npm package umbrella-mcp, which must have the same version (see NpmPackageContractTests). -->
-    <Version>17.0.0-alpha.6</Version>
+    <Version>17.0.0-alpha.7</Version>
     <Description>One MCP server for your Umbraco 17 site. Detects the installed Umbraco products so the umbrella-mcp server loads only their tools (CMS, Forms, Automate and Engage), and adds MCP health checks and an "Umbrella" dashboard: client config to copy for each API user, and tool groups and levels (full, no destructive tools, read-only) for all API users or per API user.</Description>
     <Authors>MarcusK00</Authors>
     <!-- No umbraco-marketplace tag while releases are for testing: that tag lists the package on the Umbraco Marketplace (docs/releasing.md). -->

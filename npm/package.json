@@ -1,6 +1,6 @@
 {
   "name": "umbrella-mcp",
-  "version": "17.0.0-alpha.6",
+  "version": "17.0.0-alpha.7",
   "description": "One MCP server for your Umbraco 17 site: loads the tools for the Umbraco products the site has installed.",
   "keywords": [
     "umbraco",
@@ -9,12 +9,7 @@
     "ai"
   ],
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/MarcusK00/Umbraco.Community.Umbrella.git",
-    "directory": "npm"
-  },
-  "homepage": "https://github.com/MarcusK00/Umbraco.Community.Umbrella#readme",
+  "homepage": "https://www.nuget.org/packages/Umbraco.Community.Umbrella",
   "type": "module",
   "bin": {
     "umbrella-mcp": "./dist/index.js"
@@ -35,11 +30,11 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
-    "@umbraco-automate/mcp-dev": "17.4.0-beta.4",
-    "@umbraco-cms/mcp-dev": "17.6.10",
-    "@umbraco-cms/mcp-server-sdk": "1.0.0-beta.46",
-    "@umbraco-engage/mcp-dev": "17.0.0-beta.4",
-    "@umbraco-forms/mcp-dev": "17.6.1-beta.5",
+    "@umbraco-automate/mcp-dev": "17.4.0-beta.5",
+    "@umbraco-cms/mcp-dev": "17.6.12",
+    "@umbraco-cms/mcp-server-sdk": "1.0.0-beta.47",
+    "@umbraco-engage/mcp-dev": "17.0.0-beta.5",
+    "@umbraco-forms/mcp-dev": "17.6.1-beta.6",
     "zod": "^4.4.3"
   },
   "overrides": {

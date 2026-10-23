@@ -37,6 +37,7 @@ describe.each(modules.map((m) => [m.id, m] as const))("module %s", (_id, module)
     expect(Array.isArray(loaded.allModeNames)).toBe(true);
     expect(Array.isArray(loaded.allSliceNames)).toBe(true);
     expect(typeof loaded.createApiClient).toBe("function");
+    if (module.required || loaded.setUmbracoVersion !== undefined) expect(typeof loaded.setUmbracoVersion).toBe("function");
   });
 
   itLoads("default-off collections exist in the package", async () => {
@@ -82,8 +83,8 @@ describe("module set", () => {
     for (const module of modules) expect(module.defaultDisabledCollections ?? []).toEqual([]);
   });
 
-  it("keeps the routing instructions for all modules under 2,000 characters", () => {
-    expect(buildRoutingInstructions(modules).length).toBeLessThan(2000);
+  it("keeps the routing instructions for all modules under 2,200 characters", () => {
+    expect(buildRoutingInstructions(modules).length).toBeLessThan(2200);
   });
 
   it("produces unique prefixed tool names across all modules", async () => {

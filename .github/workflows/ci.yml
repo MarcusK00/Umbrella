@@ -48,7 +48,7 @@ jobs:
           echo "$copies"
           [ "$(grep -c . <<<"$copies")" = 1 ] || { echo "::error::Expected exactly one @umbraco-cms/mcp-server-sdk copy"; exit 1; }
           version=$(node -p 'require("./node_modules/@umbraco-cms/mcp-server-sdk/package.json").version')
-          [ "$version" = "1.0.0-beta.46" ] || { echo "::error::@umbraco-cms/mcp-server-sdk is $version, expected 1.0.0-beta.46"; exit 1; }
+          [ "$version" = "1.0.0-beta.47" ] || { echo "::error::@umbraco-cms/mcp-server-sdk is $version, expected 1.0.0-beta.47"; exit 1; }
       - name: Compile
         run: npm run compile
       - name: Test

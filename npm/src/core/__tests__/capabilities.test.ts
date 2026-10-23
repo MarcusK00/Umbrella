@@ -33,6 +33,7 @@ describe("interpretCapabilitiesResponse", () => {
     ["readOnly not a boolean", { addonVersion: "1", products: [{ ...payload.products[0], readOnly: "true" }] }],
     ["noDestructive not a boolean", { addonVersion: "1", products: [{ ...payload.products[0], noDestructive: "true" }] }],
     ["off not a boolean", { addonVersion: "1", products: [{ ...payload.products[0], off: "yes" }] }],
+    ["noSectionAccess not a boolean", { addonVersion: "1", products: [{ ...payload.products[0], noSectionAccess: "yes" }] }],
   ])("treats a malformed 200 (%s) as unavailable", (_label, data) => {
     const r = interpretCapabilitiesResponse({ status: 200, data });
     expect(r.kind).toBe("unavailable");

@@ -47,6 +47,11 @@ public sealed class UserServiceMcpApiUserDirectory(IUserService users) : IMcpApi
     private async Task<McpApiUserInfo> ToInfoAsync(IUser user)
     {
         IEnumerable<string> clientIds = await users.GetClientIdsAsync(user.Key);
-        return new McpApiUserInfo(user.Key, user.Name ?? user.Username, user.UserState, clientIds.ToList());
+        return new McpApiUserInfo(
+            user.Key,
+            user.Name ?? user.Username,
+            user.UserState,
+            clientIds.ToList(),
+            ConnectedMcpApiUserProvider.ToSectionNames(user.AllowedSections));
     }
 }

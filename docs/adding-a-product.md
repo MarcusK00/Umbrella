@@ -20,14 +20,14 @@ The package (`@umbraco-<product>/mcp-dev`) must export its API client factory as
 export { getUmbracoEngageManagementAPI as createApiClient } from "./umbraco-api/api/generated/umbracoEngageManagementApi.js";
 ```
 
-It must also depend on the same `@umbraco-cms/mcp-server-sdk` version as `npm/package.json` (today `1.0.0-beta.46`). Otherwise users end up with a second toolkit copy and the server skips the product.
+It must also depend on the same `@umbraco-cms/mcp-server-sdk` version as `npm/package.json` (today `1.0.0-beta.47`). Otherwise users end up with a second toolkit copy and the server skips the product.
 
 Then add it to `npm/package.json`:
 
 - **A published release has both:** add it to `dependencies` with an exact registry version, as CMS, Forms, Automate and Engage are. The product ships in the next `umbrella-mcp` release.
 - **Not published yet:** pack it locally with `npm pack --pack-destination <this repo>/npm/vendor`, add it to `devDependencies` as `file:vendor/<tarball>.tgz`, and add `external: ["<package>"]` to the config in `npm/tsup.config.ts` (devDependencies are bundled otherwise). It then loads in local builds, while the published `umbrella-mcp` reports in `get-mcp-health` that the product's tools are not available. CI cannot install the tarball: in `.github/workflows/ci.yml`, delete the devDependency before installing (with `npm install` instead of `npm ci`) and list the package in `CI_ABSENT_PACKAGES` so the contract test skips it. Move it to `dependencies` once the release is published, and undo all of that.
 
-After `npm install`, `npm ls @umbraco-cms/mcp-server-sdk` must show a single `1.0.0-beta.46`, deduped.
+After `npm install`, `npm ls @umbraco-cms/mcp-server-sdk` must show a single `1.0.0-beta.47`, deduped.
 
 ## 2. npm module (`npm/src/modules/<id>.ts`)
 
@@ -62,7 +62,7 @@ export const engageModule: McpProductModule = {
 ```
 
 - **`description`:** one sentence starting with `<displayName>: `. The contract test checks this.
-- **`useWhen`:** short, concrete phrases for the requests this product handles. They become the routing instructions, which must stay under 2,000 characters for all modules together. If a word overlaps another product ("workflow", "analytics", "segments"), say in the phrase which meaning belongs here, as Engage does with "not form submission analytics".
+- **`useWhen`:** short, concrete phrases for the requests this product handles. They become the routing instructions, which must stay under 2,200 characters for all modules together. If a word overlaps another product ("workflow", "analytics", "segments"), say in the phrase which meaning belongs here, as Engage does with "not form submission analytics".
 - **`defaultDisabledCollections`:** leave it out. Every tool group is on until the site saves a list, and the contract test checks that no module sets it.
 - **`load()`:** keep the dynamic `import()`, so the package is only loaded when the site has the product.
 
