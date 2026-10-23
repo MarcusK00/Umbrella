@@ -18,12 +18,15 @@ export const cmsModule: McpProductModule = {
   ],
   load: async (): Promise<LoadedModule> => {
     const m = await import("@umbraco-cms/mcp-dev/collections");
+    // Umbrella runs locally over stdio, like the package's own entry point, so media tools may read local files.
+    m.setAllowFilePathUploads(true);
     return {
       collections: m.collections as LoadedModule["collections"],
       allModes: m.allModes as LoadedModule["allModes"],
       allModeNames: m.allModeNames,
       allSliceNames: m.allSliceNames,
       createApiClient: () => m.UmbracoManagementClient.getClient(),
+      setUmbracoVersion: m.setUmbracoVersion,
     };
   },
 };

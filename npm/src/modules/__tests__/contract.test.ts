@@ -37,6 +37,7 @@ describe.each(modules.map((m) => [m.id, m] as const))("module %s", (_id, module)
     expect(Array.isArray(loaded.allModeNames)).toBe(true);
     expect(Array.isArray(loaded.allSliceNames)).toBe(true);
     expect(typeof loaded.createApiClient).toBe("function");
+    if (module.required || loaded.setUmbracoVersion !== undefined) expect(typeof loaded.setUmbracoVersion).toBe("function");
   });
 
   itLoads("default-off collections exist in the package", async () => {

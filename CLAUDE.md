@@ -79,7 +79,7 @@ bash scripts/check-guards.sh            # repo guards CI runs on every PR; see d
 1. `initializeUmbracoFetch` authenticates once.
 2. The CMS module loads, and `installClientContext` registers the CMS client as the default.
 3. `getUserCurrent()` serves as the credentials check (exit on failure) and supplies the `user` that `collection.tools(user)` needs.
-4. The Umbraco version check runs against major 17.
+4. The site's Umbraco version is passed to CMS (`setUmbracoVersion`), then the version check runs against major 17.
 5. `fetchCapabilities()` returns ok, no-addon or unavailable.
 6. `selectModules()` loads a module if it is `required` (CMS), forced via `UMBRACO_MCP_MODULES`, or installed + enabled with a matching major, but never one the site switched off (`off`; a `get-mcp-health` note, not an issue).
 7. **Phase 1** loads the selected modules. A module whose package is missing (`checkPackageInstalled`) or has its own nested toolkit copy (`checkSingleSdk`) is skipped with an issue. A load failure becomes a health issue rather than a crash.
@@ -103,7 +103,7 @@ This only works because product tool handlers call `getApiClient()` lazily insid
 
 ### Exactly one toolkit copy
 
-- **Version pin:** `npm/package.json` pins `@umbraco-cms/mcp-server-sdk` to exactly `1.0.0-beta.46`.
+- **Version pin:** `npm/package.json` pins `@umbraco-cms/mcp-server-sdk` to exactly `1.0.0-beta.47`.
 - **Overrides:** `"overrides": { "@umbraco-cms/mcp-server-sdk": "$@umbraco-cms/mcp-server-sdk" }` forces every product package onto that version.
 - **Verify:** after any install, `npm ls @umbraco-cms/mcp-server-sdk` must show only that version, deduped.
 - **Users don't get `overrides`:** npm only applies them in the root project, and under `npx` `umbrella-mcp` is a dependency. For users, single-copy relies on every product package depending on a compatible toolkit version. `scripts/pack-check.sh` installs the packed package that way and fails if a product's tools are missing.
@@ -111,9 +111,9 @@ This only works because product tool handlers call `getApiClient()` lazily insid
 
 ### Product packages
 
-- **CMS:** `@umbraco-cms/mcp-dev` 17.6.10 comes from the registry. `cms.ts` uses `UmbracoManagementClient.getClient()` as its factory.
-- **Forms and Automate:** `@umbraco-forms/mcp-dev` 17.6.1-beta.5 and `@umbraco-automate/mcp-dev` 17.4.0-beta.4 come from the registry (`lts-17-beta` tag). Forms 17.6.1-beta.3 and Automate 17.4.0-beta.1 were the first v17 releases whose `./collections` exports `createApiClient` and that depend on toolkit beta.45; earlier v17 releases do not work here. Forms beta.4 adds refusing duplicate explicit field aliases, Automate beta.2 refusing settings keys a step or trigger type doesn't declare. Forms beta.5 and Automate beta.3 move to toolkit beta.46. Automate beta.4 connects an automation's first step to its trigger in `add-automation-step`, as the backoffice canvas does.
-- **Engage:** `@umbraco-engage/mcp-dev` 17.0.0-beta.4 comes from the registry (`beta` tag). 17.0.0-beta.3 was the first v17 release whose `./collections` exports `createApiClient` and that depends on toolkit beta.45; until then Umbrella used a locally packed tarball in `devDependencies`, kept `external` in `tsup.config.ts` and dropped in CI. Engage beta.4 moves to toolkit beta.46.
+- **CMS:** `@umbraco-cms/mcp-dev` 17.6.12 comes from the registry. `cms.ts` uses `UmbracoManagementClient.getClient()` as its factory. 17.6.12 is the first release whose `./collections` exports `setUmbracoVersion` and `setAllowFilePathUploads`: `cms.ts` calls `setAllowFilePathUploads(true)` on load (Umbrella runs locally, like the package's own stdio entry point) and returns `setUmbracoVersion` as the optional `LoadedModule.setUmbracoVersion`, which `server.ts` calls with the site's version before any tools are listed, so tools gated on Umbraco 17.4/17.6 are offered. 17.6.12 moves to toolkit beta.47.
+- **Forms and Automate:** `@umbraco-forms/mcp-dev` 17.6.1-beta.6 and `@umbraco-automate/mcp-dev` 17.4.0-beta.5 come from the registry (`lts-17-beta` tag). Forms 17.6.1-beta.3 and Automate 17.4.0-beta.1 were the first v17 releases whose `./collections` exports `createApiClient` and that depend on toolkit beta.45; earlier v17 releases do not work here. Forms beta.4 adds refusing duplicate explicit field aliases, Automate beta.2 refusing settings keys a step or trigger type doesn't declare. Forms beta.5 and Automate beta.3 move to toolkit beta.46. Automate beta.4 connects an automation's first step to its trigger in `add-automation-step`, as the backoffice canvas does. Forms beta.6 and Automate beta.5 move to toolkit beta.47.
+- **Engage:** `@umbraco-engage/mcp-dev` 17.0.0-beta.5 comes from the registry (`beta` tag). 17.0.0-beta.3 was the first v17 release whose `./collections` exports `createApiClient` and that depends on toolkit beta.45; until then Umbrella used a locally packed tarball in `devDependencies`, kept `external` in `tsup.config.ts` and dropped in CI. Engage beta.4 moves to toolkit beta.46, beta.5 to beta.47.
 - **Local-only products:** for a product with no usable published release, `docs/adding-a-product.md` describes the tarball route. `checkPackageInstalled` (`sdk-instance.ts`) turns its missing package in the published server into a `get-mcp-health` issue, and `CI_ABSENT_PACKAGES` (`skipped-modules.ts`) lets the contract test skip it in CI. Nothing uses either today.
 - **Types:** the product packages ship no types for `./collections`, so `npm/src/types/product-modules.d.ts` declares them.
 
@@ -158,6 +158,6 @@ No changes in `npm/src/core/`. The contract test then covers the new module auto
 - **Secrets:**
   - `npm/.env` (real client secret), `appsettings.local.json`, `npm/vendor/*.tgz` (local product tarballs), `demo-site/.mcp.json` and `demo-site/umbraco/` (SQLite data, logs, media) are gitignored.
   - `npm/.env.example` holds placeholders only.
-  - On boot the demo site may write a generated `Imaging:HMACSecretKey` into `demo-site/appsettings.json`. Don't commit it: the committed value is `""`. Stage files explicitly rather than with `git add -A`.
+  - On boot Umbraco writes a generated `Imaging:HMACSecretKey` into `demo-site/appsettings.json` unless one is configured. Keep the key in the gitignored `demo-site/appsettings.Local.json` (loaded in Debug builds) so the tracked file stays at `""`. Stage files explicitly rather than with `git add -A`.
 - **Docs:** dates use DD-MM-YYYY. User docs (`README.md`, `npm/README.md`, `src/Umbraco.Mcp/README.md`) describe the released packages; keep the version in their config examples equal to the package version.
 - **Publishing:** never publish to npm or NuGet unless asked; nothing guards against it any more, since `"private": true` is gone. Don't add the `umbraco-marketplace` tag back unless asked.
