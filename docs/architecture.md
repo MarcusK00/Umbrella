@@ -164,7 +164,7 @@ The shared provider only exists once if every product uses the same toolkit copy
 - **Names:** every tool is registered as `<toolPrefix><tool name>` (`forms--list-forms`). `get-mcp-health` is the only unprefixed tool. Two modules registering the same final name stops startup (`DuplicateToolNameError`).
 - **Descriptions** start with the product: `[Umbraco Forms] …` (`describeTool`), so keyword-based tool search finds the right product.
 - **Tool mentions:** product descriptions mention sibling tools by their unprefixed names ("use list-forms first"). `prefixToolReferences` rewrites each mention, in the description and in top-level input field descriptions, to the registered name: the module's own tool first, otherwise the only loaded product that has it. Ambiguous names (`get-server-info`) and nested field descriptions stay as they are.
-- **Routing instructions:** `buildRoutingInstructions` turns each loaded module's `description` and `useWhen` phrases into the server `instructions`, which most clients fold into the system prompt. Words shared between products (for example "workflow") are disambiguated inside the `useWhen` text. A contract test keeps the text for all modules under 2,000 characters.
+- **Routing instructions:** `buildRoutingInstructions` turns each loaded module's `description` and `useWhen` phrases into the server `instructions`, which most clients fold into the system prompt. Words shared between products (for example "workflow") are disambiguated inside the `useWhen` text. A contract test keeps the text for all modules under 2,200 characters. It ends with one fixed rule: read a tool's input schema before calling it, and never probe a tool with empty or guessed arguments.
 
 ### Filters and backoffice settings
 

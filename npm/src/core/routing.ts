@@ -53,6 +53,8 @@ export function buildRoutingInstructions(modules: McpProductModule[], extras: Ar
     "",
     ...modules.map((m) => `- \`${m.toolPrefix}\` ${m.description} Use for: ${m.useWhen.join("; ")}.`),
     "",
+    "Read a tool's input schema before the first call. Never call a tool with empty or guessed arguments to see what it needs: write tools change the site.",
+    "",
     `If the request does not clearly match one product, or product tools seem missing, call ${HEALTH_TOOL_NAME}.`,
   ].join("\n");
   return [routing, ...extras.filter((e): e is string => Boolean(e))].join("\n\n");

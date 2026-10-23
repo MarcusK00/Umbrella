@@ -83,8 +83,8 @@ describe("module set", () => {
     for (const module of modules) expect(module.defaultDisabledCollections ?? []).toEqual([]);
   });
 
-  it("keeps the routing instructions for all modules under 2,000 characters", () => {
-    expect(buildRoutingInstructions(modules).length).toBeLessThan(2000);
+  it("keeps the routing instructions for all modules under 2,200 characters", () => {
+    expect(buildRoutingInstructions(modules).length).toBeLessThan(2200);
   });
 
   it("produces unique prefixed tool names across all modules", async () => {
