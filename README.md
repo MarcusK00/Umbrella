@@ -229,7 +229,6 @@ Start with `get-mcp-health` in your AI tool and the **MCP** health checks in the
 
 - Tool names are prefixed (`cms--get-document`), so they differ from the standalone CMS MCP's names.
 - Tool settings, per API user or for everyone, are guardrails applied by the MCP server on each developer's machine, not access control. Anyone with an API user's credentials can call the Management API directly, so the API user's Umbraco permissions (groups and sections) are the boundary.
-- `@umbraco-cms/mcp-dev/collections` does not export the CMS server's runtime setup (`setUmbracoVersion`, `setAllowFilePathUploads`). Version-gated CMS tools (for example `create-and-publish-document`, `update-and-publish-document`, `sort-document-children`, `sort-document-root-children`) are not registered, document/data type schema tools use their fallback path, and media tools do not accept local file paths. Fixing this needs the CMS package to export a setup hook from `./collections`.
 - Only `--list-tools` is supported as a CLI flag; `--describe-tool` is not implemented.
 - Collection filters do not pull in dependent collections (for example `media` does not add `temporary-file`) the way the standalone CMS MCP does.
 
