@@ -39,6 +39,12 @@ describe("buildRoutingInstructions", () => {
     expect(text).not.toContain("Every tool name starts");
   });
 
+  it("tells the agent to read a tool's input schema first and never probe with empty arguments", () => {
+    const text = buildRoutingInstructions([cms]);
+    expect(text).toMatch(/input schema/i);
+    expect(text).toMatch(/never call a tool with empty or guessed arguments/i);
+  });
+
   it("appends non-null extras and skips null ones", () => {
     const text = buildRoutingInstructions([cms], [null, "Version mismatch: 18 vs 17"]);
     expect(text.endsWith("\n\nVersion mismatch: 18 vs 17")).toBe(true);
