@@ -10,6 +10,9 @@
   ],
   "license": "MIT",
   "homepage": "https://www.nuget.org/packages/Umbraco.Community.Umbrella",
+  "bugs": {
+    "url": "https://github.com/MarcusK00/Umbrella-Issues/issues"
+  },
   "type": "module",
   "bin": {
     "umbrella-mcp": "./dist/index.js"

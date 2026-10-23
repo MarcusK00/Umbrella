@@ -86,4 +86,6 @@ Both are released together with the same version number. The package doesn't dep
 
 Configuration, turning tool groups off, troubleshooting and known limitations: **[full documentation on GitHub](https://github.com/MarcusK00/Umbrella#readme)**.
 
+Bugs, ideas and questions: **[Umbrella issue tracker](https://github.com/MarcusK00/Umbrella-Issues/issues)**. Report security vulnerabilities privately, as described in its [security policy](https://github.com/MarcusK00/Umbrella-Issues/blob/main/SECURITY.md).
+
 Umbrella is a community project, not an official Umbraco HQ package. MIT licensed.
