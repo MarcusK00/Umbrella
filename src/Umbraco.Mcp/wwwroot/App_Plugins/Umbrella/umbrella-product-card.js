@@ -37,7 +37,6 @@ export class UmbrellaProductCardElement extends UmbLitElement {
     defaultLevel: { attribute: false },
     isRequired: { attribute: false },
     notes: { attribute: false },
-    noSectionAccess: { attribute: false },
     _open: { state: true },
     _filter: { state: true },
   };
@@ -59,8 +58,6 @@ export class UmbrellaProductCardElement extends UmbLitElement {
     this.defaultLevel = null;
     this.isRequired = false;
     this.notes = [];
-    // In a user view: none of the user's groups grant the product's section, so the settings have no effect.
-    this.noSectionAccess = false;
     this._open = false;
     this._filter = "";
   }
@@ -94,15 +91,12 @@ export class UmbrellaProductCardElement extends UmbLitElement {
   }
 
   #renderTag() {
-    if (this.noSectionAccess) return html`<uui-tag look="secondary">No section access</uui-tag>`;
     if (this.mode === "follows") return html`<uui-tag look="secondary">Follows defaults</uui-tag>`;
     if (this.mode === "custom") return html`<uui-tag look="primary" color="positive">Own settings</uui-tag>`;
     return nothing;
   }
 
   #renderHeaderAction() {
-    // Customising would change nothing; an override saved earlier can still be dropped.
-    if (this.noSectionAccess && this.mode !== "custom") return nothing;
     if (this.mode === "follows") {
       return html`<uui-button
         slot="header-actions"
@@ -233,31 +227,9 @@ export class UmbrellaProductCardElement extends UmbLitElement {
     </div>`;
   }
 
-  /** A user view of a product whose section the user lacks: no access, whatever the level. */
-  #renderNoSectionAccess() {
-    const name = this.product.displayName;
-    return html`<div class="follows">
-      <span class="level off">${levelGlyph("off")} No access</span>
-      <p class="note">
-        <umb-icon name="icon-info"></umb-icon>
-        <span>None of ${this.userName}'s user groups grant the ${name} section, so its MCP server doesn't load ${name} and these settings
-        have no effect. To give access, add the section to one of its user groups in Users, then reconnect the MCP server.</span>
-      </p>
-    </div>`;
-  }
-
   render() {
     if (!this.product) return nothing;
     const name = this.product.displayName;
-    if (this.noSectionAccess) {
-      return html`<uui-box class="mode-${this.mode}">
-        <div slot="headline" class="headline">
-          <span>${name}</span>
-          ${this.#renderTag()}
-        </div>
-        ${this.#renderHeaderAction()} ${this.#renderNoSectionAccess()}
-      </uui-box>`;
-    }
     const differs = this.mode === "custom" && this.defaultLevel && this.defaultLevel !== this.level;
     return html`<uui-box class="mode-${this.mode}">
       <div slot="headline" class="headline">
