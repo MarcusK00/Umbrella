@@ -29,7 +29,7 @@ public class ConnectedMcpApiUserProviderTests
     }
 
     [Test]
-    public async Task Key_is_the_umbraco_user_key()
+    public async Task Key_is_the_umbraco_user_key_and_groups_are_named()
     {
         var userKey = Guid.Parse("6f1c3b0e-8a2d-4e57-9b14-2c7d5a9e0f31");
         var store = new FakeConnectionStore();
@@ -42,6 +42,11 @@ public class ConnectedMcpApiUserProviderTests
             [nameof(IUser.Kind)] = UserKind.Api,
             [nameof(IUser.UserState)] = UserState.Active,
             [nameof(IUser.AllowedSections)] = new[] { "content" },
+            [nameof(IUser.Groups)] = new[]
+            {
+                Stub.Create<IReadOnlyUserGroup>(new() { [nameof(IReadOnlyUserGroup.Name)] = "Editors" }),
+                Stub.Create<IReadOnlyUserGroup>(new() { [nameof(IReadOnlyUserGroup.Name)] = "Sensitive data" }),
+            },
         });
         var users = Stub.Create<IUserService>(new()
         {
@@ -53,6 +58,7 @@ public class ConnectedMcpApiUserProviderTests
 
         Assert.That(result, Has.Count.EqualTo(1));
         Assert.That(result[0].Key, Is.EqualTo(userKey));
+        Assert.That(result[0].Groups, Is.EqualTo(new[] { "Editors", "Sensitive data" }));
     }
 
     [Test]

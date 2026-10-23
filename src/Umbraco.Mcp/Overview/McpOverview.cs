@@ -45,7 +45,8 @@ public sealed record McpOverviewAccess(string ProductId, string DisplayName, str
 /// An API user the MCP server has connected as. <paramref name="State"/> is "active", "disabled" or "lockedOut".
 /// The reach lists hold product display names. The report fields are from this user's own last start and are null when
 /// it has none; <paramref name="Access"/> lists the installed and enabled products, and <paramref name="ToolCount"/> is
-/// the sum of their tool counts (null when one of them is unknown).
+/// the sum of their tool counts (null when one of them is unknown). <paramref name="Groups"/> holds the names of its
+/// user groups, sorted.
 /// </summary>
 public sealed record McpOverviewApiUser(
     Guid Key,
@@ -58,7 +59,8 @@ public sealed record McpOverviewApiUser(
     string? ServerVersion,
     DateTimeOffset? LastReportedAt,
     int? ToolCount,
-    IReadOnlyList<McpOverviewAccess> Access);
+    IReadOnlyList<McpOverviewAccess> Access,
+    IReadOnlyList<string> Groups);
 
 /// <summary>Everything the Overview dashboard and the MCP health checks show.</summary>
 public sealed record McpOverview(

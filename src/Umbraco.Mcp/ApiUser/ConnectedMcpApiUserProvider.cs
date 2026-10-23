@@ -26,7 +26,8 @@ public sealed class ConnectedMcpApiUserProvider(IMcpConnectionStore connections,
                 user.UserState,
                 ToSectionNames(user.AllowedSections),
                 clientIds.ToList(),
-                connection.LastConnected));
+                connection.LastConnected,
+                user.Groups.Select(g => g.Name ?? g.Alias).ToList()));
         }
 
         return result;
