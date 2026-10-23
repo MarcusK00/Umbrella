@@ -31,7 +31,7 @@ dotnet add package Umbraco.Community.Umbrella
 
 Give the user's groups the sections the AI should work in (Content, Media, Settings, Forms, …). Each person who uses an AI tool gets an API user of their own.
 
-**3. Copy the config.** In **Settings → Umbrella → Overview** ("Connect an AI tool", click **Open** if it is closed), pick the API user and your AI tool: Claude Code, Claude Desktop, VS Code, Cursor or another client. The plain version looks like this, with your site's address and the client id filled in:
+**3. Copy the config.** In **Settings → Umbrella → Overview** ("Connect an AI tool", click **Show steps** if it is closed), pick the API user and your AI tool: Claude Code, Claude Desktop, VS Code, Cursor or another client. The plain version looks like this, with your site's address and the client id filled in:
 
 ```json
 {
