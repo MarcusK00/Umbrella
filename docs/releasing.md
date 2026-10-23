@@ -33,7 +33,7 @@ Merging a new version into `v17/main` publishes both: `.github/workflows/release
 | Job | Does |
 |---|---|
 | `version` | Reads the version from `npm/package.json` and the csproj (fails if they differ) and checks whether npm and NuGet have it. When both have it, every other job is skipped. |
-| `ci` | Runs `ci.yml` (`dotnet`, `npm`, `guards`) on the merged commit. Nothing publishes if it fails. |
+| `ci` | Runs `ci.yml` (`dotnet`, `npm`, `guards`, `workflows`) on the merged commit. Nothing publishes if it fails. |
 | `npm` | `npm publish --tag <label>` from `npm/`, where the label is the pre-release label (`17.0.0-alpha.8` → `alpha`) or `latest` for a stable version. The add-on pins the exact version, so users never depend on the dist-tag. |
 | `nuget` | `dotnet pack` and `dotnet nuget push`, only after npm succeeded or already had the version, so the version the add-on points to exists. |
 | `github-release` | Tags the commit `v<version>` and creates a GitHub release with generated notes (marked pre-release for a pre-release version). |
