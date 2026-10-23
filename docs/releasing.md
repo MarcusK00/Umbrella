@@ -38,7 +38,7 @@ Merging a new version into `v17/main` publishes both: `.github/workflows/release
 | `nuget` | `dotnet pack` and `dotnet nuget push`, only after npm succeeded or already had the version, so the version the add-on points to exists. |
 | `github-release` | Tags the commit `v<version>` and creates a GitHub release with generated notes (marked pre-release for a pre-release version). |
 
-Neither registry needs a stored API key: both use trusted publishing, where the job exchanges a short-lived GitHub OIDC token for a one-time credential. The workflow is safe to run again: a registry that already has the version is skipped, so after a failed NuGet push, re-run the failed jobs (or Actions → Release → Run workflow on `v17/main`) and only NuGet runs. npm doesn't generate provenance for a private repository, so the workflow doesn't ask for it.
+Neither registry needs a stored API key: both use trusted publishing, where the job exchanges a short-lived GitHub OIDC token for a one-time credential. The workflow is safe to run again: a registry that already has the version is skipped, so after a failed NuGet push, re-run the failed jobs (or Actions → Release → Run workflow on `v17/main`) and only NuGet runs. npm doesn't generate provenance for a private repository, so the workflow doesn't ask for it. npm does check that `repository.url` in `npm/package.json` matches the repository the workflow runs in (`MarcusK00/Umbrella`), so keep that field when the repository moves or is renamed.
 
 ## One-time setup
 

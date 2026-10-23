@@ -18,7 +18,7 @@ Current docs, to keep in sync with the code:
 - `docs/development.md`: setup from a fresh clone, tests, the e2e scripts.
 - `docs/adding-a-product.md`, `docs/releasing.md`, `docs/merging.md`.
 
-This repository is private. The public home is [MarcusK00/Umbrella-Issues](https://github.com/MarcusK00/Umbrella-Issues): the issue tracker (issue forms, labels, `SECURITY.md` with private vulnerability reporting) and a copy of `README.md` that `scripts/sync-tracker-docs.mjs` writes on each release. The NuGet readme, `PackageProjectUrl` and the npm `bugs` field point there; never link users to this repository.
+This repository is private. The public home is [MarcusK00/Umbrella-Issues](https://github.com/MarcusK00/Umbrella-Issues): the issue tracker (issue forms, labels, `SECURITY.md` with private vulnerability reporting) and a copy of `README.md` that `scripts/sync-tracker-docs.mjs` writes on each release. The NuGet readme, `PackageProjectUrl` and the npm `bugs` field point there; never link users to this repository. The exceptions are metadata the registries need: the csproj `RepositoryUrl`, and the npm `repository` field, which npm trusted publishing checks against the repository the release workflow runs in.
 
 The docs are written as if both packages are released. Releases are pre-release test versions for now: `"private": true` is gone from `npm/package.json`, and the NuGet package has no `umbraco-marketplace` tag until a Marketplace release (`docs/releasing.md`). The source folders, namespaces and solution keep their `Umbraco.Mcp` names; only the package ids changed. Earlier working names were `Umbraco.Mcp` / `@umbraco/mcp`.
 
