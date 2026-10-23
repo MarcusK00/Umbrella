@@ -6,6 +6,8 @@
 
 `.github/workflows/ci.yml` runs on every PR to `v17/main` and on every push to `v17/main`.
 
+A push to `v17/main` with a version that npm or NuGet doesn't have yet also runs `.github/workflows/release.yml`, which runs these checks again and then publishes both packages ([releasing.md](releasing.md)). Merging a version bump into `v17/main` is a release.
+
 | Check | Runs | Does not cover |
 |---|---|---|
 | `dotnet` | `dotnet test Umbraco.Mcp.slnx`, which also builds the demo site | Running the site |

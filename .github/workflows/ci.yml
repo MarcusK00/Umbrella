@@ -1,4 +1,5 @@
 # Checks every PR to v17/main must pass before it is safe to merge. See docs/merging.md.
+# release.yml also calls this workflow before it publishes.
 name: CI
 
 on:
@@ -6,9 +7,11 @@ on:
     branches: [v17/main]
   push:
     branches: [v17/main]
+  workflow_call:
 
 concurrency:
-  group: ci-${{ github.ref }}
+  # github.workflow is the caller's name when release.yml calls this, so the two runs on a push don't cancel each other.
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
