@@ -368,17 +368,12 @@ export class UmbrellaOverviewElement extends UmbLitElement {
               <h3><span class="num">5</span>Restart ${selected.label.replace(/ \(command\)$/, "")}</h3>
               <p class="muted">
                 It connects as ${userName ? html`<strong>${userName}</strong>` : "the API user"} and shows up in
-                <a href="#" @click=${this.#scrollToUsers}>Access per API user</a>.
+                <strong>Access per API user</strong>.
               </p>
             </div>
           </div>`
         : nothing}
     </div>`;
-  }
-
-  #scrollToUsers(e) {
-    e.preventDefault();
-    this.shadowRoot.querySelector("#users")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   #renderConnect() {
