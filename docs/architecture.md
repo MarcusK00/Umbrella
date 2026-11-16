@@ -7,7 +7,7 @@ How Umbrella works inside. For setup and configuration, see the [README](../READ
 | | Add-on | Server |
 |---|---|---|
 | Package | NuGet `Umbraco.Community.Umbrella` | npm `umbrella-mcp` |
-| Source | `src/Umbraco.Mcp/` (C#, `net10.0`) | `npm/` (TypeScript, ESM, Node 22+) |
+| Source | `src/Umbraco.Mcp/` (C#, `net10.0`) | `npm/` (TypeScript, ESM, Node 22.23.4+ / 24.22.1+ / 26.12.1+) |
 | Runs | inside the Umbraco site | on the developer's machine, started by the AI tool over stdio |
 | Job | detect products, store tool settings, health checks, client config per API user | load product tool collections into one MCP server |
 
@@ -112,7 +112,7 @@ A team can give each developer an API user, and the settings can differ per user
 
 1. **Sign in.** `initializeUmbracoFetch` with the three `UMBRACO_*` variables (missing → exit).
 2. **Load CMS** and install the client context with the CMS client as the default.
-3. **Credentials check.** `getUserCurrent()` fails fast on bad credentials (exit), and its result is the `user` that `collection.tools(user)` needs.
+3. **Credentials check.** `getUserCurrent()` fails fast (exit), and its result is the `user` that `collection.tools(user)` needs. `describeStartupError` (`startup-error.ts`) names the cause in the exit message: the site is not reachable (a socket error code such as `ECONNREFUSED`), its certificate was not accepted, or the token request was refused (bad credentials); anything else keeps the general message and prints the raw error.
 4. **Version check.** The site's version goes to CMS first (`LoadedModule.setUmbracoVersion`), so CMS lists the tools that need Umbraco 17.4 or 17.6. Then the check against Umbraco major 17 (the toolkit's `checkUmbracoVersion`). A mismatch does not stop startup: its message goes into the server instructions and `get-mcp-health`.
 5. **Capabilities.** `fetchCapabilities()` returns `ok`, `no-addon` (HTTP 404) or `unavailable`.
 6. **Select modules** (below).
@@ -158,12 +158,13 @@ This only works because product handlers call `getApiClient()` lazily, inside th
 
 ### Exactly one toolkit copy
 
-The shared provider only exists once if every product uses the same toolkit copy. `npm/package.json` pins `@umbraco-cms/mcp-server-sdk` to `1.0.0-beta.47` and forces it on every product with `overrides`. npm only applies `overrides` in the root project, though, and under `npx` `umbrella-mcp` is a dependency. For users, single-copy relies on every product package depending on a compatible toolkit version. `scripts/pack-check.sh` installs the packed package that way to catch a mismatch, and at runtime `checkSingleSdk` skips a product that has its own nested copy rather than letting it break the provider.
+The shared provider only exists once if every product uses the same toolkit copy. `npm/package.json` pins `@umbraco-cms/mcp-server-sdk` to `1.0.0-beta.48` and forces it on every product with `overrides`. npm only applies `overrides` in the root project, though, and under `npx` `umbrella-mcp` is a dependency. For users, single-copy relies on every product package depending on a compatible toolkit version. `scripts/pack-check.sh` installs the packed package that way to catch a mismatch, and at runtime `checkSingleSdk` skips a product that has its own nested copy rather than letting it break the provider.
 
 ### Tool names, descriptions and routing
 
 - **Names:** every tool is registered as `<toolPrefix><tool name>` (`forms--list-forms`). `get-mcp-health` is the only unprefixed tool. Two modules registering the same final name stops startup (`DuplicateToolNameError`).
 - **Descriptions** start with the product: `[Umbraco Forms] …` (`describeTool`), so keyword-based tool search finds the right product.
+- **Output schemas:** each tool is registered with the toolkit's `getRegisteredOutputSchema(tool)`. It is the tool's `outputSchema`, except while dry-run is on (`UMBRACO_DRY_RUN`, which the toolkit reads itself from beta.48): then the mutation tools `withDryRun` intercepts get none, because their preview result would not match it and the MCP SDK would reject it.
 - **Tool mentions:** product descriptions mention sibling tools by their unprefixed names ("use list-forms first"). `prefixToolReferences` rewrites each mention, in the description and in top-level input field descriptions, to the registered name: the module's own tool first, otherwise the only loaded product that has it. Ambiguous names (`get-server-info`) and nested field descriptions stay as they are.
 - **Routing instructions:** `buildRoutingInstructions` turns each loaded module's `description` and `useWhen` phrases into the server `instructions`, which most clients fold into the system prompt. Words shared between products (for example "workflow") are disambiguated inside the `useWhen` text. A contract test keeps the text for all modules under 2,200 characters. It ends with one fixed rule: read a tool's input schema before calling it, and never probe a tool with empty or guessed arguments.
 

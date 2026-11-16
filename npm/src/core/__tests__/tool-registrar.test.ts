@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { createCollectionConfigLoader, getApiClient, type CollectionConfiguration } from "@umbraco-cms/mcp-server-sdk";
+import {
+  configureDryRunMode,
+  createCollectionConfigLoader,
+  getApiClient,
+  withDryRun,
+  type CollectionConfiguration,
+} from "@umbraco-cms/mcp-server-sdk";
 import { installClientContext } from "../client-context.js";
 import type { LoadedModule, McpProductModule } from "../module-contract.js";
 import { DuplicateToolNameError, registerModuleTools, type RegistrationContext } from "../tool-registrar.js";
@@ -36,10 +42,10 @@ const noFilter = (l: LoadedModule): CollectionConfiguration =>
 
 const ctx = (): RegistrationContext & {
   calls: Map<string, (...a: unknown[]) => Promise<any>>;
-  configs: Map<string, { description?: string }>;
+  configs: Map<string, { description?: string; outputSchema?: unknown }>;
 } => {
   const calls = new Map<string, (...a: unknown[]) => Promise<any>>();
-  const configs = new Map<string, { description?: string }>();
+  const configs = new Map<string, { description?: string; outputSchema?: unknown }>();
   return {
     calls,
     configs,
@@ -160,6 +166,32 @@ describe("registerModuleTools", () => {
       const filter = createCollectionConfigLoader({ modeRegistry: [], allModeNames: [], allSliceNames: ["read"] })
         .loadFromConfig({ excludeTools: ["delete-form"] });
       expect(registerModuleTools(c, mod("forms"), l, filter, { excludeDestructive: true })).toEqual({ registered: 1, destructiveRemoved: 0 });
+    });
+  });
+
+  describe("outputSchema", () => {
+    const outputSchema = { id: z.string() };
+    const dryRun = (t: ReturnType<typeof tool>) => withDryRun(t as never) as unknown as ReturnType<typeof tool>;
+    afterEach(() => configureDryRunMode(false));
+
+    it("passes the tool's outputSchema through", () => {
+      const c = ctx();
+      const l = loaded("forms-client", [dryRun(tool("create-form", { annotations: {}, outputSchema }))]);
+      registerModuleTools(c, mod("forms"), l, noFilter(l));
+      expect(c.configs.get("forms--create-form")!.outputSchema).toBe(outputSchema);
+    });
+
+    // A dry-run preview doesn't match a mutation tool's outputSchema, and the MCP SDK rejects such a result.
+    it("leaves it out for a tool dry-run intercepts while dry-run is on", () => {
+      configureDryRunMode(true);
+      const c = ctx();
+      const l = loaded("forms-client", [
+        dryRun(tool("create-form", { annotations: {}, outputSchema })),
+        dryRun(tool("get-form", { outputSchema })),
+      ]);
+      registerModuleTools(c, mod("forms"), l, noFilter(l));
+      expect(c.configs.get("forms--create-form")!.outputSchema).toBeUndefined();
+      expect(c.configs.get("forms--get-form")!.outputSchema).toBe(outputSchema);
     });
   });
 

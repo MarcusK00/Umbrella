@@ -19,7 +19,7 @@ Install this package in your site, then connect Claude Code, VS Code, Cursor or 
 
 ## 🚀 Get started in 5 steps
 
-You need Umbraco 17, and Node.js 22 or later on the machine running your AI tool.
+You need Umbraco 17, and Node.js 22.23.4 or later (24.22.1 or later on Node 24, 26.12.1 or later on Node 26) on the machine running your AI tool.
 
 **1. Install the package** and restart the site:
 
@@ -40,7 +40,7 @@ Give the user's groups the sections the AI should work in (Content, Media, Setti
   "mcpServers": {
     "umbraco": {
       "command": "npx",
-      "args": ["-y", "umbrella-mcp@17.0.0-alpha.8"],
+      "args": ["-y", "umbrella-mcp@17.0.0"],
       "env": {
         "UMBRACO_BASE_URL": "https://your-site",
         "UMBRACO_CLIENT_ID": "umbraco-back-office-mcp",
@@ -82,7 +82,7 @@ Both are released together with the same version number. The package doesn't dep
 |---|---|
 | Umbraco | 17 |
 | Products | Umbraco CMS, Forms, Automate, Engage |
-| AI tool machine | Node.js 22+ |
+| AI tool machine | Node.js 22.23.4+, 24.22.1+ or 26.12.1+ |
 
 ## 📚 More
 

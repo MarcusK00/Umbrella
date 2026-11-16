@@ -336,7 +336,7 @@ export class UmbrellaOverviewElement extends UmbLitElement {
               </button>`;
             })}
           </div>
-          <p class="muted small">The MCP server runs with npx: the computer running the AI tool needs Node.js 22 or later.</p>
+          <p class="muted small">The MCP server runs with npx: the computer running the AI tool needs Node.js 22.23.4 or later (24.22.1+ on Node 24, 26.12.1+ on Node 26).</p>
         </div>
       </div>
       ${selected
@@ -368,17 +368,12 @@ export class UmbrellaOverviewElement extends UmbLitElement {
               <h3><span class="num">5</span>Restart ${selected.label.replace(/ \(command\)$/, "")}</h3>
               <p class="muted">
                 It connects as ${userName ? html`<strong>${userName}</strong>` : "the API user"} and shows up in
-                <a href="#" @click=${this.#scrollToUsers}>Access per API user</a>.
+                <strong>Access per API user</strong>.
               </p>
             </div>
           </div>`
         : nothing}
     </div>`;
-  }
-
-  #scrollToUsers(e) {
-    e.preventDefault();
-    this.shadowRoot.querySelector("#users")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   #renderConnect() {

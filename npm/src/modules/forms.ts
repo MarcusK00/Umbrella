@@ -4,7 +4,7 @@ export const formsModule: McpProductModule = {
   id: "forms",
   displayName: "Umbraco Forms",
   toolPrefix: "forms--",
-  packageName: "@umbraco-forms/mcp-dev",
+  packageName: "@umbraco-forms/mcp",
   expectedMajor: "17",
   description: "Umbraco Forms: forms, their fields and the entries people submit.",
   useWhen: [
@@ -14,7 +14,7 @@ export const formsModule: McpProductModule = {
     "the Forms recycle bin (deleted forms and folders)",
   ],
   load: async (): Promise<LoadedModule> => {
-    const m = await import("@umbraco-forms/mcp-dev/collections");
+    const m = await import("@umbraco-forms/mcp/collections");
     return {
       collections: m.collections,
       allModes: m.allModes,
