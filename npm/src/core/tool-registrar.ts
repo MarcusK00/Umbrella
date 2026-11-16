@@ -1,6 +1,7 @@
 import type { McpServer, ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   createToolAnnotations,
+  getRegisteredOutputSchema,
   registerToolCollection,
   shouldIncludeTool,
   type CollectionConfiguration,
@@ -60,7 +61,7 @@ export function registerModuleTools(
         {
           description: describeTool(module, references(tool.description)),
           inputSchema: tool.inputSchema && prefixInputReferences(tool.inputSchema, references),
-          outputSchema: tool.outputSchema,
+          outputSchema: getRegisteredOutputSchema(tool),
           annotations: createToolAnnotations(tool),
         },
         bindClient(loaded.createApiClient, tool.handler as (...args: unknown[]) => unknown) as ToolCallback<any>,
