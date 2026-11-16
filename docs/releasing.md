@@ -2,7 +2,7 @@
 
 `Umbraco.Community.Umbrella` (NuGet) and `umbrella-mcp` (npm) are released together, with the same version. The add-on tells AI tools to run `npx -y umbrella-mcp@<add-on version>`, so an add-on release without the matching npm release breaks setup for everyone who installs it.
 
-Merging a new version into `v17/main` publishes both: `.github/workflows/release.yml` runs on every push to `v17/main`, and does nothing unless that version is missing from npm or NuGet. Releases are for testing until further notice, so the NuGet package has no `umbraco-marketplace` tag (see [Test and Marketplace releases](#test-and-marketplace-releases)).
+Merging a new version into `v17/main` publishes both: `.github/workflows/release.yml` runs on every push to `v17/main`, and does nothing unless that version is missing from npm or NuGet. Releases are stable from 17.0.0, but Umbrella is not on the Umbraco Marketplace yet, so the NuGet package has no `umbraco-marketplace` tag (see [Stable, test and Marketplace releases](#stable-test-and-marketplace-releases)).
 
 ## Checklist
 
@@ -63,9 +63,10 @@ dotnet nuget push artifacts/Umbraco.Community.Umbrella.<version>.nupkg --source 
 
 The NuGet API key needs "Push only new package versions", limited to the glob `Umbraco.Community.Umbrella`.
 
-## Test and Marketplace releases
+## Stable, test and Marketplace releases
 
-- **Test releases** (now): pre-release versions such as `17.0.0-alpha.1`, without the `umbraco-marketplace` tag. nuget.org hides pre-release versions from searches unless "include prerelease" is ticked, but both registries are public.
+- **Stable releases** (now, from 17.0.0): plain versions such as `17.0.1`. npm publishes them under `latest`, and `dotnet add package Umbraco.Community.Umbrella` picks them without `--prerelease`. Still without the `umbraco-marketplace` tag.
+- **Test releases:** pre-release versions such as `17.1.0-beta.1` (the `17.0.0-alpha.N` versions were these). npm publishes them under their label, so `latest` stays on the stable version, and nuget.org hides them from searches unless "include prerelease" is ticked. Both registries are public.
 - **Marketplace release:** add `umbraco-marketplace` back to `<PackageTags>` in `src/Umbraco.Mcp/Umbraco.Mcp.csproj`. The Umbraco Marketplace lists NuGet packages that carry that tag.
 - **Nothing can be fully taken back:** nuget.org versions can only be unlisted, never deleted, and their version number stays used. npm allows `npm unpublish` within 72 hours. Use a new version number for every publish.
 - **Names:** `umbrella-mcp` on npm and `Umbraco.Community.Umbrella` on NuGet were unclaimed on 12-10-2026; the first publish claims them.
