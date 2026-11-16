@@ -58,7 +58,6 @@
   "engage--delete-persona",
   "engage--delete-referral-group",
   "engage--delete-segments",
-  "engage--delete-segments-delete-segment-content",
   "engage--delete-traffic-filter",
   "engage--post-main-switch-turn-off",
   "engage--post-permissions-document-type",
