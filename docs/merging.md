@@ -11,7 +11,7 @@ A push to `v17/main` with a version that npm or NuGet doesn't have yet also runs
 | Check | Runs | Does not cover |
 |---|---|---|
 | `dotnet` | `dotnet test Umbraco.Mcp.slnx`, which also builds the demo site | Running the site |
-| `npm` | `npm ci`, single toolkit copy (`@umbraco-cms/mcp-server-sdk` `1.0.0-beta.47`, one copy), `npm run compile`, `npm test`, `npm run build` | Installing `umbrella-mcp` as a dependency, where npm ignores `overrides` (that is `pack-check.sh`) |
+| `npm` | `npm ci`, single toolkit copy (`@umbraco-cms/mcp-server-sdk` `1.0.0-beta.48`, one copy), `npm run compile`, `npm test`, `npm run build` | Installing `umbrella-mcp` as a dependency, where npm ignores `overrides` (that is `pack-check.sh`) |
 | `guards` | `scripts/check-guards.test.sh`, `scripts/check-guards.sh`, gitleaks secret scan | — |
 | `workflows` | `actionlint` on `.github/workflows` (syntax, expressions, job dependencies, shellcheck on `run:` scripts) | Whether publishing works: trusted publishing is only exercised by a real release |
 
