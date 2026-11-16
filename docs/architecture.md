@@ -112,7 +112,7 @@ A team can give each developer an API user, and the settings can differ per user
 
 1. **Sign in.** `initializeUmbracoFetch` with the three `UMBRACO_*` variables (missing → exit).
 2. **Load CMS** and install the client context with the CMS client as the default.
-3. **Credentials check.** `getUserCurrent()` fails fast on bad credentials (exit), and its result is the `user` that `collection.tools(user)` needs.
+3. **Credentials check.** `getUserCurrent()` fails fast (exit), and its result is the `user` that `collection.tools(user)` needs. `describeStartupError` (`startup-error.ts`) names the cause in the exit message: the site is not reachable (a socket error code such as `ECONNREFUSED`), its certificate was not accepted, or the token request was refused (bad credentials); anything else keeps the general message and prints the raw error.
 4. **Version check.** The site's version goes to CMS first (`LoadedModule.setUmbracoVersion`), so CMS lists the tools that need Umbraco 17.4 or 17.6. Then the check against Umbraco major 17 (the toolkit's `checkUmbracoVersion`). A mismatch does not stop startup: its message goes into the server instructions and `get-mcp-health`.
 5. **Capabilities.** `fetchCapabilities()` returns `ok`, `no-addon` (HTTP 404) or `unavailable`.
 6. **Select modules** (below).

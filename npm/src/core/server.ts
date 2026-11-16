@@ -20,6 +20,7 @@ import type { LoadedModule, McpProductModule } from "./module-contract.js";
 import { parseForcedModules, selectModules } from "./module-selection.js";
 import { buildRoutingInstructions, buildToolNameIndex } from "./routing.js";
 import { checkPackageInstalled, checkSingleSdk } from "./sdk-instance.js";
+import { describeStartupError } from "./startup-error.js";
 import { DuplicateToolNameError, listToolNames, registerModuleTools, type RegistrationContext } from "./tool-registrar.js";
 
 const EXPECTED_UMBRACO_MAJOR = "17";
@@ -39,8 +40,9 @@ export async function startServer(options: {
   version: string;
 }): Promise<{ server: McpServer; toolNames: string[] }> {
   const { env, version } = options;
+  const baseUrl = requireEnv(env, "UMBRACO_BASE_URL");
   initializeUmbracoFetch({
-    baseUrl: requireEnv(env, "UMBRACO_BASE_URL"),
+    baseUrl,
     clientId: requireEnv(env, "UMBRACO_CLIENT_ID"),
     clientSecret: requireEnv(env, "UMBRACO_CLIENT_SECRET"),
   });
@@ -55,7 +57,9 @@ export async function startServer(options: {
   try {
     user = await (cmsLoaded.createApiClient() as { getUserCurrent(): Promise<unknown> }).getUserCurrent();
   } catch (error) {
-    console.error("Could not authenticate against Umbraco. Check UMBRACO_BASE_URL, UMBRACO_CLIENT_ID and UMBRACO_CLIENT_SECRET.", error);
+    const { message, showDetails } = describeStartupError(error, baseUrl);
+    if (showDetails) console.error(message, error);
+    else console.error(message);
     process.exit(1);
   }
 

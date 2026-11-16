@@ -81,7 +81,7 @@ node scripts/sync-tracker-docs.mjs ../Umbrella-Issues   # copies README.md to th
 
 1. `initializeUmbracoFetch` authenticates once.
 2. The CMS module loads, and `installClientContext` registers the CMS client as the default.
-3. `getUserCurrent()` serves as the credentials check (exit on failure) and supplies the `user` that `collection.tools(user)` needs.
+3. `getUserCurrent()` serves as the credentials check (exit on failure) and supplies the `user` that `collection.tools(user)` needs. `describeStartupError` (`startup-error.ts`) words the exit message by cause: site not reachable, certificate not accepted, token request refused, or the general message with the raw error.
 4. The site's Umbraco version is passed to CMS (`setUmbracoVersion`), then the version check runs against major 17.
 5. `fetchCapabilities()` returns ok, no-addon or unavailable.
 6. `selectModules()` loads a module if it is `required` (CMS), forced via `UMBRACO_MCP_MODULES`, or installed + enabled with a matching major, but never one the site switched off (`off`) or whose section the API user lacks (`noSectionAccess`); both are `get-mcp-health` notes, not issues.
