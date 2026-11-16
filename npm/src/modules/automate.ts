@@ -4,7 +4,7 @@ export const automateModule: McpProductModule = {
   id: "automate",
   displayName: "Umbraco Automate",
   toolPrefix: "automate--",
-  packageName: "@umbraco-automate/mcp-dev",
+  packageName: "@umbraco-automate/mcp",
   expectedMajor: "17",
   description: "Umbraco Automate: automations that react to triggers and run steps.",
   useWhen: [
@@ -15,7 +15,7 @@ export const automateModule: McpProductModule = {
     "general automations that are not tied to a form submission",
   ],
   load: async (): Promise<LoadedModule> => {
-    const m = await import("@umbraco-automate/mcp-dev/collections");
+    const m = await import("@umbraco-automate/mcp/collections");
     return {
       collections: m.collections,
       allModes: m.allModes,
