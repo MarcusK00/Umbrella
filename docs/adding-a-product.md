@@ -7,27 +7,27 @@ A product is one npm module file and one .NET detector. Nothing in `npm/src/core
 | Value | Engage | Where to find it |
 |---|---|---|
 | id | `engage` | Choose it: lowercase, used as the tool prefix `engage--` |
-| MCP package | `@umbraco-engage/mcp-dev` | The product's MCP repository |
+| MCP package | `@umbraco-engage/mcp` | The product's MCP repository |
 | Assembly name | `Umbraco.Engage.Core` | An assembly that is always loaded when the product is installed |
 | Management API name | `engage-management` | The `[MapToApi("…")]` attribute on the product's Management API controllers |
 | Backoffice section | `Umb.Section.Engage` | The product's section alias, if it has one; it is what the API user needs |
 
 ## 1. The product's MCP package
 
-The package (`@umbraco-<product>/mcp-dev`) must export its API client factory as `createApiClient` from `./collections`, next to the existing exports in `src/collections.ts`. For Engage:
+The package (`@umbraco-<product>/mcp`) must export its API client factory as `createApiClient` from `./collections`, next to the existing exports in `src/collections.ts`. For Engage:
 
 ```ts
 export { getUmbracoEngageManagementAPI as createApiClient } from "./umbraco-api/api/generated/umbracoEngageManagementApi.js";
 ```
 
-It must also depend on the same `@umbraco-cms/mcp-server-sdk` version as `npm/package.json` (today `1.0.0-beta.47`). Otherwise users end up with a second toolkit copy and the server skips the product.
+It must also depend on the same `@umbraco-cms/mcp-server-sdk` version as `npm/package.json` (today `1.0.0-beta.48`). Otherwise users end up with a second toolkit copy and the server skips the product.
 
 Then add it to `npm/package.json`:
 
 - **A published release has both:** add it to `dependencies` with an exact registry version, as CMS, Forms, Automate and Engage are. The product ships in the next `umbrella-mcp` release.
 - **Not published yet:** pack it locally with `npm pack --pack-destination <this repo>/npm/vendor`, add it to `devDependencies` as `file:vendor/<tarball>.tgz`, and add `external: ["<package>"]` to the config in `npm/tsup.config.ts` (devDependencies are bundled otherwise). It then loads in local builds, while the published `umbrella-mcp` reports in `get-mcp-health` that the product's tools are not available. CI cannot install the tarball: in `.github/workflows/ci.yml`, delete the devDependency before installing (with `npm install` instead of `npm ci`) and list the package in `CI_ABSENT_PACKAGES` so the contract test skips it. Move it to `dependencies` once the release is published, and undo all of that.
 
-After `npm install`, `npm ls @umbraco-cms/mcp-server-sdk` must show a single `1.0.0-beta.47`, deduped.
+After `npm install`, `npm ls @umbraco-cms/mcp-server-sdk` must show a single `1.0.0-beta.48`, deduped.
 
 ## 2. npm module (`npm/src/modules/<id>.ts`)
 
@@ -38,7 +38,7 @@ export const engageModule: McpProductModule = {
   id: "engage",
   displayName: "Umbraco Engage",
   toolPrefix: "engage--",
-  packageName: "@umbraco-engage/mcp-dev",
+  packageName: "@umbraco-engage/mcp",
   expectedMajor: "17",
   description: "Umbraco Engage: personalisation, A/B tests and visitor analytics.",
   useWhen: [
@@ -49,7 +49,7 @@ export const engageModule: McpProductModule = {
     "the Engage main switch, traffic filters, data cleanup and Engage permissions",
   ],
   load: async (): Promise<LoadedModule> => {
-    const m = await import("@umbraco-engage/mcp-dev/collections");
+    const m = await import("@umbraco-engage/mcp/collections");
     return {
       collections: m.collections,
       allModes: m.allModes,
@@ -69,7 +69,7 @@ export const engageModule: McpProductModule = {
 Then:
 
 - Add the module to `npm/src/modules/index.ts`, after CMS (CMS must stay first).
-- If the package ships no types for `./collections`, add `declare module "@umbraco-<product>/mcp-dev/collections";` to `npm/src/types/product-modules.d.ts`.
+- If the package ships no types for `./collections`, add `declare module "@umbraco-<product>/mcp/collections";` to `npm/src/types/product-modules.d.ts`.
 
 ## 3. .NET detector (`src/Umbraco.Mcp/Detection/Detectors/<Product>Detector.cs`)
 

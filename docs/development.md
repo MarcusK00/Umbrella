@@ -5,7 +5,7 @@ How to build, run and test Umbrella from a fresh clone. How the code fits togeth
 ## Prerequisites
 
 - **.NET 10 SDK** (the add-on and the demo site target `net10.0`).
-- **Node.js 22 or later.**
+- **Node.js 22.23.4 or later** (24.22.1+ on Node 24, 26.12.1+ on Node 26; `engines` in `npm/package.json`). An older Node only gets an `EBADENGINE` warning from npm.
 - **bash** for the scripts in `scripts/`. On Windows, use Git Bash.
 
 ## First run
@@ -15,7 +15,7 @@ How to build, run and test Umbrella from a fresh clone. How the code fits togeth
    ```bash
    cd npm
    npm install
-   npm ls @umbraco-cms/mcp-server-sdk   # must show one 1.0.0-beta.47, deduped
+   npm ls @umbraco-cms/mcp-server-sdk   # must show one 1.0.0-beta.48, deduped
    npm run build
    ```
 

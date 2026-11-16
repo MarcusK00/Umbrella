@@ -19,7 +19,7 @@ export interface McpProductModule {
   displayName: string;
   /** Always `${id}--`. Applied to every tool name. */
   toolPrefix: string;
-  /** npm package that provides `./collections`, e.g. "@umbraco-forms/mcp-dev". */
+  /** npm package that provides `./collections`, e.g. "@umbraco-forms/mcp". */
   packageName: string;
   /** Product major this release line supports, e.g. "17". */
   expectedMajor: string;
