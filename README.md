@@ -35,7 +35,7 @@ Without the add-on, the server still starts, with CMS tools only. Details for co
 
 ## Get started
 
-You need Umbraco 17, and Node.js 22 or later on the machine that runs your AI tool.
+You need Umbraco 17, and Node.js 22.23.4 or later (24.22.1 or later on Node 24, 26.12.1 or later on Node 26) on the machine that runs your AI tool.
 
 1. **Install the add-on** in your site and restart it:
 
@@ -111,7 +111,7 @@ Give each person who connects an AI tool their own API user:
 
 - **Why one each:** the Overview's **Access per API user** table shows each API user that connected, and [Tool Permissions](#different-settings-per-api-user) can give each one their own settings. People who share an API user share its settings and show up as one user.
 - **Setting someone up:** create their API user with its own client id, and give its groups the sections they need. On Settings → **Umbrella** → **Overview** → **Connect an AI tool**, click **Show steps**, pick that user, copy the config for their AI tool, and send it to them. Send the client secret separately.
-- **Editors:** an editor doesn't need the site's source code. They need Node.js 22 or later and an AI tool, for example Claude Desktop. The Umbrella dashboard is in the Settings section, so someone with access to it sets them up.
+- **Editors:** an editor doesn't need the site's source code. They need Node.js (the versions under [Compatibility](#compatibility)) and an AI tool, for example Claude Desktop. The Umbrella dashboard is in the Settings section, so someone with access to it sets them up.
 - **Hosted sites, such as Umbraco Cloud:** the MCP server runs on each person's machine and connects to the site over HTTPS, so it works with any environment. Open the dashboard on the environment the AI tools should use, so the config gets its address. Tool settings and the connection list are stored in that environment's database, so each environment has its own; create the API users on the environment the AI tools connect to.
 - **Shared repositories:** a `.mcp.json` committed to a repository holds one client id, so everyone who uses it signs in as the same API user. Use the `claude mcp add` command instead, which Claude Code keeps in each person's own settings, or keep `.mcp.json` out of the repository.
 
@@ -219,7 +219,7 @@ If none of this explains it, [open an issue](https://github.com/MarcusK00/Umbrel
 | Component | Version |
 |---|---|
 | Umbraco CMS | 17.x (.NET 10) |
-| Node.js | 22 or later |
+| Node.js | 22.23.4+, 24.22.1+ or 26.12.1+ |
 | Umbraco Forms, Umbraco Automate, Umbraco Engage | 17.x |
 | `@umbraco-cms/mcp-server-sdk` | 1.0.0-beta.48 (one copy shared by all products) |
 | `@umbraco-cms/mcp-dev` | 17.6.13 |

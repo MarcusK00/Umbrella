@@ -7,7 +7,7 @@ How Umbrella works inside. For setup and configuration, see the [README](../READ
 | | Add-on | Server |
 |---|---|---|
 | Package | NuGet `Umbraco.Community.Umbrella` | npm `umbrella-mcp` |
-| Source | `src/Umbraco.Mcp/` (C#, `net10.0`) | `npm/` (TypeScript, ESM, Node 22+) |
+| Source | `src/Umbraco.Mcp/` (C#, `net10.0`) | `npm/` (TypeScript, ESM, Node 22.23.4+ / 24.22.1+ / 26.12.1+) |
 | Runs | inside the Umbraco site | on the developer's machine, started by the AI tool over stdio |
 | Job | detect products, store tool settings, health checks, client config per API user | load product tool collections into one MCP server |
 

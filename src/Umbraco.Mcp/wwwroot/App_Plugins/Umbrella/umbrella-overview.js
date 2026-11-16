@@ -336,7 +336,7 @@ export class UmbrellaOverviewElement extends UmbLitElement {
               </button>`;
             })}
           </div>
-          <p class="muted small">The MCP server runs with npx: the computer running the AI tool needs Node.js 22 or later.</p>
+          <p class="muted small">The MCP server runs with npx: the computer running the AI tool needs Node.js 22.23.4 or later (24.22.1+ on Node 24, 26.12.1+ on Node 26).</p>
         </div>
       </div>
       ${selected
