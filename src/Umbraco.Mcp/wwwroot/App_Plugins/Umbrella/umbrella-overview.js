@@ -13,9 +13,12 @@ const AREAS = { products: "Products", server: "MCP server", apiUsers: "API users
 /** McpClientConfig.SecretEnvironmentVariable. */
 const SECRET_VARIABLE = "UMBRELLA_CLIENT_SECRET";
 
+/** McpClientSnippets.PluginId. */
+const PLUGIN_ID = "umbrella@umbrella";
+
 /**
  * Per AI tool from McpClientSnippets: its icon, where the config goes, and how the secret gets in: "env" (read from
- * SECRET_VARIABLE), "prompt" (the tool asks) or "placeholder" (replaced by hand).
+ * SECRET_VARIABLE), "prompt" (the tool asks), "plugin" (the Claude Code plugin asks) or "placeholder" (replaced by hand).
  */
 const CLIENTS = {
   "claude-code": { icon: "icon-terminal", where: "Put the file in the folder you open in Claude Code.", secret: "env" },
@@ -23,6 +26,11 @@ const CLIENTS = {
     icon: "icon-terminal",
     where: "Run it in the folder you open in Claude Code. Claude Code keeps the server in your own settings.",
     secret: "placeholder",
+  },
+  "claude-code-plugin": {
+    icon: "icon-plugin",
+    where: "Run them in a terminal. They install the Umbrella plugin for Claude Code in every folder you open, with the site and client id filled in.",
+    secret: "plugin",
   },
   "claude-desktop": {
     icon: "icon-application-window",
@@ -295,6 +303,11 @@ export class UmbrellaOverviewElement extends UmbLitElement {
         <p class="muted small">macOS and Linux. Add the line to your shell profile to keep it.</p>`;
     }
     if (meta.secret === "prompt") return html`<p>Nothing to add here: ${client.label} asks for the client secret when it starts the server.</p>`;
+    if (meta.secret === "plugin") {
+      return html`<p>Start Claude Code and run this. It asks for the client secret, hides it as you type, and keeps it in your system's credential store.</p>
+        <code class="command">/plugin configure ${PLUGIN_ID}</code>
+        <p class="muted small">The same command changes the site or client id later.</p>`;
+    }
     return html`<p>
       Replace the placeholder with the API user's client secret. The ${client.format === "shell" ? "command" : "file"} then contains the
       secret, so keep it out of source control.
@@ -342,7 +355,13 @@ export class UmbrellaOverviewElement extends UmbLitElement {
       ${selected
         ? html`<div class="connect-result">
             <div class="field">
-              <h3><span class="num">3</span>${selected.format === "shell" ? "Run this command" : `Add this to ${selected.fileName ?? "the MCP configuration"}`}</h3>
+              <h3>
+                <span class="num">3</span>${selected.format === "shell"
+                  ? selected.content.includes("\n")
+                    ? "Run these commands"
+                    : "Run this command"
+                  : `Add this to ${selected.fileName ?? "the MCP configuration"}`}
+              </h3>
               <p class="muted">${meta.where}</p>
               ${insecure
                 ? html`<p class="warning">
@@ -365,7 +384,7 @@ export class UmbrellaOverviewElement extends UmbLitElement {
               ${this.#renderSecret(selected, meta)}
             </div>
             <div class="field">
-              <h3><span class="num">5</span>Restart ${selected.label.replace(/ \(command\)$/, "")}</h3>
+              <h3><span class="num">5</span>Restart ${selected.label.replace(/ \((command|plugin)\)$/, "")}</h3>
               <p class="muted">
                 It connects as ${userName ? html`<strong>${userName}</strong>` : "the API user"} and shows up in
                 <strong>Access per API user</strong>.

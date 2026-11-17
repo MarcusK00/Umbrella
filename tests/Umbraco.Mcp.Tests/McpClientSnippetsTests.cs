@@ -22,16 +22,30 @@ public class McpClientSnippetsTests
         JsonDocument.Parse(Get(id, site).Content).RootElement.GetProperty("mcpServers").GetProperty("umbraco").GetProperty("env");
 
     [Test]
-    public void Six_clients_in_order()
+    public void Seven_clients_in_order()
     {
         IReadOnlyList<McpClientSnippet> snippets = Build();
 
-        Assert.That(snippets.Select(s => s.Id), Is.EqualTo(new[] { "claude-code", "claude-code-cli", "claude-desktop", "vscode", "cursor", "other" }));
+        Assert.That(snippets.Select(s => s.Id),
+            Is.EqualTo(new[] { "claude-code", "claude-code-cli", "claude-code-plugin", "claude-desktop", "vscode", "cursor", "other" }));
         Assert.That(snippets.Select(s => s.Label),
-            Is.EqualTo(new[] { "Claude Code", "Claude Code (command)", "Claude Desktop", "VS Code", "Cursor", "Other clients" }));
+            Is.EqualTo(new[] { "Claude Code", "Claude Code (command)", "Claude Code (plugin)", "Claude Desktop", "VS Code", "Cursor", "Other clients" }));
         Assert.That(snippets.Select(s => s.FileName),
-            Is.EqualTo(new string?[] { ".mcp.json", null, "claude_desktop_config.json", ".vscode/mcp.json", ".cursor/mcp.json", null }));
-        Assert.That(snippets.Select(s => s.Format), Is.EqualTo(new[] { "json", "shell", "json", "json", "json", "json" }));
+            Is.EqualTo(new string?[] { ".mcp.json", null, null, "claude_desktop_config.json", ".vscode/mcp.json", ".cursor/mcp.json", null }));
+        Assert.That(snippets.Select(s => s.Format), Is.EqualTo(new[] { "json", "shell", "shell", "json", "json", "json", "json" }));
+    }
+
+    [Test]
+    public void Plugin_commands_add_the_marketplace_and_install_with_the_site_and_client_id()
+    {
+        const string expected =
+            "claude plugin marketplace add MarcusK00/Umbrella#v18/main\n" +
+            "claude plugin install umbrella@umbrella --config base_url=https://localhost:44399 --config client_id=umbraco-back-office-mcp --config tls_reject_unauthorized=0";
+        string remote = Get("claude-code-plugin", Remote).Content;
+
+        Assert.That(Get("claude-code-plugin").Content, Is.EqualTo(expected));
+        Assert.That(remote, Is.EqualTo(expected.Replace("https://localhost:44399", Remote).Replace(" --config tls_reject_unauthorized=0", "")));
+        Assert.That(remote, Does.Not.Contain("secret").And.Not.Contain("<").And.Not.Contain(">"));
     }
 
     [Test]
@@ -81,8 +95,12 @@ public class McpClientSnippetsTests
     [Test]
     public void Loopback_sites_skip_certificate_checks_in_every_client()
     {
-        Assert.That(Build(Site).Select(s => s.Content), Has.All.Contain("NODE_TLS_REJECT_UNAUTHORIZED"));
-        Assert.That(Build(Remote).Select(s => s.Content), Has.None.Contain("NODE_TLS_REJECT_UNAUTHORIZED"));
+        IEnumerable<string> Config(string site) =>
+            Build(site).Select(s => s.Id == "claude-code-plugin" ? s.Content.Replace("tls_reject_unauthorized=0", "NODE_TLS_REJECT_UNAUTHORIZED") : s.Content);
+
+        Assert.That(Config(Site), Has.All.Contain("NODE_TLS_REJECT_UNAUTHORIZED"));
+        Assert.That(Config(Remote), Has.None.Contain("NODE_TLS_REJECT_UNAUTHORIZED"));
+        Assert.That(Get("claude-code-plugin", Remote).Content, Does.Not.Contain("tls_reject_unauthorized"));
     }
 
     [Test]
@@ -90,8 +108,10 @@ public class McpClientSnippetsTests
     {
         IReadOnlyList<McpClientSnippet> snippets = Build(null);
 
-        Assert.That(snippets.Select(s => s.Content), Has.All.Contain("UMBRACO_BASE_URL"));
-        Assert.That(snippets.Select(s => s.Content), Has.All.Contain("https://your-site"));
+        Assert.That(snippets.Select(s => s.Content), Has.All.Contain(McpClientSnippets.SiteUrlPlaceholder));
+        Assert.That(snippets.Where(s => s.Id != "claude-code-plugin").Select(s => s.Content),
+            Has.All.Contain($"UMBRACO_BASE_URL\": \"{McpClientSnippets.SiteUrlPlaceholder}").Or.Contain($"UMBRACO_BASE_URL={McpClientSnippets.SiteUrlPlaceholder}"));
+        Assert.That(Get("claude-code-plugin", null).Content, Does.Contain($"--config base_url={McpClientSnippets.SiteUrlPlaceholder}"));
         Assert.That(snippets.Select(s => s.Content), Has.None.Contain("NODE_TLS"));
     }
 

@@ -68,6 +68,40 @@ How to build, run and test Umbrella from a fresh clone. How the code fits togeth
 
    Set `UMBRELLA_CLIENT_SECRET` to the same secret, restart your AI tool, and open `demo-site/` in it. Run `npm run build` again after changing the server, then reconnect.
 
+## The Claude Code plugin
+
+The marketplace (`.claude-plugin/marketplace.json`) and the plugin (`plugins/umbrella/`) are plain files; nothing builds them. Check them with Claude Code:
+
+```bash
+claude plugin validate .
+```
+
+```bash
+claude plugin validate ./plugins/umbrella
+```
+
+Both print `Validation passed`. The plugin validator also warns that the plugin has no icon; that only matters for Anthropic's plugin directory.
+
+To try the plugin without installing it, start Claude Code with it for one session:
+
+```bash
+claude --plugin-dir ./plugins/umbrella
+```
+
+It runs the released `umbrella-mcp` with `npx`, not the local build. `/reload-plugins` picks up edits to the plugin files.
+
+To try the full install, add this checkout as a marketplace. This writes to your own Claude Code settings; `CLAUDE_CONFIG_DIR` set to an empty folder keeps it out of them:
+
+```bash
+claude plugin marketplace add ./
+```
+
+```bash
+claude plugin install umbrella@umbrella --config base_url=https://localhost:44399 --config client_id=umbraco-back-office-mcp --config tls_reject_unauthorized=0
+```
+
+Then run `/plugin configure umbrella@umbrella` in Claude Code to add the secret. `claude plugin marketplace remove umbrella` removes it again.
+
 ## Tests
 
 ```bash

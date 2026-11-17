@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "umbraco": {
+      "command": "npx",
+      "args": ["-y", "umbrella-mcp@18.0.0"],
+      "env": {
+        "UMBRACO_BASE_URL": "${user_config.base_url}",
+        "UMBRACO_CLIENT_ID": "${user_config.client_id}",
+        "UMBRACO_CLIENT_SECRET": "${user_config.client_secret}",
+        "NODE_TLS_REJECT_UNAUTHORIZED": "${user_config.tls_reject_unauthorized}"
+      }
+    }
+  }
+}
