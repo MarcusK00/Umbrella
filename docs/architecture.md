@@ -30,7 +30,7 @@ npm/src/
   modules/          one file per product: cms.ts, forms.ts, automate.ts, engage.ts
   types/            declarations for the product packages' ./collections (product-modules.d.ts)
 tests/Umbraco.Mcp.Tests/   NUnit tests for the add-on
-demo-site/          Umbraco 17 with Forms, Automate and Engage, referencing the add-on project
+demo-site/          Umbraco 18 with Forms, Automate and Engage, referencing the add-on project
 scripts/            API user setup, end-to-end check, pack check
 ```
 
@@ -48,13 +48,13 @@ Each product has a detector in `Detection/Detectors/`. Apart from CMS (always in
 | `ApiName` | `forms-management` | **Enabled** = a live controller carries `[MapToApi("forms-management")]` |
 | `SectionAlias` | `Umb.Section.Forms` | The section the API user needs ("MCP API user" check); optional |
 
-Detection goes through two seams, `ILoadedAssemblyProvider` (the AppDomain) and `IRegisteredApiProvider` (MVC action descriptors, not Swagger options), so tests can fake both. The version comes from the assembly's informational version, without the `+commit` suffix.
+Detection goes through two seams, `ILoadedAssemblyProvider` (the AppDomain) and `IRegisteredApiProvider` (MVC action descriptors, not Swagger options), so tests can fake both. The version comes from the assembly's informational version, without the `+commit` suffix. Pick an assembly that holds the product's Management API and carries its version: Engage 18 ships `Umbraco.Engage.Core` as a package without an assembly, so Engage is detected by `Umbraco.Engage.Web`.
 
 The add-on takes **no package dependency** on any product: detection is by name only. `McpCapabilitiesService` catches detector exceptions and turns them into a product issue, so one broken detector never breaks the endpoint. Detectors are registered in `McpComposer`; their order there is the order products appear everywhere else.
 
 ### Endpoints
 
-All under `/umbraco/management/api/v1/mcp/`, in the Management API's "MCP" Swagger group.
+All under `/umbraco/management/api/v1/mcp/`, tagged "MCP" in the Management API document (`/umbraco/openapi/management.json`; Umbraco 18 builds it with Microsoft.AspNetCore.OpenApi, not Swashbuckle). Actions never declare 401 or 403 with `[ProducesResponseType]`: Umbraco 18 adds both to every backoffice operation and throws on a duplicate, which fails the whole document with a 500 (`OpenApiContractTests`).
 
 | Endpoint | Who may call it | What it does |
 |---|---|---|
@@ -113,7 +113,7 @@ A team can give each developer an API user, and the settings can differ per user
 1. **Sign in.** `initializeUmbracoFetch` with the three `UMBRACO_*` variables (missing → exit).
 2. **Load CMS** and install the client context with the CMS client as the default.
 3. **Credentials check.** `getUserCurrent()` fails fast (exit), and its result is the `user` that `collection.tools(user)` needs. `describeStartupError` (`startup-error.ts`) names the cause in the exit message: the site is not reachable (a socket error code such as `ECONNREFUSED`), its certificate was not accepted, or the token request was refused (bad credentials); anything else keeps the general message and prints the raw error.
-4. **Version check.** The site's version goes to CMS first (`LoadedModule.setUmbracoVersion`), so CMS lists the tools that need Umbraco 17.4 or 17.6. Then the check against Umbraco major 17 (the toolkit's `checkUmbracoVersion`). A mismatch does not stop startup: its message goes into the server instructions and `get-mcp-health`.
+4. **Version check.** The site's version goes to CMS first (`LoadedModule.setUmbracoVersion`), so CMS can offer tools that need a newer minor (CMS 17 gated tools on 17.4 and 17.6; CMS 18.1.11 takes the version but gates none). Then the check against Umbraco major 18 (the toolkit's `checkUmbracoVersion`). A mismatch does not stop startup: its message goes into the server instructions and `get-mcp-health`.
 5. **Capabilities.** `fetchCapabilities()` returns `ok`, `no-addon` (HTTP 404) or `unavailable`.
 6. **Select modules** (below).
 7. **Phase 1: load** each selected product module. A product package that isn't installed, or that has its own nested toolkit copy, is skipped with an issue. A load failure becomes an issue, never a crash.

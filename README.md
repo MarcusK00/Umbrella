@@ -2,7 +2,7 @@
 
 # Umbrella
 
-One MCP server for your Umbraco 17 site. Umbrella detects which Umbraco products the site has installed and gives your AI tool (Claude Code, VS Code, Cursor, Claude Desktop) the tools for exactly those products.
+One MCP server for your Umbraco 18 site. Umbrella detects which Umbraco products the site has installed and gives your AI tool (Claude Code, VS Code, Cursor, Claude Desktop) the tools for exactly those products.
 
 | Package | Where it runs | What it does |
 |---|---|---|
@@ -37,7 +37,9 @@ Without the add-on, the server still starts, with CMS tools only. Details for co
 
 ## Get started
 
-You need Umbraco 17, and Node.js 22.23.4 or later (24.22.1 or later on Node 24, 26.12.1 or later on Node 26) on the machine that runs your AI tool.
+You need Umbraco 18, and Node.js 22.23.4 or later (24.22.1 or later on Node 24, 26.12.1 or later on Node 26) on the machine that runs your AI tool.
+
+On Umbraco 17, use Umbrella 17.x instead: follow the [Umbraco 17 documentation](https://github.com/MarcusK00/Umbrella/blob/v17/main/README.md), and add `--version` with the newest 17.x version from [the NuGet version list](https://www.nuget.org/packages/Umbraco.Community.Umbrella#versions-body-tab), because `dotnet add package` without it installs the newest version, which needs Umbraco 18.
 
 1. **Install the add-on** in your site and restart it:
 
@@ -92,7 +94,7 @@ Every tab on the Overview is a variant of this config:
   "mcpServers": {
     "umbraco": {
       "command": "npx",
-      "args": ["-y", "umbrella-mcp@17.0.1"],
+      "args": ["-y", "umbrella-mcp@18.0.0"],
       "env": {
         "UMBRACO_BASE_URL": "https://your-site",
         "UMBRACO_CLIENT_ID": "umbraco-back-office-mcp",
@@ -215,7 +217,7 @@ If none of this explains it, [open an issue](https://github.com/MarcusK00/Umbrel
 | The Overview's config has the wrong client id | The API user picker is on another user, or no API user has a client id yet | Pick the API user under **Connect an AI tool**. Only API users with client credentials are listed |
 | The server exits with `Error: UMBRACO_BASE_URL is required.` (or another variable) | The MCP client config has no `env` entry for it | Use the config from Settings → Umbrella → Overview |
 | The server exits with `its HTTPS certificate was not accepted`, or other TLS errors such as `self-signed certificate` | Node does not trust the site's certificate. The config from the Overview only turns checks off for `localhost` | Trust the certificate with `NODE_EXTRA_CA_CERTS=<path to the .pem>`, or for a local development host only, add `NODE_TLS_REJECT_UNAUTHORIZED=0` to `env` |
-| Only `cms--` tools are listed | The add-on is not installed or not reachable, or a product is not installed, not enabled, or not on major version 17 | `get-mcp-health` gives the reason per product. "MCP products" in the backoffice shows what the site detected |
+| Only `cms--` tools are listed | The add-on is not installed or not reachable, or a product is not installed, not enabled, or not on major version 18 | `get-mcp-health` gives the reason per product. "MCP products" in the backoffice shows what the site detected |
 | One product's tools are missing although it is installed | It is switched **Off** in Settings → Umbrella → Tool Permissions, in the defaults or for this API user | `get-mcp-health` notes "Switched off in the backoffice". Set its access to another step and reconnect |
 | A product's tools are missing, and `get-mcp-health` says the user groups don't grant its section | The API user's groups don't grant that product's section, so the MCP server leaves it out | If the user should have it, grant the section to one of its groups and reconnect. The "MCP API user" check names the section |
 | "MCP client setup", the dashboard or `get-mcp-health` says the versions differ | Your AI tool's config still pins the `umbrella-mcp` of an earlier add-on | Set `umbrella-mcp@<add-on version>` in the config |
@@ -226,14 +228,14 @@ If none of this explains it, [open an issue](https://github.com/MarcusK00/Umbrel
 
 | Component | Version |
 |---|---|
-| Umbraco CMS | 17.x (.NET 10) |
+| Umbraco CMS | 18.x (.NET 10) |
 | Node.js | 22.23.4+, 24.22.1+ or 26.12.1+ |
-| Umbraco Forms, Umbraco Automate, Umbraco Engage | 17.x |
+| Umbraco Forms, Umbraco Automate, Umbraco Engage | 18.x |
 | `@umbraco-cms/mcp-server-sdk` | 1.0.0-beta.48 (one copy shared by all products) |
-| `@umbraco-cms/mcp-dev` | 17.6.13 |
-| `@umbraco-forms/mcp` | 17.7.0 |
-| `@umbraco-automate/mcp` | 17.6.0 |
-| `@umbraco-engage/mcp` | 17.5.0 |
+| `@umbraco-cms/mcp-dev` | 18.1.11 |
+| `@umbraco-forms/mcp` | 18.3.0 |
+| `@umbraco-automate/mcp` | 18.6.0 |
+| `@umbraco-engage/mcp` | 18.2.0 |
 
 ## Known limitations
 

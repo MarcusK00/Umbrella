@@ -5,7 +5,7 @@ export const automateModule: McpProductModule = {
   displayName: "Umbraco Automate",
   toolPrefix: "automate--",
   packageName: "@umbraco-automate/mcp",
-  expectedMajor: "17",
+  expectedMajor: "18",
   description: "Umbraco Automate: automations that react to triggers and run steps.",
   useWhen: [
     "automations: creating, editing, publishing and triggering them",

@@ -8,7 +8,7 @@ A product is one npm module file and one .NET detector. Nothing in `npm/src/core
 |---|---|---|
 | id | `engage` | Choose it: lowercase, used as the tool prefix `engage--` |
 | MCP package | `@umbraco-engage/mcp` | The product's MCP repository |
-| Assembly name | `Umbraco.Engage.Core` | An assembly that is always loaded when the product is installed |
+| Assembly name | `Umbraco.Engage.Web` | An assembly that is always loaded when the product is installed |
 | Management API name | `engage-management` | The `[MapToApi("…")]` attribute on the product's Management API controllers |
 | Backoffice section | `Umb.Section.Engage` | The product's section alias, if it has one; it is what the API user needs |
 
@@ -39,7 +39,7 @@ export const engageModule: McpProductModule = {
   displayName: "Umbraco Engage",
   toolPrefix: "engage--",
   packageName: "@umbraco-engage/mcp",
-  expectedMajor: "17",
+  expectedMajor: "18",
   description: "Umbraco Engage: personalisation, A/B tests and visitor analytics.",
   useWhen: [
     "A/B tests, their projects and variants",
@@ -81,7 +81,7 @@ public sealed class EngageDetector(ILoadedAssemblyProvider assemblies, IRegister
 {
     public override string Id => "engage";
     public override string DisplayName => "Umbraco Engage";
-    protected override string AssemblyName => "Umbraco.Engage.Core";
+    protected override string AssemblyName => "Umbraco.Engage.Web";
     protected override string ApiName => "engage-management";
     public override string? SectionAlias => "Umb.Section.Engage";   // null if the product has no section
 }

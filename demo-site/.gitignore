@@ -459,6 +459,7 @@ $RECYCLE.BIN/
 
 # Local appsettings.json override
 appsettings.Local.json
+appsettings.Local.v18.json
 
 # JSON schema files for appsettings.json
 appsettings-schema.json

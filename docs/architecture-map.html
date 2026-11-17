@@ -168,7 +168,7 @@ footer { margin-block-start: 72px; padding-block-start: 20px; border-top: 1px so
           <rect class="zone" x="16" y="30" width="684" height="584" rx="14"/>
           <text class="eb" x="34" y="54">YOUR MACHINE</text>
           <rect class="zone" x="860" y="30" width="304" height="584" rx="14"/>
-          <text class="eb" x="878" y="54">WEB SERVER · UMBRACO 17 SITE</text>
+          <text class="eb" x="878" y="54">WEB SERVER · UMBRACO 18 SITE</text>
 
           <!-- AI tool column -->
           <rect class="box client" x="40" y="80" width="200" height="96" rx="8"/>
@@ -452,7 +452,7 @@ footer { margin-block-start: 72px; padding-block-start: 20px; border-top: 1px so
           <tr><td><code>configureApiClient</code></td><td>Installing the one provider that every product handler's <code>getApiClient()</code> reads from</td></tr>
           <tr><td><code>createCollectionConfigLoader</code>, <code>shouldIncludeTool</code></td><td>Filtering, so <code>UMBRACO_TOOL_MODES</code>, <code>UMBRACO_EXCLUDE_TOOLS</code> and the rest mean what they mean in the product servers</td></tr>
           <tr><td><code>registerToolCollection</code>, <code>createToolAnnotations</code></td><td>Registering the tools the way the toolkit expects</td></tr>
-          <tr><td><code>checkUmbracoVersion</code>, <code>configureVersionCheckHook</code></td><td>The Umbraco 17 check</td></tr>
+          <tr><td><code>checkUmbracoVersion</code>, <code>configureVersionCheckHook</code></td><td>The Umbraco 18 check</td></tr>
           <tr><td><code>useDraft202012ToolSchemas</code></td><td>Fixing up the tool schemas after registration</td></tr>
           <tr><td><code>createToolResult</code>, <code>ToolCollectionExport</code> and other types</td><td><code>get-mcp-health</code> and type checking</td></tr>
         </tbody>
@@ -563,13 +563,13 @@ footer { margin-block-start: 72px; padding-block-start: 20px; border-top: 1px so
   <span class="k">"products"</span>: [
     { <span class="k">"id"</span>: <span class="v">"cms"</span>, <span class="k">"displayName"</span>: <span class="v">"Umbraco CMS"</span>,
       <span class="k">"installed"</span>: true, <span class="k">"enabled"</span>: true,
-      <span class="k">"version"</span>: <span class="v">"17.7.0"</span>, <span class="k">"issues"</span>: [],
+      <span class="k">"version"</span>: <span class="v">"18.3.2"</span>, <span class="k">"issues"</span>: [],
       <span class="k">"disabledCollections"</span>: <span class="hl">null</span>,
       <span class="k">"readOnly"</span>: false, <span class="k">"noDestructive"</span>: false, <span class="k">"off"</span>: false,
       <span class="k">"settingsScope"</span>: <span class="v">"site"</span> },
     { <span class="k">"id"</span>: <span class="v">"forms"</span>, <span class="k">"displayName"</span>: <span class="v">"Umbraco Forms"</span>,
       <span class="k">"installed"</span>: true, <span class="k">"enabled"</span>: true,
-      <span class="k">"version"</span>: <span class="v">"17.6.1"</span>, <span class="k">"issues"</span>: [],
+      <span class="k">"version"</span>: <span class="v">"18.3.0"</span>, <span class="k">"issues"</span>: [],
       <span class="k">"disabledCollections"</span>: <span class="hl">["licensing", "updates"]</span>,
       <span class="k">"readOnly"</span>: false, <span class="k">"noDestructive"</span>: <span class="hl">true</span>, <span class="k">"off"</span>: false,
       <span class="k">"settingsScope"</span>: <span class="hl">"user"</span> },
@@ -621,7 +621,7 @@ footer { margin-block-start: 72px; padding-block-start: 20px; border-top: 1px so
           <text class="lbl mid" x="650" y="224">GET current user · bad credentials → exit</text>
 
           <rect class="dot" x="464" y="266" width="12" height="20" rx="2"/>
-          <text class="lbl" x="488" y="280">GET server information: major 17? mismatch warns</text>
+          <text class="lbl" x="488" y="280">GET server information: major 18? mismatch warns</text>
 
           <line class="ln site" x1="472" y1="320" x2="826" y2="320" marker-end="url(#ah-site)"/>
           <text class="lbl m mid c-site" x="650" y="312">GET /mcp/capabilities</text>
@@ -674,7 +674,7 @@ footer { margin-block-start: 72px; padding-block-start: 20px; border-top: 1px so
           <text class="s mid" x="660" y="164">capabilities came back ok</text>
           <rect class="box site" x="820" y="110" width="200" height="80" rx="8"/>
           <text class="t mid" x="920" y="144">On the site and usable?</text>
-          <text class="s mid" x="920" y="164">installed, enabled, major 17</text>
+          <text class="s mid" x="920" y="164">installed, enabled, major 18</text>
 
           <line class="ln ok" x1="140" y1="110" x2="140" y2="62" marker-end="url(#ah-ok)"/>
           <text class="s" x="148" y="90">yes</text>

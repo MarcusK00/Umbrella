@@ -3,10 +3,10 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
-    <!-- The supported Umbraco versions, which the NuGet package declares as its dependency range: from 17.0.0 (keep the
-         minimum, so sites on any 17.x can install it) up to but not including 18. The Umbraco Marketplace shows the range
-         as the supported versions, and NuGet won't install the add-on on Umbraco 18, which umbrella-mcp refuses. -->
-    <PackageVersion Include="Umbraco.Cms.Api.Management" Version="[17.0.0, 18.0.0)" />
+    <!-- The supported Umbraco versions, which the NuGet package declares as its dependency range: from 18.0.0 (keep the
+         minimum, so sites on any 18.x can install it) up to but not including 19. The Umbraco Marketplace shows the range
+         as the supported versions, and NuGet won't install the add-on on Umbraco 19, which umbrella-mcp refuses. -->
+    <PackageVersion Include="Umbraco.Cms.Api.Management" Version="[18.0.0, 19.0.0)" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
     <PackageVersion Include="NUnit" Version="3.14.0" />
     <PackageVersion Include="NUnit3TestAdapter" Version="6.2.0" />

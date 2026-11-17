@@ -23,7 +23,7 @@ import { checkPackageInstalled, checkSingleSdk } from "./sdk-instance.js";
 import { describeStartupError } from "./startup-error.js";
 import { DuplicateToolNameError, listToolNames, registerModuleTools, type RegistrationContext } from "./tool-registrar.js";
 
-const EXPECTED_UMBRACO_MAJOR = "17";
+const EXPECTED_UMBRACO_MAJOR = "18";
 
 function requireEnv(env: NodeJS.ProcessEnv, name: string): string {
   const value = env[name]?.trim();
