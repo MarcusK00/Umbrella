@@ -217,3 +217,25 @@ internal sealed class FakeApiUserDirectory(params McpApiUserInfo[] users) : IMcp
 
     public Task<McpApiUserInfo?> GetAsync(Guid key) => Task.FromResult(users.FirstOrDefault(u => u.Key == key));
 }
+
+/// <summary>A throwaway implementation of a large Umbraco interface: only the listed members answer.</summary>
+internal class Stub : DispatchProxy
+{
+    private Dictionary<string, object?> _answers = new();
+
+    public static T Create<T>(Dictionary<string, object?> answers)
+        where T : class
+    {
+        T proxy = Create<T, Stub>();
+        ((Stub)(object)proxy)._answers = answers;
+        return proxy;
+    }
+
+    protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+    {
+        string name = targetMethod!.Name.StartsWith("get_", StringComparison.Ordinal) ? targetMethod.Name[4..] : targetMethod.Name;
+        return _answers.TryGetValue(name, out object? answer)
+            ? answer
+            : throw new NotSupportedException($"Stub has no answer for {targetMethod.Name}.");
+    }
+}
