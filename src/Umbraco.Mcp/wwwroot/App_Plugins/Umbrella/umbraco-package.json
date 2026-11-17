@@ -9,6 +9,24 @@
       "weight": -100,
       "meta": { "label": "Umbrella", "pathname": "umbrella" },
       "conditions": [{ "alias": "Umb.Condition.SectionAlias", "match": "Umb.Section.Settings" }]
+    },
+    {
+      "type": "modal",
+      "alias": "Umbrella.Modal.NewConnection",
+      "name": "Umbrella new connection",
+      "element": "/App_Plugins/Umbrella/umbrella-new-connection-modal.js"
+    },
+    {
+      "type": "modal",
+      "alias": "Umbrella.Modal.ApiUserInfo",
+      "name": "Umbrella API user info",
+      "element": "/App_Plugins/Umbrella/umbrella-api-user-info-modal.js"
+    },
+    {
+      "type": "modal",
+      "alias": "Umbrella.Modal.NewSecret",
+      "name": "Umbrella new secret",
+      "element": "/App_Plugins/Umbrella/umbrella-new-secret-modal.js"
     }
   ]
 }

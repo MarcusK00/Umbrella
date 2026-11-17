@@ -31,6 +31,7 @@ Umbraco 17 and Umbraco 18 each have their own branches: `v17/dev` and `v17/main`
 | `no-local-deps` | an npm `dependencies` entry is a `file:`, `link:`, git or path reference | Use a registry version, or keep it in `devDependencies` + `external` (see [adding-a-product.md](adding-a-product.md), step 1) |
 | `no-tracked-secrets` | a `.env`, `*.tgz`, `appsettings.local.json`, `demo-site/.mcp.json` or demo-site data/logs file is tracked | `git rm --cached <file>` |
 | `readme-versions` | an `umbrella-mcp@<x>` in a README differs from the npm `version` | Update the README |
+| `dashboard-imports` | a dashboard module (`src/Umbraco.Mcp/wwwroot/App_Plugins/Umbrella`) imports a name that the imported module doesn't export in the released branch of this major (`origin/v<major>/main`, or `GUARD_RELEASED_REF`), or that ref isn't available. A browser can keep an old cached copy of a released module, and the missing name leaves the Umbrella tab blank (`scripts/check-dashboard-imports.mjs`) | Put the new export in a new module and import it from there; never remove or rename a released export. Locally, `git fetch origin v<major>/main` first |
 
 ## Run it locally
 

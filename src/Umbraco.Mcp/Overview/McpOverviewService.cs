@@ -4,6 +4,7 @@ using Umbraco.Cms.Core.Models.Membership;
 using Umbraco.Mcp.ApiUser;
 using Umbraco.Mcp.Capabilities;
 using Umbraco.Mcp.Client;
+using Umbraco.Mcp.Connections;
 using Umbraco.Mcp.Detection;
 using Umbraco.Mcp.ToolSettings;
 
@@ -14,6 +15,8 @@ public sealed class McpOverviewService(
     IMcpCapabilitiesService capabilities,
     IMcpToolSettingsStore toolSettings,
     IMcpApiUserProvider apiUsers,
+    IMcpCreatedUserStore created,
+    IMcpApiUserDirectory directory,
     IEnumerable<IMcpProductDetector> detectors,
     ILogger<McpOverviewService> logger) : IMcpOverviewService
 {
@@ -36,8 +39,9 @@ public sealed class McpOverviewService(
         string addonVersion = caps?.AddonVersion ?? McpAddon.Version;
         IReadOnlyList<McpProductStatus> products = caps?.Products ?? [];
         var sectionByProduct = detectors.ToDictionary(d => d.Id, d => d.SectionAlias);
+        IReadOnlyList<McpApiUser> notConnected = await ReadNotConnectedAsync(users);
         var userCapabilities = new Dictionary<Guid, McpCapabilities>();
-        foreach (McpApiUser u in users ?? [])
+        foreach (McpApiUser u in (users ?? []).Concat(notConnected))
         {
             if (Read(() => capabilities.GetCapabilities(u.Key), $"the tool access of \"{u.Name}\"") is { } own)
             {
@@ -48,14 +52,59 @@ public sealed class McpOverviewService(
         return new McpOverview(
             addonVersion,
             BuildFindings(caps, catalogue, users, sectionByProduct, addonVersion, userCatalogues, userCapabilities),
-            products.Select(BuildProduct).ToList(),
+            products.Select(p => BuildProduct(p, sectionByProduct.GetValueOrDefault(p.Id))).ToList(),
             BuildServer(catalogue, addonVersion),
             (users ?? []).Select(u => BuildUser(
-                u,
-                products,
-                sectionByProduct,
-                userCatalogues.GetValueOrDefault(u.Key),
-                userCapabilities.GetValueOrDefault(u.Key))).ToList());
+                    u,
+                    products,
+                    sectionByProduct,
+                    userCatalogues.GetValueOrDefault(u.Key),
+                    userCapabilities.GetValueOrDefault(u.Key),
+                    connected: true))
+                .Concat(notConnected.Select(u => BuildUser(
+                    u,
+                    products,
+                    sectionByProduct,
+                    ownCatalogue: null,
+                    userCapabilities.GetValueOrDefault(u.Key),
+                    connected: false)))
+                .ToList());
+    }
+
+    /// <summary>
+    /// The API users the New connection flow created that have not connected yet, sorted by name. A user that no
+    /// longer exists, or is no longer an API user, is left out. Reading them failing leaves them all out.
+    /// </summary>
+    private async Task<IReadOnlyList<McpApiUser>> ReadNotConnectedAsync(IReadOnlyList<McpApiUser>? connected)
+    {
+        var result = new List<McpApiUser>();
+        try
+        {
+            var connectedKeys = (connected ?? []).Select(u => u.Key).ToHashSet();
+            foreach (McpConnection record in created.GetAll().Where(c => !connectedKeys.Contains(c.UserKey)))
+            {
+                if (await directory.GetAsync(record.UserKey) is not { } info)
+                {
+                    continue;
+                }
+
+                result.Add(new McpApiUser(
+                    info.Key,
+                    info.Name,
+                    info.State,
+                    info.AllowedSections ?? [],
+                    info.ClientIds,
+                    record.LastConnected,
+                    info.Groups));
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not read the API users created from the dashboard. The overview leaves them out.");
+            return [];
+        }
+
+        return result.OrderBy(u => u.Name, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     private T? Read<T>(Func<T> read, string what) where T : class
@@ -108,8 +157,8 @@ public sealed class McpOverviewService(
     private static string AccessLevel(McpProductStatus p) =>
         p.Off ? McpToolLevel.Off : p.ReadOnly ? McpToolLevel.ReadOnly : p.NoDestructive ? McpToolLevel.NoDestructive : McpToolLevel.Full;
 
-    private static McpOverviewProduct BuildProduct(McpProductStatus p) =>
-        new(p.Id, p.DisplayName, p.Installed, p.Enabled, p.Version, p.Issues, AccessLevel(p));
+    private static McpOverviewProduct BuildProduct(McpProductStatus p, string? sectionAlias) =>
+        new(p.Id, p.DisplayName, p.Installed, p.Enabled, p.Version, p.Issues, AccessLevel(p), sectionAlias);
 
     private static McpServerReport? BuildServer(McpToolCatalogue? catalogue, string addonVersion)
     {
@@ -129,7 +178,8 @@ public sealed class McpOverviewService(
         IReadOnlyList<McpProductStatus> products,
         IReadOnlyDictionary<string, string?> sectionByProduct,
         McpToolCatalogue? ownCatalogue,
-        McpCapabilities? userCapabilities)
+        McpCapabilities? userCapabilities,
+        bool connected)
     {
         var reachable = new List<string>();
         var unreachable = new List<string>();
@@ -155,14 +205,16 @@ public sealed class McpOverviewService(
             user.Name,
             user.ClientIds.ToList(),
             McpUserStates.Name(user.State),
-            user.LastConnected,
+            connected ? user.LastConnected : null,
             reachable,
             unreachable,
             ownCatalogue?.UmbrellaVersion,
             ownCatalogue is null ? null : LatestReportedAt(ownCatalogue),
             access.Count == 0 || access.Any(a => a.ToolCount is null) ? null : access.Sum(a => a.ToolCount),
             access,
-            (user.Groups ?? []).Order(StringComparer.OrdinalIgnoreCase).ToList());
+            (user.Groups ?? []).Order(StringComparer.OrdinalIgnoreCase).ToList(),
+            user.AllowedSections.ToList(),
+            connected);
     }
 
     /// <summary>
