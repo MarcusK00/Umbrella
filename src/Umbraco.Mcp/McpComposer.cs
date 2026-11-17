@@ -26,6 +26,7 @@ public sealed class McpComposer : IComposer
 
         builder.Services.AddSingleton<IMcpCapabilitiesService, McpCapabilitiesService>();
         builder.Services.AddSingleton<IMcpConnectionStore, KeyValueMcpConnectionStore>();
+        builder.Services.AddSingleton<IMcpCreatedUserStore, KeyValueMcpCreatedUserStore>();
         builder.Services.AddSingleton<IMcpToolSettingsStore, KeyValueMcpToolSettingsStore>();
         builder.Services.AddScoped<IMcpApiUserProvider, ConnectedMcpApiUserProvider>();
         builder.Services.AddScoped<IMcpApiUserDirectory, UserServiceMcpApiUserDirectory>();
