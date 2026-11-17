@@ -27,24 +27,24 @@ The server signs in as an Umbraco API user, asks the site which products it has,
 
 ## Get started
 
-1. **Install the package** and restart the site: `dotnet add package Umbraco.Community.Umbrella`
+1. **Install the package** and restart the site: `dotnet add package Umbraco.Community.Umbrella`. Umbrella's major version follows Umbraco's, and without `--version` this installs the newest version, which needs the newest Umbraco. On an older Umbraco, add `--version` with the newest matching version from [the NuGet version list](https://www.nuget.org/packages/Umbraco.Community.Umbrella#versions-body-tab), for example the newest 17.x on Umbraco 17.
 2. **Create an API user** (Users → Create → API user) with client credentials, and give its groups the sections the AI should work in. Copy the secret when you create it: Umbraco only keeps a hash.
 3. **Copy the config** from **Settings → Umbrella → Overview**: pick the API user and your AI tool, and follow the steps it shows. For Claude Code you can install the plugin instead.
 4. **Say hello.** Ask the AI to *"call get-mcp-health"*. It lists each product and how many tools it loaded.
 
-The [setup guide](https://github.com/MarcusK00/Umbrella/blob/v17/main/README.md) has each step in detail, including the secret, the Claude Code plugin and troubleshooting.
+The setup guide has each step in detail, including the secret, the Claude Code plugin and troubleshooting: [for Umbraco 18](https://github.com/MarcusK00/Umbrella/blob/v18/main/README.md) and [for Umbraco 17](https://github.com/MarcusK00/Umbrella/blob/v17/main/README.md).
 
 ## Requirements
 
 | | |
 |---|---|
-| Umbraco | 17 |
+| Umbraco | 17 (Umbrella 17.x) or 18 (Umbrella 18.x) |
 | Products | Umbraco CMS, Forms, Automate, Engage |
 | AI tool machine | Node.js 22.23.4+, 24.22.1+ or 26.12.1+ |
 
 ## More
 
-- [Full documentation](https://github.com/MarcusK00/Umbrella/blob/v17/main/README.md): configuration, tool groups, troubleshooting and known limitations
+- Full documentation, [Umbraco 18](https://github.com/MarcusK00/Umbrella/blob/v18/main/README.md) or [Umbraco 17](https://github.com/MarcusK00/Umbrella/blob/v17/main/README.md): configuration, tool groups, troubleshooting and known limitations
 - [Issues on GitHub](https://github.com/MarcusK00/Umbrella/issues): bugs, ideas and questions
 - [Security policy](https://github.com/MarcusK00/Umbrella/blob/v17/main/SECURITY.md): report vulnerabilities privately
 
