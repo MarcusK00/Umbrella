@@ -4,7 +4,7 @@ const MANAGEMENT_BASE = "/umbraco/management/api/v1/";
  * Calls Umbraco's Management API as the signed-in backoffice user. `path` is the part after
  * `/umbraco/management/api/v1/`, for example "user/current". Returns the parsed JSON, `{ location }` for a 201 (the
  * created item's address), or null for any other empty response. Throws with the problem's detail, else its title,
- * else "HTTP <status>".
+ * else a sentence for a bare 401/403, else "HTTP <status>".
  */
 export async function managementRequest(auth, method, path, body) {
   const config = auth.getOpenApiConfiguration();
@@ -19,7 +19,12 @@ export async function managementRequest(auth, method, path, body) {
   });
   if (!response.ok) {
     const problem = await response.json().catch(() => null);
-    throw new Error(problem?.detail || problem?.title || `HTTP ${response.status}`);
+    // Umbraco answers a refused permission check with a bare 401 or 403, for example a user group the caller isn't in.
+    const refused =
+      response.status === 401 || response.status === 403
+        ? `Umbraco refused this (HTTP ${response.status}). Your user may not be allowed to do it, for example to give a user group it isn't a member of, or your session has expired.`
+        : null;
+    throw new Error(problem?.detail || problem?.title || refused || `HTTP ${response.status}`);
   }
   if (response.status === 201) return { location: response.headers.get("Location") };
   const text = await response.text();
