@@ -219,13 +219,13 @@ public sealed class McpToolSettingsController(
 
     /// <summary>
     /// The MCP server calls this once when it starts, signed in as its API user, with every tool group it loaded. Calls
-    /// from normal backoffice users (for example Swagger) are not the MCP server and are refused.
+    /// from normal backoffice users (for example the API docs page) are not the MCP server and are refused with 403, which
+    /// is not declared here: Umbraco adds 401 and 403 to every backoffice operation itself (OpenApiContractTests).
     /// </summary>
     [HttpPost("catalogue")]
     [MapToApiVersion("1.0")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public IActionResult PostCatalogue([FromBody] McpCatalogueReport report)
     {
         IUser? caller = backOfficeSecurityAccessor.BackOfficeSecurity?.CurrentUser;
