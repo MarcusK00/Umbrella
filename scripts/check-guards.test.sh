@@ -2,7 +2,7 @@
 # Tests for scripts/check-guards.sh: builds a small fixture git repo per case in a temp dir and checks the guard's verdict.
 set -euo pipefail
 GUARD="$(cd "$(dirname "$0")" && pwd)/check-guards.sh"
-IDS="hmac-key no-local-deps no-tracked-secrets readme-versions"
+IDS="hmac-key no-local-deps no-tracked-secrets readme-versions dashboard-imports"
 FIXTURE=""
 FAILED=0
 
@@ -122,5 +122,57 @@ run_case "two failures" 1 hmac-key readme-versions
 
 make_fixture
 RUN_FROM="$FIXTURE/npm" run_case "from subfolder" 0
+
+# Dashboard modules: a released module's exports must still cover what newer modules import from it.
+DASH=src/Umbraco.Mcp/wwwroot/App_Plugins/Umbrella
+
+# release: commits the fixture as it is and points the released ref at that commit.
+release() {
+  git -C "$FIXTURE" -c user.name=t -c user.email=t@example.invalid commit -qm released
+  git -C "$FIXTURE" branch -f released
+  export GUARD_RELEASED_REF=released
+}
+
+make_fixture
+write "$DASH/umbrella-api.js" 'export async function request() {}
+export function formatDate() {}'
+release
+write "$DASH/umbrella-users-api.js" 'import { request } from "./umbrella-api.js";'
+run_case "dashboard import of a released name" 0
+
+make_fixture
+write "$DASH/umbrella-api.js" 'export async function request() {}'
+release
+write "$DASH/umbrella-api.js" 'export async function request() {}
+export async function managementRequest() {}'
+write "$DASH/umbrella-users-api.js" 'import {
+  request,
+  managementRequest as call,
+} from "./umbrella-api.js";'
+run_case "dashboard import of a name the released module lacks" 1 dashboard-imports
+
+make_fixture
+write "$DASH/umbrella-api.js" 'export async function request() {}'
+release
+write "$DASH/umbrella-management-api.js" 'export async function managementRequest() {}'
+write "$DASH/umbrella-users-api.js" 'import { managementRequest } from "./umbrella-management-api.js";'
+run_case "dashboard import from a new module" 0
+
+make_fixture
+write "$DASH/umbrella-modals.js" 'const a = 1;
+export { a as TOKEN };'
+write "$DASH/umbrella-dashboard.js" 'export default class X {}'
+release
+write "$DASH/umbrella-overview.js" 'import Dashboard from "./umbrella-dashboard.js";
+import { TOKEN } from "./umbrella-modals.js";
+import "./umbrella-modals.js";'
+run_case "dashboard default and re-exported names" 0
+
+make_fixture
+write "$DASH/umbrella-api.js" 'export async function request() {}'
+release
+export GUARD_RELEASED_REF=does-not-exist
+run_case "dashboard released ref missing" 1 dashboard-imports
+unset GUARD_RELEASED_REF
 
 exit "$FAILED"

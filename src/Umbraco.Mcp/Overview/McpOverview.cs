@@ -17,6 +17,7 @@ public static class McpFindingArea
 
 /// <summary>
 /// A detected product. <paramref name="Access"/> is "full", "noDestructive", "readOnly" or "off" (the site's defaults).
+/// <paramref name="SectionAlias"/> is the backoffice section an API user needs for its tools; null when it needs none (CMS).
 /// A product a connected MCP server should have loaded but did not is a products finding.
 /// </summary>
 public sealed record McpOverviewProduct(
@@ -26,7 +27,8 @@ public sealed record McpOverviewProduct(
     bool Enabled,
     string? Version,
     IReadOnlyList<string> Issues,
-    string Access);
+    string Access,
+    string? SectionAlias);
 
 /// <summary>What the MCP server last reported, and whether it is the add-on's version.</summary>
 public sealed record McpServerReport(string Version, DateTimeOffset ReportedAt, bool MatchesAddon);
@@ -42,30 +44,39 @@ public sealed record McpServerReport(string Version, DateTimeOffset ReportedAt, 
 public sealed record McpOverviewAccess(string ProductId, string DisplayName, string Level, string Scope, int? ToolCount, bool SectionAccess);
 
 /// <summary>
-/// An API user the MCP server has connected as. <paramref name="State"/> is "active", "disabled" or "lockedOut".
+/// An API user the MCP server has connected as, or that the dashboard's New connection flow created and that has not
+/// connected yet (<paramref name="Connected"/> false, <paramref name="LastConnected"/> null). A user that has not
+/// connected is in no finding and no health check. <paramref name="State"/> is "active", "disabled" or "lockedOut".
 /// The reach lists hold product display names. The report fields are from this user's own last start and are null when
 /// it has none; <paramref name="Access"/> lists the installed and enabled products, and <paramref name="ToolCount"/> is
 /// the sum of their tool counts (null when one of them is unknown). <paramref name="Groups"/> holds the names of its
-/// user groups, sorted.
+/// user groups, sorted, and <paramref name="Sections"/> the backoffice sections they grant.
 /// </summary>
 public sealed record McpOverviewApiUser(
     Guid Key,
     string Name,
     IReadOnlyList<string> ClientIds,
     string State,
-    DateTimeOffset LastConnected,
+    DateTimeOffset? LastConnected,
     IReadOnlyList<string> Reachable,
     IReadOnlyList<string> Unreachable,
     string? ServerVersion,
     DateTimeOffset? LastReportedAt,
     int? ToolCount,
     IReadOnlyList<McpOverviewAccess> Access,
-    IReadOnlyList<string> Groups);
+    IReadOnlyList<string> Groups,
+    IReadOnlyList<string> Sections,
+    bool Connected);
 
-/// <summary>Everything the Overview dashboard and the MCP health checks show.</summary>
+/// <summary>
+/// Everything the Overview dashboard and the MCP health checks show. <paramref name="CanManageUsers"/> is whether the
+/// calling backoffice user has the Users section, so the dashboard can offer to create and change API users; the
+/// controller sets it.
+/// </summary>
 public sealed record McpOverview(
     string AddonVersion,
     IReadOnlyList<McpFinding> Findings,
     IReadOnlyList<McpOverviewProduct> Products,
     McpServerReport? Server,
-    IReadOnlyList<McpOverviewApiUser> ApiUsers);
+    IReadOnlyList<McpOverviewApiUser> ApiUsers,
+    bool CanManageUsers = false);
