@@ -78,6 +78,31 @@ internal sealed class FakeConnectionStore : IMcpConnectionStore
     }
 }
 
+internal sealed class FakeCreatedUserStore : IMcpCreatedUserStore
+{
+    public List<McpConnection> Recorded { get; } = [];
+
+    public List<Guid> Removed { get; } = [];
+
+    public Exception? Throws { get; init; }
+
+    public void Record(Guid userKey, DateTimeOffset at)
+    {
+        if (Recorded.All(c => c.UserKey != userKey))
+        {
+            Recorded.Add(new McpConnection(userKey, at));
+        }
+    }
+
+    public IReadOnlyCollection<McpConnection> GetAll() => Throws is null ? Recorded : throw Throws;
+
+    public bool Remove(Guid userKey)
+    {
+        Removed.Add(userKey);
+        return Recorded.RemoveAll(c => c.UserKey == userKey) > 0;
+    }
+}
+
 internal sealed class FakeBackOfficeSecurityAccessor(IUser? currentUser) : IBackOfficeSecurityAccessor, IBackOfficeSecurity
 {
     public IBackOfficeSecurity? BackOfficeSecurity => this;
