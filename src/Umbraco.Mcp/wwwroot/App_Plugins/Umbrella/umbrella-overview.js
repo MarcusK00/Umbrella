@@ -264,12 +264,11 @@ export class UmbrellaOverviewElement extends UmbLitElement {
           <h2>${headline}</h2>
           <p>${lead}</p>
         </div>
-        <div class="status-actions">
-          ${attention
-            ? html`<uui-button look="secondary" label="Open health checks" href="/umbraco/section/settings/dashboard/health-check"></uui-button>`
-            : nothing}
-          <uui-button look=${users === 0 ? "primary" : "secondary"} label="Connect an AI tool" @click=${this.#openConnect}></uui-button>
-        </div>
+        ${attention
+          ? html`<div class="status-actions">
+              <uui-button look="secondary" label="Open health checks" href="/umbraco/section/settings/dashboard/health-check"></uui-button>
+            </div>`
+          : nothing}
       </div>
       ${attention
         ? html`<div class="findings">
@@ -371,7 +370,9 @@ export class UmbrellaOverviewElement extends UmbLitElement {
         ${this.#renderClientIdPicker()}
         <p class="muted small">
           Give each person their own API user, so their access can be set on its own.
-          <a href="/umbraco/section/user-management">Create an API user</a>
+          ${this._data?.canManageUsers
+            ? html`<button class="link" @click=${this.#newConnection}>Create an API user</button>`
+            : "Someone with access to the Users section can create one with New connection."}
         </p>
       </div>
     </umbrella-client-setup>`;
@@ -460,8 +461,9 @@ export class UmbrellaOverviewElement extends UmbLitElement {
         background: var(--uui-color-current); color: var(--uui-color-current-contrast); font-size: var(--uui-type-small-size); font-weight: 700;
       }
       uui-select { width: 100%; }
-      a { color: var(--uui-color-interactive); }
-      a:hover { color: var(--uui-color-interactive-emphasis); }
+      a, .link { color: var(--uui-color-interactive); }
+      a:hover, .link:hover { color: var(--uui-color-interactive-emphasis); }
+      .link { padding: 0; border: 0; background: none; font: inherit; text-decoration: underline; cursor: pointer; }
 
     `,
   ];
