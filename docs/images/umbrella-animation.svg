@@ -1,0 +1,178 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 420" width="800" height="420" role="img" aria-labelledby="title desc">
+  <title id="title">How Umbrella works</title>
+  <desc id="desc">An AI tool starts umbrella-mcp. It asks the Umbraco site which products are installed, opens over CMS, Forms and Automate (Engage is not installed), and hands their prefixed tools back to the AI tool.</desc>
+  <defs>
+    <linearGradient id="canopyFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b3bbff"/>
+      <stop offset="1" stop-color="#6f7be8"/>
+    </linearGradient>
+    <radialGradient id="shelter" cx="0.5" cy="0.3" r="0.6">
+      <stop offset="0" stop-color="#9ba6ff" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#9ba6ff" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="term"><rect x="54" y="212" width="152" height="28" rx="6"/></clipPath>
+  </defs>
+  <style>
+    text { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; fill: #e6e8f3; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .muted { fill: #9ca1ba; }
+    .card { fill: #191b28; stroke: #353a52; }
+    .scene { animation: scene 16s ease-in-out infinite; }
+    .rain line { stroke: #4cc3d6; stroke-opacity: .28; stroke-width: 1.5; stroke-linecap: round; animation: fall 1.3s linear infinite; }
+    .cover { transform: translateX(132px); animation: type 16s infinite; }
+    .caret { animation: blink .8s steps(1) infinite; }
+    .link { opacity: 0; stroke-dasharray: 4 5; animation: show-at-10 16s ease-in-out infinite both, dash 1s linear infinite; }
+    .umb { opacity: 0; animation: show-at-10 16s ease-in-out infinite both; }
+    .canopy { transform-box: fill-box; transform-origin: 50% 0; animation: open 16s ease-in-out infinite both; }
+    .shelter { opacity: 0; animation: shelter 16s ease-in-out infinite both; }
+    .pkt { opacity: 0; }
+    .pkt-out { animation: pkt-out 16s ease-in-out infinite both; }
+    .pkt-back { animation: pkt-back 16s ease-in-out infinite both; }
+    .pkt-tools { animation: pkt-tools 16s ease-in-out infinite both; }
+    .det { opacity: 0; animation: det 16s ease-out infinite both; }
+    .chip { opacity: 0; animation: drop 16s cubic-bezier(.3,1.5,.6,1) infinite both; }
+    .ghost { opacity: 0; animation: ghost 16s ease-out infinite both; }
+    .prefix { opacity: 0; animation: prefix 16s ease-out infinite both; }
+    .connected { opacity: 0; animation: connected 16s ease-out infinite both; }
+    .pro { opacity: 0; animation: 16s ease-out infinite both; }
+    .p1 { animation-name: p1; } .p2 { animation-name: p2; } .p3 { animation-name: p3; } .p4 { animation-name: p4; }
+
+    @keyframes scene { 0% { opacity: 0 } 3%, 94% { opacity: 1 } 99%, 100% { opacity: 0 } }
+    @keyframes fall { from { transform: translateY(0) } to { transform: translateY(470px) } }
+    @keyframes type { 0%, 2% { transform: translateX(0); animation-timing-function: steps(16, end) } 9%, 100% { transform: translateX(132px) } }
+    @keyframes blink { 50% { opacity: 0 } }
+    @keyframes dash { to { stroke-dashoffset: -9 } }
+    @keyframes show-at-10 { 0%, 8% { opacity: 0 } 12%, 100% { opacity: 1 } }
+    @keyframes open {
+      0%, 44% { transform: scale(.12, .9) }
+      49% { transform: scale(1.06, 1) }
+      52%, 100% { transform: scale(1, 1) }
+    }
+    @keyframes shelter { 0%, 46% { opacity: 0 } 53%, 100% { opacity: 1 } }
+    @keyframes pkt-out { 0%, 13% { opacity: 0; transform: translateX(0) } 15% { opacity: 1; transform: translateX(0) } 24% { opacity: 1; transform: translateX(270px) } 26%, 100% { opacity: 0; transform: translateX(270px) } }
+    @keyframes pkt-back { 0%, 33% { opacity: 0; transform: translateX(0) } 35% { opacity: 1; transform: translateX(0) } 43% { opacity: 1; transform: translateX(-270px) } 45%, 100% { opacity: 0; transform: translateX(-270px) } }
+    @keyframes pkt-tools { 0%, 54% { opacity: 0; transform: translateX(0) } 56% { opacity: 1; transform: translateX(0) } 63% { opacity: 1; transform: translateX(-280px) } 65%, 100% { opacity: 0; transform: translateX(-280px) } }
+    @keyframes det { 0%, 26% { opacity: 0; transform: translateX(8px) } 30%, 100% { opacity: 1; transform: translateX(0) } }
+    @keyframes drop { 0%, 46% { opacity: 0; transform: translateY(-16px) } 51%, 100% { opacity: 1; transform: translateY(0) } }
+    @keyframes ghost { 0%, 46% { opacity: 0; transform: translateY(-16px) } 51%, 100% { opacity: .45; transform: translateY(0) } }
+    @keyframes prefix { 0%, 53% { opacity: 0 } 57%, 100% { opacity: 1 } }
+    @keyframes connected { 0%, 62% { opacity: 0 } 65%, 100% { opacity: 1 } }
+    @keyframes p1 { 0%, 64% { opacity: 0; transform: translateY(8px) } 67%, 100% { opacity: 1; transform: translateY(0) } }
+    @keyframes p2 { 0%, 69% { opacity: 0; transform: translateY(8px) } 72%, 100% { opacity: 1; transform: translateY(0) } }
+    @keyframes p3 { 0%, 74% { opacity: 0; transform: translateY(8px) } 77%, 100% { opacity: 1; transform: translateY(0) } }
+    @keyframes p4 { 0%, 79% { opacity: 0; transform: translateY(8px) } 82%, 100% { opacity: 1; transform: translateY(0) } }
+
+    @media (prefers-reduced-motion: reduce) {
+      .scene, .cover, .caret, .link, .umb, .canopy, .shelter, .det, .chip, .prefix, .connected, .pro { animation: none; opacity: 1; transform: none; }
+      .cover { transform: translateX(132px); }
+      .ghost { animation: none; opacity: .45; }
+      .rain, .pkt { display: none; }
+    }
+  </style>
+
+  <rect width="800" height="420" rx="16" fill="#10111a"/>
+
+  <!-- rain: falls everywhere except under the umbrella -->
+  <g class="rain">
+    <line x1="30" y1="-30" x2="30" y2="-16" style="animation-delay:-.2s"/>
+    <line x1="92" y1="-30" x2="92" y2="-16" style="animation-delay:-.9s;animation-duration:1.5s"/>
+    <line x1="150" y1="-30" x2="150" y2="-16" style="animation-delay:-.5s"/>
+    <line x1="206" y1="-30" x2="206" y2="-16" style="animation-delay:-1.1s;animation-duration:1.6s"/>
+    <line x1="258" y1="-30" x2="258" y2="-16" style="animation-delay:-.3s;animation-duration:1.4s"/>
+    <line x1="560" y1="-30" x2="560" y2="-16" style="animation-delay:-.7s"/>
+    <line x1="618" y1="-30" x2="618" y2="-16" style="animation-delay:-1.2s;animation-duration:1.5s"/>
+    <line x1="676" y1="-30" x2="676" y2="-16" style="animation-delay:-.1s;animation-duration:1.4s"/>
+    <line x1="728" y1="-30" x2="728" y2="-16" style="animation-delay:-.8s;animation-duration:1.6s"/>
+    <line x1="776" y1="-30" x2="776" y2="-16" style="animation-delay:-.4s"/>
+  </g>
+
+  <text x="40" y="52" font-size="22" font-weight="700">Umbrella</text>
+  <text x="40" y="74" font-size="13" class="muted">One MCP server per Umbraco site</text>
+
+  <g class="scene">
+    <!-- wires -->
+    <path d="M130 270 V335 H680 V290 M410 300 V335" fill="none" stroke="#353a52" stroke-width="1.5"/>
+    <line class="link" x1="222" y1="170" x2="298" y2="170" stroke="#9ba6ff" stroke-width="1.5"/>
+
+    <!-- AI tool -->
+    <rect class="card" x="40" y="150" width="180" height="120" rx="12"/>
+    <text x="56" y="176" font-size="14" font-weight="600">AI tool</text>
+    <text x="56" y="194" font-size="11" class="muted">Claude · Cursor · VS Code</text>
+    <rect x="54" y="212" width="152" height="28" rx="6" fill="#10111a"/>
+    <g clip-path="url(#term)">
+      <text x="62" y="231" font-size="12" class="mono"><tspan fill="#66d184">$</tspan> npx umbrella-mcp</text>
+      <g class="cover">
+        <rect x="74" y="214" width="140" height="24" fill="#10111a"/>
+        <rect class="caret" x="75" y="219" width="7" height="14" fill="#e6e8f3"/>
+      </g>
+    </g>
+    <text class="connected" x="56" y="258" font-size="11" fill="#66d184" style="fill:#66d184">✓ connected · 3 products</text>
+
+    <!-- the umbrella -->
+    <ellipse class="shelter" cx="410" cy="228" rx="125" ry="70" fill="url(#shelter)"/>
+    <g class="umb">
+      <path d="M410 170 V284 a9 9 0 0 1 -18 0" fill="none" stroke="#9ca1ba" stroke-width="4" stroke-linecap="round"/>
+      <g class="canopy">
+        <line x1="410" y1="65" x2="410" y2="54" stroke="#9ca1ba" stroke-width="3" stroke-linecap="round"/>
+        <path d="M305 170 A105 105 0 0 1 515 170 Q488.75 156 462.5 170 Q436.25 156 410 170 Q383.75 156 357.5 170 Q331.25 156 305 170 Z" fill="url(#canopyFill)"/>
+        <path d="M410 65 Q372 105 357.5 170 M410 65 Q448 105 462.5 170 M410 65 V170" fill="none" stroke="#5560cc" stroke-opacity=".55" stroke-width="1.5"/>
+      </g>
+    </g>
+
+    <!-- products under the umbrella -->
+    <g class="chip">
+      <rect x="312" y="185" width="90" height="38" rx="8" fill="#191b28" stroke="#4cc3d6"/>
+      <circle cx="324" cy="197" r="3.5" fill="#4cc3d6"/>
+      <text x="333" y="201" font-size="12" font-weight="600">CMS</text>
+      <text class="prefix mono" x="324" y="216" font-size="10" style="fill:#4cc3d6">cms--*</text>
+    </g>
+    <g class="chip" style="animation-delay:.15s">
+      <rect x="418" y="185" width="90" height="38" rx="8" fill="#191b28" stroke="#66d184"/>
+      <circle cx="430" cy="197" r="3.5" fill="#66d184"/>
+      <text x="439" y="201" font-size="12" font-weight="600">Forms</text>
+      <text class="prefix mono" x="430" y="216" font-size="10" style="fill:#66d184">forms--*</text>
+    </g>
+    <g class="chip" style="animation-delay:.3s">
+      <rect x="312" y="229" width="90" height="38" rx="8" fill="#191b28" stroke="#f0a44c"/>
+      <circle cx="324" cy="241" r="3.5" fill="#f0a44c"/>
+      <text x="333" y="245" font-size="12" font-weight="600">Automate</text>
+      <text class="prefix mono" x="324" y="260" font-size="10" style="fill:#f0a44c">automate--*</text>
+    </g>
+    <g class="ghost" style="animation-delay:.45s">
+      <rect x="418" y="229" width="90" height="38" rx="8" fill="none" stroke="#9ca1ba" stroke-dasharray="4 4"/>
+      <circle cx="430" cy="241" r="3.5" fill="none" stroke="#ff7b90"/>
+      <text x="439" y="245" font-size="12" font-weight="600" class="muted">Engage</text>
+      <text x="430" y="260" font-size="10" class="muted">not installed</text>
+    </g>
+
+    <!-- Umbraco site -->
+    <rect class="card" x="600" y="120" width="160" height="170" rx="12"/>
+    <text x="616" y="146" font-size="14" font-weight="600">Umbraco 17 site</text>
+    <text x="616" y="164" font-size="11" class="muted">+ Umbrella add-on</text>
+    <line x1="616" y1="176" x2="744" y2="176" stroke="#353a52"/>
+    <g class="det"><text x="616" y="198" font-size="12">CMS</text><text x="744" y="198" font-size="12" text-anchor="end" style="fill:#66d184">✓</text></g>
+    <g class="det" style="animation-delay:.2s"><text x="616" y="221" font-size="12">Forms</text><text x="744" y="221" font-size="12" text-anchor="end" style="fill:#66d184">✓</text></g>
+    <g class="det" style="animation-delay:.4s"><text x="616" y="244" font-size="12">Automate</text><text x="744" y="244" font-size="12" text-anchor="end" style="fill:#66d184">✓</text></g>
+    <g class="det" style="animation-delay:.6s"><text x="616" y="267" font-size="12" class="muted">Engage</text><text x="744" y="267" font-size="12" text-anchor="end" class="muted">—</text></g>
+
+    <!-- messages on the wire -->
+    <g class="pkt pkt-out">
+      <circle cx="410" cy="335" r="9" fill="#9ba6ff" fill-opacity=".25"/><circle cx="410" cy="335" r="4" fill="#9ba6ff"/>
+      <text x="410" y="322" font-size="11" text-anchor="middle" class="mono" style="fill:#9ba6ff">GET /capabilities</text>
+    </g>
+    <g class="pkt pkt-back">
+      <circle cx="680" cy="335" r="9" fill="#66d184" fill-opacity=".25"/><circle cx="680" cy="335" r="4" fill="#66d184"/>
+      <text x="680" y="322" font-size="11" text-anchor="middle" class="mono" style="fill:#66d184">cms · forms · automate</text>
+    </g>
+    <g class="pkt pkt-tools">
+      <circle cx="410" cy="335" r="9" fill="#4cc3d6" fill-opacity=".25"/><circle cx="410" cy="335" r="4" fill="#4cc3d6"/>
+      <text x="410" y="322" font-size="11" text-anchor="middle" class="mono" style="fill:#4cc3d6">prefixed tools</text>
+    </g>
+
+    <!-- the pros -->
+    <g class="pro p1"><rect x="40" y="362" width="170" height="32" rx="16" fill="#191b28" stroke="#353a52"/><text x="56" y="383" font-size="12"><tspan style="fill:#66d184">✓</tspan>  One server, all products</text></g>
+    <g class="pro p2"><rect x="220" y="362" width="170" height="32" rx="16" fill="#191b28" stroke="#353a52"/><text x="236" y="383" font-size="12"><tspan style="fill:#66d184">✓</tspan>  Only what's installed</text></g>
+    <g class="pro p3"><rect x="400" y="362" width="170" height="32" rx="16" fill="#191b28" stroke="#353a52"/><text x="416" y="383" font-size="12"><tspan style="fill:#66d184">✓</tspan>  Access per API user</text></g>
+    <g class="pro p4"><rect x="580" y="362" width="180" height="32" rx="16" fill="#191b28" stroke="#353a52"/><text x="596" y="383" font-size="12"><tspan style="fill:#66d184">✓</tspan>  Health checks built in</text></g>
+  </g>
+</svg>

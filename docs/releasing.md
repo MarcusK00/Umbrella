@@ -21,7 +21,7 @@ Merging a new version into `v17/main` publishes both: `.github/workflows/release
    ```
    `pack-check.sh` installs the packed package with `npx` in an empty folder, where npm ignores our `overrides`. It catches a product package that would end up on its own toolkit copy.
 5. **Merge `v17/dev` into `v17/main`.** The Release workflow then publishes (see [What the workflow does](#what-the-workflow-does)). Follow it under Actions → Release.
-6. **Public docs.** Nothing to copy: users read the docs in this repository. The links in the READMEs and the NuGet readme's Overview picture (`raw.githubusercontent.com/…/v17/main/docs/images/umbrella-overview.png`; nuget.org only shows images from allowed domains, not packed or relative ones) point at `v17/main`, so they show the release as soon as it is merged.
+6. **Public docs.** Nothing to copy: users read the docs in this repository. The links in the READMEs and the NuGet readme's images (the Overview picture and the two animations, `raw.githubusercontent.com/…/v17/main/docs/images/…`; nuget.org only shows images from allowed domains, not packed or relative ones) point at `v17/main`, so they show the release as soon as it is merged.
 7. **Check** that `npx -y umbrella-mcp@<version> --list-tools` works against a site with the new add-on, with `UMBRACO_BASE_URL`, `UMBRACO_CLIENT_ID` and `UMBRACO_CLIENT_SECRET` set. In that site, Settings → Health Check → MCP → "MCP client setup" should show the same version.
 
 ## What the workflow does

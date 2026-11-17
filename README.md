@@ -26,6 +26,8 @@ The site only needs the NuGet package, but installing it doesn't connect your AI
 
 ## How it works
 
+![Animation: an AI tool starts umbrella-mcp, which asks the Umbraco site which products are installed, loads CMS, Forms and Automate but not Engage, which isn't installed, and hands their prefixed tools back to the AI tool](docs/images/umbrella-animation.svg)
+
 1. The add-on finds each product by its assembly and checks that its Management API is live.
 2. When your AI tool starts `umbrella-mcp`, the server signs in as an Umbraco API user and asks the site which products it has.
 3. It loads the CMS tools, plus the tools of every detected product, and prefixes each tool with its product (`forms--list-forms`).
@@ -106,6 +108,10 @@ Every tab on the Overview is a variant of this config:
 - **Local sites:** for a site on `localhost` the config sets `NODE_TLS_REJECT_UNAUTHORIZED=0`, because Node does not trust the ASP.NET Core development certificate. This turns off certificate checks for the MCP server process only, and only when the site is on the local machine.
 
 ## Teams, editors and hosted sites
+
+Several people, or several AI agents, can work on the same site at once. Each connects as its own API user, and each API user can have its own access per product:
+
+![Animation: a dev agent, a content agent and an ops agent connect to the same site through umbrella-mcp, each as its own API user. The dev agent has full access; the content agent can list forms but gets no delete tool for pages; the ops agent runs an automation and asks get-mcp-health what it can use. A table then shows each agent's access per product.](docs/images/umbrella-agents.svg)
 
 Give each person who connects an AI tool their own API user:
 

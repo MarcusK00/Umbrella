@@ -17,6 +17,18 @@ Install this package in your site, then connect Claude Code, VS Code, Cursor or 
 - **You stay in control.** The **Umbrella** dashboard (Settings section) has an **Overview** tab (what needs attention, config to copy for your AI tool, the API users MCP servers connected as) and a **Tool Permissions** tab that sets each product's access, for every API user or for one: **Off** (the MCP server doesn't load the product at all), **Read-only**, **No deletes** (leaves out the tools the products flag `destructiveHint`: mostly deletes, emptying recycle bins and terminating runs; unpublishing, moving to the recycle bin, and CMS and Forms version rollback stay available) or **Full**, and switches single tool groups off.
 - **Easy to check.** Backoffice health checks show which products were found and which API user the AI signed in as. In the AI tool, `get-mcp-health` explains what loaded and why.
 
+## ⚙️ How it works
+
+![Animation: an AI tool starts umbrella-mcp, which asks the Umbraco site which products are installed, loads CMS, Forms and Automate but not Engage, which isn't installed, and hands their prefixed tools back to the AI tool](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-animation.svg)
+
+Your AI tool starts `umbrella-mcp`. The server signs in as an Umbraco API user, asks the site which products it has, and loads the tools for exactly those. Every tool is prefixed with its product (`forms--list-forms`), so the AI picks the right one.
+
+## 👥 Many AI agents, each with its own access
+
+![Animation: a dev agent, a content agent and an ops agent connect to the same site through umbrella-mcp, each as its own API user. The dev agent has full access; the content agent can list forms but gets no delete tool for pages; the ops agent runs an automation and asks get-mcp-health what it can use. A table then shows each agent's access per product.](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-agents.svg)
+
+Each person, or each AI agent, connects as its own API user, and in **Settings → Umbrella → Tool Permissions** each API user can get its own access per product: **Off**, **Read-only**, **No deletes** or **Full**. A content agent can list forms but never gets a tool to delete pages; an ops agent can run automations while Forms stays off for it. `get-mcp-health` tells each agent what it can use.
+
 ## 🚀 Get started in 5 steps
 
 You need Umbraco 17, and Node.js 22.23.4 or later (24.22.1 or later on Node 24, 26.12.1 or later on Node 26) on the machine running your AI tool.
