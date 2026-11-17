@@ -137,6 +137,10 @@ jobs:
           VERSION: ${{ needs.version.outputs.version }}
         run: |
           if gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then echo "v$VERSION exists"; exit 0; fi
-          flags=(--repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "$VERSION" --generate-notes)
+          # "Latest" on GitHub belongs to the newest line (Umbraco 18, v18/main), as npm's latest tag does. The notes start
+          # from the previous release of this line, not from whichever release is newest.
+          flags=(--repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "$VERSION" --generate-notes --latest=false)
+          previous=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName --jq '.[].tagName' | grep -E '^v17\.' | grep -vxF "v$VERSION" | sort -V | tail -n 1 || true)
+          if [ -n "$previous" ]; then flags+=(--notes-start-tag "$previous"); fi
           if [[ "$VERSION" == *-* ]]; then flags+=(--prerelease); fi
           gh release create "v$VERSION" "${flags[@]}"
