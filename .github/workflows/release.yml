@@ -1,11 +1,11 @@
-# Publishes umbrella-mcp (npm) and Umbraco.Community.Umbrella (NuGet) when v17/main has a version that is not on the
+# Publishes umbrella-mcp (npm) and Umbraco.Community.Umbrella (NuGet) when v18/main has a version that is not on the
 # registries yet. Both publish without stored keys (trusted publishing); the one-time setup is in docs/releasing.md.
 # The npm and NuGet trusted publisher settings name this file, so renaming it breaks publishing.
 name: Release
 
 on:
   push:
-    branches: [v17/main]
+    branches: [v18/main]
   workflow_dispatch: # retry from the Actions tab, for example after setting up trusted publishing
 
 concurrency:
@@ -18,7 +18,7 @@ permissions:
 jobs:
   version:
     name: version
-    if: github.ref == 'refs/heads/v17/main'
+    if: github.ref == 'refs/heads/v18/main'
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.read.outputs.version }}
@@ -33,7 +33,7 @@ jobs:
           npm_version=$(node -p 'require("./npm/package.json").version')
           nuget_version=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' src/Umbraco.Mcp/Umbraco.Mcp.csproj)
           [ "$npm_version" = "$nuget_version" ] || { echo "::error::npm/package.json is $npm_version, Umbraco.Mcp.csproj is $nuget_version"; exit 1; }
-          # The pre-release label is the npm dist-tag (17.0.0-alpha.8 -> alpha), as in docs/releasing.md; stable -> latest.
+          # The pre-release label is the npm dist-tag (18.1.0-beta.1 -> beta), as in docs/releasing.md; stable -> latest.
           label=$(sed -n 's/^[0-9.]*-\([a-z]*\).*/\1/p' <<<"$npm_version")
           echo "version=$npm_version" >> "$GITHUB_OUTPUT"
           echo "npm-tag=${label:-latest}" >> "$GITHUB_OUTPUT"
