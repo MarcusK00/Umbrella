@@ -19,6 +19,10 @@
   ],
   "Screenshots": [
     {
+      "ImageUrl": "https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-cover.png",
+      "Caption": "Umbrella: one AI connection for your whole Umbraco site"
+    },
+    {
       "ImageUrl": "https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-animation.svg",
       "Caption": "How it works: your AI tool starts one MCP server, which asks the site which products it has and loads only their tools, prefixed per product"
     },

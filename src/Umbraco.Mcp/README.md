@@ -4,7 +4,7 @@
 
 Install this package in your site, then connect Claude Code, VS Code, Cursor or Claude Desktop with the config the backoffice gives you: each person connects their own AI tool. It gets tools for exactly the Umbraco products your site has. No product installed, no tools for it, so the AI isn't buried in tools it can't use.
 
-![Settings → Umbrella → Overview: access per API user for CMS, Forms, Automate and Engage](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-overview.png)
+![Umbrella, an Umbraco community add-on: one AI connection for your whole Umbraco site. Umbraco 17 · CMS, Forms, Automate and Engage](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-cover.png)
 
 > "Create a contact form with name, email and message fields."
 > "Add a news article under the News page and save it as a draft."
@@ -29,7 +29,11 @@ Your AI tool starts `umbrella-mcp`. The server signs in as an Umbraco API user, 
 
 Each person, or each AI agent, connects as its own API user, and in **Settings → Umbrella → Tool Permissions** each API user can get its own access per product: **Off**, **Read-only**, **No deletes** or **Full**. A content agent can list forms but never gets a tool to delete pages; an ops agent can run automations while Forms stays off for it. `get-mcp-health` tells each agent what it can use.
 
+![Made for teams: everyone signs in as their own API user, so access follows the person, not the project. The Overview shows one row per person with who connected, when and with which version; Tool Permissions fine-tunes access down to groups of tools and can switch a product off for one person](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-teams.png)
+
 ## 🚀 Get started in 5 steps
+
+![Connect in minutes: no config files to write by hand. The Umbrella dashboard is ready to connect as soon as the add-on is installed: pick a user, pick one of six AI tools, and copy the ready-made setup](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-connect.png)
 
 You need Umbraco 17, and Node.js 22.23.4 or later (24.22.1 or later on Node 24, 26.12.1 or later on Node 26) on the machine running your AI tool.
 
