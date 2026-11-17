@@ -39,6 +39,16 @@ check_readme_versions() {
   done
 }
 
+# The dashboard's modules: what they import from a released module must still be exported by that module as released,
+# since a browser may keep an old cached copy next to newer modules. The released ref is the current major's released
+# branch (origin/v<major>/main), or GUARD_RELEASED_REF.
+check_dashboard_imports() {
+  local major ref
+  major="$(json "$ROOT/npm/package.json" 'String(j.version ?? "").split(".")[0]')"
+  ref="${GUARD_RELEASED_REF:-origin/v$major/main}"
+  node "$(dirname "${BASH_SOURCE[0]}")/check-dashboard-imports.mjs" "$ROOT" "$ref"
+}
+
 run() {
   local id="$1" reason
   reason="$("$2" 2>&1)"
@@ -54,4 +64,5 @@ run hmac-key check_hmac_key
 run no-local-deps check_no_local_deps
 run no-tracked-secrets check_no_tracked_secrets
 run readme-versions check_readme_versions
+run dashboard-imports check_dashboard_imports
 exit "$FAILED"

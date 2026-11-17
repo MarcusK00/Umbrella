@@ -265,14 +265,14 @@ footer { margin-block-start: 72px; padding-block-start: 20px; border-top: 1px so
           <text class="t m mid" x="1012" y="308">POST /mcp/catalogue</text>
           <rect class="box" x="892" y="328" width="240" height="62" rx="6"/>
           <text class="t sm mid" x="1012" y="350">Settings → Umbrella</text>
-          <text class="s mid" x="1012" y="367">Overview · client-setup · tool-settings</text>
-          <text class="s mid" x="1012" y="382">three health checks</text>
+          <text class="s mid" x="1012" y="367">Overview · New connection · client-setup</text>
+          <text class="s mid" x="1012" y="382">tool-settings · three health checks</text>
 
           <line class="ln site" x1="1012" y1="391" x2="1012" y2="416" marker-end="url(#ah-site)"/>
           <text class="s" x="1022" y="410">stores</text>
           <rect class="box site" x="876" y="418" width="272" height="56" rx="8"/>
           <text class="t m mid" x="1012" y="441">umbracoKeyValue</text>
-          <text class="s mid" x="1012" y="459">settings · catalogues · connections</text>
+          <text class="s mid" x="1012" y="459">settings · catalogues · API user rows</text>
 
           <rect class="panel site" x="876" y="490" width="272" height="114" rx="10"/>
           <text class="t sm" x="892" y="511">Management APIs</text>
@@ -986,6 +986,7 @@ If the request does not clearly match one product, or product tools seem missing
       <li><b>Every API user is selectable</b>, also one that has never connected. The user's own server picks the settings up on its next start.</li>
       <li><b>Counts per user.</b> The Tool Permissions counts come from the selected user's own report; a user without one shows its groups without counts. The defaults show the highest counts any API user reported. Forgetting a connection in the Overview clears that user's report and keeps its overrides.</li>
       <li><b>Client config per user.</b> The Overview's "Connect an AI tool" has its own API user picker. It calls <code>GET /mcp/client-setup?clientId=</code> and shows the seven snippets (Claude Code, the <code>claude mcp add</code> command, the commands that install the Claude Code plugin from <code>plugins/umbrella</code>, Claude Desktop, VS Code, Cursor, other clients) for that user's client id. No secret, and no files written on the site. The plugin asks for the secret itself and keeps it in the system's credential store.</li>
+      <li><b>New connection.</b> The Overview's New connection panel creates an API user through Umbraco's own Management API, from the browser as the signed-in user: the user, then <code>POST /mcp/created-users/{key}</code> so the Overview lists it before it connects, then client credentials with a secret made in the browser and shown once, then <code>PUT /mcp/tool-settings/users/{key}</code> for the products not left on Defaults. The row's "…" menu has Info, New secret, Disable/Enable API user and Forget connection.</li>
       <li><b>Still guardrails.</b> The npm server applies them on each developer's machine; the API user's Umbraco permissions are the real boundary.</li>
     </ul>
   </section>

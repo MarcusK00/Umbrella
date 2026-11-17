@@ -2,45 +2,16 @@ import { css, html, nothing } from "@umbraco-cms/backoffice/external/lit";
 import { UmbLitElement } from "@umbraco-cms/backoffice/lit-element";
 import { UMB_AUTH_CONTEXT } from "@umbraco-cms/backoffice/auth";
 import { UMB_NOTIFICATION_CONTEXT } from "@umbraco-cms/backoffice/notification";
-import { umbConfirmModal } from "@umbraco-cms/backoffice/modal";
+import { umbConfirmModal, umbOpenModal } from "@umbraco-cms/backoffice/modal";
 import { UmbTextStyles } from "@umbraco-cms/backoffice/style";
 import { formatDate, request } from "./umbrella-api.js";
 import { formatRelative } from "./umbrella-access.js";
 import "./umbrella-access-table.js";
+import "./umbrella-client-setup.js";
+import { UMBRELLA_API_USER_INFO_MODAL, UMBRELLA_NEW_CONNECTION_MODAL, UMBRELLA_NEW_SECRET_MODAL } from "./umbrella-modals.js";
+import { disableUser, enableUser } from "./umbrella-users-api.js";
 
 const AREAS = { products: "Products", server: "MCP server", apiUsers: "API users" };
-
-/** McpClientConfig.SecretEnvironmentVariable. */
-const SECRET_VARIABLE = "UMBRELLA_CLIENT_SECRET";
-
-/** McpClientSnippets.PluginId. */
-const PLUGIN_ID = "umbrella@umbrella";
-
-/**
- * Per AI tool from McpClientSnippets: its icon, where the config goes, and how the secret gets in: "env" (read from
- * SECRET_VARIABLE), "prompt" (the tool asks), "plugin" (the Claude Code plugin asks) or "placeholder" (replaced by hand).
- */
-const CLIENTS = {
-  "claude-code": { icon: "icon-terminal", where: "Put the file in the folder you open in Claude Code.", secret: "env" },
-  "claude-code-cli": {
-    icon: "icon-terminal",
-    where: "Run it in the folder you open in Claude Code. Claude Code keeps the server in your own settings.",
-    secret: "placeholder",
-  },
-  "claude-code-plugin": {
-    icon: "icon-plugin",
-    where: "Run them in a terminal. They install the Umbrella plugin for Claude Code in every folder you open, with the site and client id filled in.",
-    secret: "plugin",
-  },
-  "claude-desktop": {
-    icon: "icon-application-window",
-    where: "In Claude Desktop, open Settings → Developer → Edit Config, and add the server to that file.",
-    secret: "placeholder",
-  },
-  vscode: { icon: "icon-code", where: "The path is relative to your project folder.", secret: "prompt" },
-  cursor: { icon: "icon-code", where: "The path is relative to your project folder.", secret: "env" },
-  other: { icon: "icon-brackets", where: "Add it to your MCP client's configuration. It uses the common mcpServers format.", secret: "placeholder" },
-};
 
 /**
  * Settings → Umbrella → Overview: a status banner (all good, or what needs attention, with the versions in play), the
@@ -52,7 +23,6 @@ export class UmbrellaOverviewElement extends UmbLitElement {
     _error: { state: true },
     _setup: { state: true },
     _setupError: { state: true },
-    _client: { state: true },
     _busy: { state: true },
     _connectOpen: { state: true },
     _notesOpen: { state: true },
@@ -69,7 +39,6 @@ export class UmbrellaOverviewElement extends UmbLitElement {
     this._error = null;
     this._setup = null;
     this._setupError = null;
-    this._client = null;
     this._busy = false;
     // null until the user opens or closes it; until then it follows #connectOpenByDefault().
     this._connectOpen = null;
@@ -117,21 +86,24 @@ export class UmbrellaOverviewElement extends UmbLitElement {
     }
   }
 
-  async #copy(content) {
-    try {
-      await navigator.clipboard.writeText(content);
-      this.#notifications?.peek("positive", { data: { message: "Copied" } });
-    } catch {
-      this.#notifications?.peek("danger", { data: { message: "Could not copy. Select the text and copy it by hand." } });
-    }
+  /** The API users whose MCP server has connected; rows created on the dashboard that haven't are left out. */
+  #connectedUsers() {
+    return this._data.apiUsers.filter((u) => u.connected !== false);
+  }
+
+  #user(key) {
+    return this._data.apiUsers.find((u) => u.key === key);
   }
 
   async #forget(key) {
-    const user = this._data.apiUsers.find((u) => u.key === key);
+    const user = this.#user(key);
     try {
       await umbConfirmModal(this, {
         headline: `Forget ${user?.name ?? "this"} connection?`,
-        content: "This does not delete the API user. It appears here again the next time its MCP server connects.",
+        content:
+          user?.connected === false
+            ? "It is no longer listed here. The API user is not deleted."
+            : "This does not delete the API user. It appears here again the next time its MCP server connects.",
         confirmLabel: "Forget",
         color: "danger",
       });
@@ -149,14 +121,88 @@ export class UmbrellaOverviewElement extends UmbLitElement {
     }
   }
 
+  async #showInfo(key) {
+    const user = this.#user(key);
+    if (!user) return;
+    let result;
+    try {
+      result = await umbOpenModal(this, UMBRELLA_API_USER_INFO_MODAL, {
+        data: { user, products: this._data.products, addonVersion: this._data.addonVersion },
+      });
+    } catch {
+      return; // Closed.
+    }
+    if (result?.action === "edit-permissions") this.#editPermissions(key);
+    if (result?.action === "show-config") {
+      await this.#loadSetup(result.clientId);
+      this.#openConnect();
+    }
+  }
+
+  /** Every client id an API user already has, so a new one can't clash. */
+  #takenClientIds() {
+    return (this._setup?.apiUsers ?? []).flatMap((u) => u.clientIds);
+  }
+
+  async #newConnection() {
+    const products = this._data.products.filter((p) => p.installed && p.enabled);
+    try {
+      await umbOpenModal(this, UMBRELLA_NEW_CONNECTION_MODAL, { data: { products, takenClientIds: this.#takenClientIds() } });
+    } catch {
+      // Closed before Done; a user may still have been created, so reload below.
+    }
+    await this.#load();
+  }
+
+  async #newSecret(key) {
+    const user = this.#user(key);
+    if (!user) return;
+    const takenClientIds = this.#takenClientIds();
+    try {
+      await umbOpenModal(this, UMBRELLA_NEW_SECRET_MODAL, { data: { user, takenClientIds } });
+    } catch {
+      // Closed without a new secret; something may still have changed, so reload below.
+    }
+    await this.#load();
+  }
+
+  async #toggleDisabled(key) {
+    const user = this.#user(key);
+    if (!user) return;
+    const disable = user.state === "active";
+    if (disable) {
+      try {
+        await umbConfirmModal(this, {
+          headline: `Disable ${user.name}?`,
+          content: "Its AI tool can no longer sign in. You can enable it again later.",
+          confirmLabel: "Disable",
+          color: "danger",
+        });
+      } catch {
+        return; // Cancelled.
+      }
+    }
+    this._busy = true;
+    try {
+      await (disable ? disableUser : enableUser)(this.#auth, key);
+      await this.#load();
+    } catch (error) {
+      this.#notifications?.peek("danger", {
+        data: { headline: disable ? "Could not disable the API user" : "Could not enable the API user", message: error.message },
+      });
+    } finally {
+      this._busy = false;
+    }
+  }
+
   #editPermissions(key) {
     this.dispatchEvent(new CustomEvent("umbrella-edit-permissions", { detail: { key }, bubbles: true, composed: true }));
   }
 
   /** Open when nobody has connected yet, or when something about the server or the API users needs attention. */
   #connectOpenByDefault() {
-    const { apiUsers, server, findings } = this._data;
-    return apiUsers.length === 0 || server === null || findings.some((f) => f.severity === "warning" && f.area !== "products");
+    const { server, findings } = this._data;
+    return this.#connectedUsers().length === 0 || server === null || findings.some((f) => f.severity === "warning" && f.area !== "products");
   }
 
   #openConnect() {
@@ -166,8 +212,7 @@ export class UmbrellaOverviewElement extends UmbLitElement {
 
   /** When an MCP server last started, and as which API user, under the status headline. */
   #renderFacts() {
-    const { apiUsers } = this._data;
-    const latest = apiUsers.reduce((a, u) => (!a || u.lastConnected > a.lastConnected ? u : a), null);
+    const latest = this.#connectedUsers().reduce((a, u) => (!a || u.lastConnected > a.lastConnected ? u : a), null);
     return html`<dl class="facts">
       <div>
         <dt>Last connection</dt>
@@ -194,7 +239,8 @@ export class UmbrellaOverviewElement extends UmbLitElement {
 
   /** All good (or ready to connect) with any notes, or what needs attention grouped by area. */
   #renderStatus() {
-    const { findings, apiUsers } = this._data;
+    const { findings } = this._data;
+    const apiUsers = this.#connectedUsers();
     const warnings = findings.filter((f) => f.severity === "warning");
     // The empty API users table already says nobody has connected.
     const notes = findings.filter((f) => f.severity === "info" && !(f.area === "apiUsers" && apiUsers.length === 0));
@@ -218,12 +264,11 @@ export class UmbrellaOverviewElement extends UmbLitElement {
           <h2>${headline}</h2>
           <p>${lead}</p>
         </div>
-        <div class="status-actions">
-          ${attention
-            ? html`<uui-button look="secondary" label="Open health checks" href="/umbraco/section/settings/dashboard/health-check"></uui-button>`
-            : nothing}
-          <uui-button look=${users === 0 ? "primary" : "secondary"} label="Connect an AI tool" @click=${this.#openConnect}></uui-button>
-        </div>
+        ${attention
+          ? html`<div class="status-actions">
+              <uui-button look="secondary" label="Open health checks" href="/umbraco/section/settings/dashboard/health-check"></uui-button>
+            </div>`
+          : nothing}
       </div>
       ${attention
         ? html`<div class="findings">
@@ -256,23 +301,42 @@ export class UmbrellaOverviewElement extends UmbLitElement {
   }
 
   #renderUsers() {
-    const { apiUsers, products } = this._data;
+    const { apiUsers, products, canManageUsers } = this._data;
+    const connected = this.#connectedUsers().length;
+    const newConnection = (look) =>
+      html`<uui-button look=${look} label="New connection" @click=${this.#newConnection}>
+        <umb-icon name="icon-add"></umb-icon> New connection
+      </uui-button>`;
     return html`<uui-box id="users" headline="Access per API user" headline-variant="h2">
-      ${apiUsers.length
-        ? html`<span slot="header-actions" class="muted">${apiUsers.length} connected</span>`
+      ${connected || canManageUsers
+        ? html`<div slot="header-actions" class="header-actions">
+            ${connected ? html`<span class="muted">${connected} connected</span>` : nothing}
+            ${canManageUsers && apiUsers.length > 0 ? newConnection("primary") : nothing}
+          </div>`
         : nothing}
       ${apiUsers.length === 0
         ? html`<div class="empty">
             <umb-icon name="icon-users"></umb-icon>
             <p><strong>No MCP server has connected yet</strong></p>
-            <p class="muted">When an AI tool starts the MCP server, the API user it signs in as appears here with the tools it gets.</p>
-            <uui-button look="primary" label="Connect an AI tool" @click=${this.#openConnect}></uui-button>
+            <p class="muted">
+              ${canManageUsers
+                ? "New connection creates an API user for a person or agent and hands over the config for their AI tool."
+                : "When an AI tool starts the MCP server, the API user it signs in as appears here with the tools it gets."}
+            </p>
+            <div class="empty-actions">
+              ${canManageUsers ? newConnection("primary") : nothing}
+              <uui-button look=${canManageUsers ? "secondary" : "primary"} label="Connect an AI tool" @click=${this.#openConnect}></uui-button>
+            </div>
           </div>`
         : html`<umbrella-access-table
             .users=${apiUsers}
             .products=${products}
             .busy=${this._busy}
+            .canManageUsers=${canManageUsers === true}
             @edit-permissions=${(e) => this.#editPermissions(e.detail.key)}
+            @info=${(e) => this.#showInfo(e.detail.key)}
+            @new-secret=${(e) => this.#newSecret(e.detail.key)}
+            @toggle-disabled=${(e) => this.#toggleDisabled(e.detail.key)}
             @forget=${(e) => this.#forget(e.detail.key)}
           ></umbrella-access-table>`}
     </uui-box>`;
@@ -292,107 +356,26 @@ export class UmbrellaOverviewElement extends UmbLitElement {
     ></uui-select>`;
   }
 
-  /** How the client secret gets into the selected AI tool's config. */
-  #renderSecret(client, meta) {
-    if (meta.secret === "env") {
-      return html`<p>
-          ${client.label} reads the client secret from the <code>${SECRET_VARIABLE}</code> environment variable. Set it before you
-          start ${client.label}.
-        </p>
-        <code class="command">export ${SECRET_VARIABLE}="&lt;the client secret&gt;"</code>
-        <p class="muted small">macOS and Linux. Add the line to your shell profile to keep it.</p>`;
-    }
-    if (meta.secret === "prompt") return html`<p>Nothing to add here: ${client.label} asks for the client secret when it starts the server.</p>`;
-    if (meta.secret === "plugin") {
-      return html`<p>Start Claude Code and run this. It asks for the client secret, hides it as you type, and keeps it in your system's credential store.</p>
-        <code class="command">/plugin configure ${PLUGIN_ID}</code>
-        <p class="muted small">The same command changes the site or client id later.</p>`;
-    }
-    return html`<p>
-      Replace the placeholder with the API user's client secret. The ${client.format === "shell" ? "command" : "file"} then contains the
-      secret, so keep it out of source control.
-    </p>`;
-  }
-
   #renderConnectSteps() {
     if (!this._setup) {
       return this._setupError
         ? html`<p class="warning"><umb-icon name="icon-alert"></umb-icon>Could not load the client config: ${this._setupError}</p>`
         : html`<uui-loader></uui-loader>`;
     }
-    const { clients, apiUsers, clientId } = this._setup;
-    const selected = clients.find((c) => c.id === this._client) ?? clients[0];
-    const meta = CLIENTS[selected?.id] ?? CLIENTS.other;
+    const { apiUsers, clientId } = this._setup;
     const userName = apiUsers.find((u) => u.clientIds.includes(clientId))?.name;
-    const insecure = /UMBRACO_BASE_URL["'=:\s]+http:\/\//.test(clients[0]?.content ?? "");
-    return html`<div class="connect">
-      <div class="connect-choose">
-        <div class="field">
-          <h3><span class="num">1</span>Sign in as</h3>
-          ${this.#renderClientIdPicker()}
-          <p class="muted small">
-            Give each person their own API user, so their access can be set on its own.
-            <a href="/umbraco/section/user-management">Create an API user</a>
-          </p>
-        </div>
-        <div class="field">
-          <h3 id="tool-heading"><span class="num">2</span>AI tool</h3>
-          <div class="tools" role="group" aria-labelledby="tool-heading">
-            ${clients.map((c) => {
-              const m = CLIENTS[c.id] ?? CLIENTS.other;
-              return html`<button class="tool" aria-pressed=${c.id === selected?.id ? "true" : "false"} @click=${() => (this._client = c.id)}>
-                <umb-icon name=${m.icon}></umb-icon>
-                <span class="tool-text">
-                  <span class="tool-name">${c.label}</span>
-                  <span class="tool-sub">${c.format === "shell" ? "Terminal command" : c.fileName ?? "mcpServers config"}</span>
-                </span>
-              </button>`;
-            })}
-          </div>
-          <p class="muted small">The MCP server runs with npx: the computer running the AI tool needs Node.js 22.23.4 or later (24.22.1+ on Node 24, 26.12.1+ on Node 26).</p>
-        </div>
+    return html`<umbrella-client-setup .setup=${this._setup} .userName=${userName ?? null}>
+      <div class="field" slot="choose">
+        <h3><span class="num">1</span>Sign in as</h3>
+        ${this.#renderClientIdPicker()}
+        <p class="muted small">
+          Give each person their own API user, so their access can be set on its own.
+          ${this._data?.canManageUsers
+            ? html`<button class="link" @click=${this.#newConnection}>Create an API user</button>`
+            : "Someone with access to the Users section can create one with New connection."}
+        </p>
       </div>
-      ${selected
-        ? html`<div class="connect-result">
-            <div class="field">
-              <h3>
-                <span class="num">3</span>${selected.format === "shell"
-                  ? selected.content.includes("\n")
-                    ? "Run these commands"
-                    : "Run this command"
-                  : `Add this to ${selected.fileName ?? "the MCP configuration"}`}
-              </h3>
-              <p class="muted">${meta.where}</p>
-              ${insecure
-                ? html`<p class="warning">
-                    <umb-icon name="icon-alert"></umb-icon>
-                    The MCP server needs HTTPS. Open the backoffice over https, or change UMBRACO_BASE_URL below to the site's https address.
-                  </p>`
-                : nothing}
-              <div class="snippet">
-                <div class="snippet-head">
-                  <span><umb-icon name=${selected.format === "shell" ? "icon-terminal" : "icon-document"}></umb-icon>${selected.format === "shell" ? "Terminal" : selected.fileName ?? "MCP configuration"}</span>
-                  <uui-button look="primary" compact label="Copy" @click=${() => this.#copy(selected.content)}>
-                    <umb-icon name="icon-documents"></umb-icon> Copy
-                  </uui-button>
-                </div>
-                <pre tabindex="0" role="region" aria-label="${selected.label} configuration">${selected.content}</pre>
-              </div>
-            </div>
-            <div class="field">
-              <h3><span class="num">4</span>Add the client secret</h3>
-              ${this.#renderSecret(selected, meta)}
-            </div>
-            <div class="field">
-              <h3><span class="num">5</span>Restart ${selected.label.replace(/ \((command|plugin)\)$/, "")}</h3>
-              <p class="muted">
-                It connects as ${userName ? html`<strong>${userName}</strong>` : "the API user"} and shows up in
-                <strong>Access per API user</strong>.
-              </p>
-            </div>
-          </div>`
-        : nothing}
-    </div>`;
+    </umbrella-client-setup>`;
   }
 
   #renderConnect() {
@@ -467,12 +450,9 @@ export class UmbrellaOverviewElement extends UmbLitElement {
       .empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--uui-size-space-2); padding: var(--uui-size-layout-2) var(--uui-size-space-5); }
       .empty > umb-icon { font-size: 2rem; color: var(--uui-color-text-alt); }
       .empty p { margin: 0; max-width: 50ch; }
-      .empty uui-button { margin-top: var(--uui-size-space-3); }
+      .empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--uui-size-space-2); margin-top: var(--uui-size-space-3); }
+      .header-actions { display: flex; align-items: center; gap: var(--uui-size-space-4); }
 
-      .connect { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: var(--uui-size-layout-1); align-items: start; }
-      @media (max-width: 64rem) { .connect { grid-template-columns: minmax(0, 1fr); } }
-      .connect-choose, .connect-result { display: flex; flex-direction: column; gap: var(--uui-size-space-6); min-width: 0; }
-      .connect-result { padding: var(--uui-size-space-5); border-radius: var(--uui-border-radius); background: var(--uui-color-surface-alt); }
       .field { display: flex; flex-direction: column; align-items: stretch; gap: var(--uui-size-space-3); }
       .field > p { margin: 0; max-width: 70ch; }
       .field h3 { display: flex; align-items: center; gap: var(--uui-size-space-3); font-size: var(--uui-type-default-size); }
@@ -481,37 +461,10 @@ export class UmbrellaOverviewElement extends UmbLitElement {
         background: var(--uui-color-current); color: var(--uui-color-current-contrast); font-size: var(--uui-type-small-size); font-weight: 700;
       }
       uui-select { width: 100%; }
-      a { color: var(--uui-color-interactive); }
-      a:hover { color: var(--uui-color-interactive-emphasis); }
+      a, .link { color: var(--uui-color-interactive); }
+      a:hover, .link:hover { color: var(--uui-color-interactive-emphasis); }
+      .link { padding: 0; border: 0; background: none; font: inherit; text-decoration: underline; cursor: pointer; }
 
-      .tools { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: var(--uui-size-space-2); }
-      .tool {
-        display: flex; align-items: center; gap: var(--uui-size-space-3); min-width: 0;
-        padding: var(--uui-size-space-3); border: 1px solid var(--uui-color-border); border-radius: var(--uui-border-radius);
-        background: var(--uui-color-surface); font: inherit; color: inherit; text-align: left; cursor: pointer;
-      }
-      .tool:hover { border-color: var(--uui-color-border-emphasis); }
-      .tool:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offset: 1px; }
-      .tool[aria-pressed="true"] { border-color: var(--uui-color-selected); box-shadow: inset 0 0 0 1px var(--uui-color-selected); }
-      .tool > umb-icon { flex: none; font-size: 1.25rem; color: var(--uui-color-text-alt); }
-      .tool[aria-pressed="true"] > umb-icon { color: var(--uui-color-selected); }
-      .tool-text { display: flex; flex-direction: column; min-width: 0; }
-      .tool-name { font-weight: 600; }
-      .tool-sub { font-size: var(--uui-type-small-size); color: var(--uui-color-text-alt); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-      .snippet { border: 1px solid var(--uui-color-border); border-radius: var(--uui-border-radius); background: var(--uui-color-surface); overflow: hidden; }
-      .snippet-head {
-        display: flex; justify-content: space-between; align-items: center; gap: var(--uui-size-space-3);
-        padding: var(--uui-size-space-2) var(--uui-size-space-2) var(--uui-size-space-2) var(--uui-size-space-4);
-        border-bottom: 1px solid var(--uui-color-divider);
-      }
-      .snippet-head span { display: inline-flex; align-items: center; gap: var(--uui-size-space-2); font-weight: 600; }
-      pre { margin: 0; overflow-x: auto; padding: var(--uui-size-space-4); white-space: pre; font-size: var(--uui-type-small-size); max-height: 24rem; }
-      code { font-size: 0.9em; }
-      .command {
-        display: block; padding: var(--uui-size-space-3) var(--uui-size-space-4); overflow-x: auto; white-space: pre;
-        border: 1px solid var(--uui-color-border); border-radius: var(--uui-border-radius); background: var(--uui-color-surface);
-      }
     `,
   ];
 }

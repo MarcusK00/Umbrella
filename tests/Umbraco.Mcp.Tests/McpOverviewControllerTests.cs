@@ -36,7 +36,9 @@ public class McpOverviewControllerTests
         FakeConnectionStore? connections = null,
         FakeToolSettingsStore? settings = null,
         FakeApiUserDirectory? directory = null,
-        string? configuredClientId = null)
+        string? configuredClientId = null,
+        FakeCreatedUserStore? created = null,
+        IUser? currentUser = null)
     {
         var config = new Dictionary<string, string?>();
         if (configuredClientId is not null)
@@ -47,11 +49,21 @@ public class McpOverviewControllerTests
         return new(
             overview ?? new StubOverview(),
             connections ?? new FakeConnectionStore(),
+            created ?? new FakeCreatedUserStore(),
             settings ?? new FakeToolSettingsStore(),
             directory ?? new FakeApiUserDirectory(Anna, NoCredentials),
+            new FakeBackOfficeSecurityAccessor(currentUser),
             new ConfigurationBuilder().AddInMemoryCollection(config).Build(),
             NullLogger<McpOverviewController>.Instance);
     }
+
+    private static IUser BackOfficeUser(params string[] sections) =>
+        Stub.Create<IUser>(new()
+        {
+            [nameof(IUser.Key)] = Guid.NewGuid(),
+            [nameof(IUser.Kind)] = UserKind.Default,
+            [nameof(IUser.AllowedSections)] = sections,
+        });
 
     private static string? PolicyOf(string method) =>
         typeof(McpOverviewController).GetMethod(method)!.GetCustomAttribute<AuthorizeAttribute>()?.Policy;
@@ -69,13 +81,94 @@ public class McpOverviewControllerTests
     }
 
     [Test]
+    public void RecordCreatedUser_requires_the_users_section() =>
+        Assert.That(PolicyOf(nameof(McpOverviewController.RecordCreatedUser)), Is.EqualTo(AuthorizationPolicies.SectionAccessUsers));
+
+    [Test]
+    public async Task Overview_sets_canManageUsers_when_the_caller_has_the_users_section()
+    {
+        IActionResult result = await Controller(currentUser: BackOfficeUser("settings", "users")).GetOverview();
+
+        Assert.That(((McpOverview)((OkObjectResult)result).Value!).CanManageUsers, Is.True);
+    }
+
+    [Test]
+    public async Task Overview_sets_canManageUsers_false_without_the_users_section()
+    {
+        IActionResult result = await Controller(currentUser: BackOfficeUser("settings")).GetOverview();
+
+        Assert.That(((McpOverview)((OkObjectResult)result).Value!).CanManageUsers, Is.False);
+    }
+
+    [Test]
+    public async Task Overview_sets_canManageUsers_false_without_a_current_user()
+    {
+        IActionResult result = await Controller().GetOverview();
+
+        Assert.That(((McpOverview)((OkObjectResult)result).Value!).CanManageUsers, Is.False);
+    }
+
+    [Test]
+    public async Task RecordCreatedUser_records_an_api_user()
+    {
+        var created = new FakeCreatedUserStore();
+
+        IActionResult result = await Controller(created: created).RecordCreatedUser(Anna.Key);
+
+        Assert.That(result, Is.InstanceOf<NoContentResult>());
+        Assert.That(created.Recorded.Select(c => c.UserKey), Is.EqualTo(new[] { Anna.Key }));
+    }
+
+    [Test]
+    public async Task RecordCreatedUser_unknown_user_is_404()
+    {
+        var created = new FakeCreatedUserStore();
+
+        IActionResult result = await Controller(created: created).RecordCreatedUser(Guid.NewGuid());
+
+        Assert.That(result, Is.InstanceOf<NotFoundResult>());
+        Assert.That(created.Recorded, Is.Empty);
+    }
+
+    [Test]
+    public void Forget_never_connected_user_removes_the_record()
+    {
+        Guid key = Guid.NewGuid();
+        var created = new FakeCreatedUserStore();
+        created.Record(key, DateTimeOffset.UtcNow);
+        var settings = new FakeToolSettingsStore();
+
+        IActionResult result = Controller(created: created, settings: settings).ForgetConnection(key);
+
+        Assert.That(result, Is.InstanceOf<NoContentResult>());
+        Assert.That(created.Recorded, Is.Empty);
+        Assert.That(settings.ClearedCatalogues, Is.Empty);
+    }
+
+    [Test]
+    public void Forget_connected_user_removes_both()
+    {
+        Guid key = Guid.NewGuid();
+        var connections = new FakeConnectionStore();
+        connections.Record(key, DateTimeOffset.UtcNow);
+        var created = new FakeCreatedUserStore();
+        created.Record(key, DateTimeOffset.UtcNow);
+
+        IActionResult result = Controller(connections: connections, created: created).ForgetConnection(key);
+
+        Assert.That(result, Is.InstanceOf<NoContentResult>());
+        Assert.That(connections.Recorded, Is.Empty);
+        Assert.That(created.Recorded, Is.Empty);
+    }
+
+    [Test]
     public async Task Get_returns_the_overview()
     {
         var overview = new StubOverview();
 
         IActionResult result = await Controller(overview).GetOverview();
 
-        Assert.That(((OkObjectResult)result).Value, Is.SameAs(overview.Result));
+        Assert.That(((OkObjectResult)result).Value, Is.EqualTo(overview.Result));
     }
 
     [Test]

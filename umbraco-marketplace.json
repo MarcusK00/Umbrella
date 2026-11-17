@@ -12,6 +12,8 @@
     "ai",
     "ai agents",
     "claude",
+    "claude code",
+    "claude code plugin",
     "forms",
     "automate",
     "engage",
@@ -32,7 +34,11 @@
     },
     {
       "ImageUrl": "https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-connect.png",
-      "Caption": "Connect in minutes: the Umbrella dashboard hands each AI tool a ready-made setup to copy"
+      "Caption": "Connect in minutes: the Umbrella dashboard hands each AI tool a ready-made setup to copy, and Claude Code can install Umbrella as a plugin that asks for the secret"
+    },
+    {
+      "ImageUrl": "https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-new-connection.png",
+      "Caption": "Set up a person in one panel: New connection creates their API user, its access and its secret, then hands over the config for their AI tool"
     },
     {
       "ImageUrl": "https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-teams.png",

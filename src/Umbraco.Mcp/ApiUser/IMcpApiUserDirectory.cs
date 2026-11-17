@@ -4,14 +4,16 @@ namespace Umbraco.Mcp.ApiUser;
 
 /// <summary>
 /// An API user of the site, whether or not its MCP server has ever connected. <paramref name="AllowedSections"/> holds
-/// the section names its user groups grant; null when they were not read.
+/// the section names its user groups grant, and <paramref name="Groups"/> the names of its user groups; null when they
+/// were not read.
 /// </summary>
 public sealed record McpApiUserInfo(
     Guid Key,
     string Name,
     UserState State,
     IReadOnlyList<string> ClientIds,
-    IReadOnlyCollection<string>? AllowedSections = null);
+    IReadOnlyCollection<string>? AllowedSections = null,
+    IReadOnlyList<string>? Groups = null);
 
 /// <summary>The site's API users (users of kind API), for choosing whose tool settings to edit.</summary>
 public interface IMcpApiUserDirectory
