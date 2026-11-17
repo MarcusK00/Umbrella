@@ -1,0 +1,42 @@
+{
+  "name": "umbrella",
+  "displayName": "Umbrella for Umbraco",
+  "version": "17.0.2",
+  "description": "Connects Claude Code to an Umbraco 17 site through the umbrella-mcp server: the CMS tools, plus Forms, Automate and Engage when the site has them.",
+  "author": {
+    "name": "MarcusK00",
+    "url": "https://github.com/MarcusK00"
+  },
+  "homepage": "https://github.com/MarcusK00/Umbrella#readme",
+  "repository": "https://github.com/MarcusK00/Umbrella",
+  "license": "MIT",
+  "keywords": ["umbraco", "mcp", "cms"],
+  "userConfig": {
+    "base_url": {
+      "type": "string",
+      "title": "Site address",
+      "description": "The https address of your Umbraco site, for example https://www.example.com. Settings → Umbrella → Overview in the backoffice shows it.",
+      "required": true
+    },
+    "client_id": {
+      "type": "string",
+      "title": "Client id",
+      "description": "The client id of your API user, from its client credentials in the backoffice.",
+      "default": "umbraco-back-office-mcp",
+      "required": true
+    },
+    "client_secret": {
+      "type": "string",
+      "title": "Client secret",
+      "description": "The client secret you saved when you added the API user's client credentials. Kept in your system's credential store.",
+      "sensitive": true,
+      "required": true
+    },
+    "tls_reject_unauthorized": {
+      "type": "string",
+      "title": "Check the site's HTTPS certificate",
+      "description": "Leave at 1. Set 0 only for a site on your own machine that uses the ASP.NET Core development certificate: it turns off certificate checks for this MCP server.",
+      "default": "1"
+    }
+  }
+}

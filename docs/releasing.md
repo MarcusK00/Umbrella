@@ -6,7 +6,7 @@ Merging a new version into `v17/main` publishes both: `.github/workflows/release
 
 ## Checklist
 
-1. **Version.** On `v17/dev` (through a PR), set the same version in `src/Umbraco.Mcp/Umbraco.Mcp.csproj` (`<Version>`) and `npm/package.json` (`version`), and update the version in the config examples in `README.md`, `npm/README.md` and `src/Umbraco.Mcp/README.md`. `NpmPackageContractTests` fails if the two packages differ in name or version, and the `readme-versions` guard fails if a README still names another version. Also check that the Compatibility table in `README.md` matches the product package versions in `npm/package.json`. Every publish needs a new version number: a merge that keeps the version publishes nothing.
+1. **Version.** On `v17/dev` (through a PR), set the same version in `src/Umbraco.Mcp/Umbraco.Mcp.csproj` (`<Version>`) and `npm/package.json` (`version`), and update the version in the config examples in `README.md`, `npm/README.md` and `src/Umbraco.Mcp/README.md`. Set it in the Claude Code plugin too: `version` in `plugins/umbrella/.claude-plugin/plugin.json` and `umbrella-mcp@<version>` in `plugins/umbrella/.mcp.json`. Users only get a plugin update when its `version` changes. `NpmPackageContractTests` fails if the two packages differ in name or version, `ClaudePluginContractTests` if the plugin differs from the add-on, and the `readme-versions` guard if a README still names another version. Also check that the Compatibility table in `README.md` matches the product package versions in `npm/package.json`. Every publish needs a new version number: a merge that keeps the version publishes nothing.
 2. **No local dependencies.** `npm/package.json` `dependencies` must only reference registry versions. A `file:` dependency cannot be installed by users. A product that only exists as a local tarball stays in `devDependencies` and `external` in `tsup.config.ts` (none today).
 3. **Tests and guards.** CI runs these on the PR to `v17/main`; run them locally first:
    ```bash
@@ -30,9 +30,9 @@ Merging a new version into `v17/main` publishes both: `.github/workflows/release
 |---|---|
 | `version` | Reads the version from `npm/package.json` and the csproj (fails if they differ) and checks whether npm and NuGet have it. When both have it, every other job is skipped. |
 | `ci` | Runs `ci.yml` (`dotnet`, `npm`, `guards`, `workflows`) on the merged commit. Nothing publishes if it fails. |
-| `npm` | `npm publish --tag <label>` from `npm/`, where the label is the pre-release label (`17.0.0-alpha.8` → `alpha`) or `latest` for a stable version. The add-on pins the exact version, so users never depend on the dist-tag. |
+| `npm` | `npm publish --tag <label>` from `npm/`, where the label is the pre-release label (`17.0.0-alpha.8` → `alpha`) or `lts-17` for a stable version: `latest` belongs to the newest line, Umbraco 18, released from `v18/main`. The add-on pins the exact version, so users never depend on the dist-tag. |
 | `nuget` | `dotnet pack` and `dotnet nuget push`, only after npm succeeded or already had the version, so the version the add-on points to exists. |
-| `github-release` | Tags the commit `v<version>` and creates a GitHub release with generated notes (marked pre-release for a pre-release version). |
+| `github-release` | Tags the commit `v<version>` and creates a GitHub release with notes generated from the previous 17.x release (marked pre-release for a pre-release version). It is never marked "Latest": that belongs to the newest line, Umbraco 18. |
 
 Neither registry needs a stored API key: both use trusted publishing, where the job exchanges a short-lived GitHub OIDC token for a one-time credential. The workflow is safe to run again: a registry that already has the version is skipped, so after a failed NuGet push, re-run the failed jobs (or Actions → Release → Run workflow on `v17/main`) and only NuGet runs. npm adds a provenance statement on its own when a public repository publishes through trusted publishing (17.0.0 has one), so the workflow doesn't pass `--provenance`. npm does check that `repository.url` in `npm/package.json` matches the repository the workflow runs in (`MarcusK00/Umbrella`), so keep that field when the repository moves or is renamed.
 
@@ -61,8 +61,8 @@ The NuGet API key needs "Push only new package versions", limited to the glob `U
 
 ## Stable and test releases
 
-- **Stable releases** (now, from 17.0.0): plain versions such as `17.0.1`. npm publishes them under `latest`, and `dotnet add package Umbraco.Community.Umbrella` picks them without `--prerelease`.
-- **Test releases:** pre-release versions such as `17.1.0-beta.1` (the `17.0.0-alpha.N` versions were these). npm publishes them under their label, so `latest` stays on the stable version, and nuget.org hides them from searches unless "include prerelease" is ticked. Both registries are public.
+- **Stable releases** (now, from 17.0.0): plain versions such as `17.0.1`. npm publishes them under `lts-17` (17.0.0 and 17.0.1 went out under `latest`, before the Umbraco 18 line existed), and `dotnet add package Umbraco.Community.Umbrella` picks them without `--prerelease`.
+- **Test releases:** pre-release versions such as `17.1.0-beta.1` (the `17.0.0-alpha.N` versions were these). npm publishes them under their label, so `lts-17` stays on the stable version, and nuget.org hides them from searches unless "include prerelease" is ticked. Both registries are public.
 - **Nothing can be fully taken back:** nuget.org versions can only be unlisted, never deleted, and their version number stays used. npm allows `npm unpublish` within 72 hours. Use a new version number for every publish.
 - **Names:** `umbrella-mcp` on npm and `Umbraco.Community.Umbrella` on NuGet were unclaimed on 12-10-2026; the first publish claims them.
 
