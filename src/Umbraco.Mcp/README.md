@@ -13,7 +13,7 @@ Install this package in your site, then connect Claude Code, VS Code, Cursor or 
 ## ✨ What you get
 
 - **One server for every product.** Umbraco CMS tools always, plus Umbraco Forms, Automate and Engage tools when the site has them installed.
-- **Config to copy, per person.** Settings → Umbrella → Overview has the config for Claude Code, Claude Desktop, VS Code, Cursor and other clients, filled in with the site's address and the client id of the API user you pick. No secret in it, so you can send it to an editor who has no access to the code.
+- **Config to copy, per person.** Settings → Umbrella → Overview has the config for Claude Code, Claude Desktop, VS Code, Cursor and other clients, filled in with the site's address and the client id of the API user you pick. No secret in it, so you can send it to an editor who has no access to the code. For Claude Code there is also a plugin: two commands the Overview fills in, then a prompt for the secret, which Claude Code keeps in your system's credential store instead of a file.
 - **You stay in control.** The **Umbrella** dashboard (Settings section) has an **Overview** tab (what needs attention, config to copy for your AI tool, the API users MCP servers connected as) and a **Tool Permissions** tab that sets each product's access, for every API user or for one: **Off** (the MCP server doesn't load the product at all), **Read-only**, **No deletes** (leaves out the tools the products flag `destructiveHint`: mostly deletes, emptying recycle bins and terminating runs; unpublishing, moving to the recycle bin, and CMS and Forms version rollback stay available) or **Full**, and switches single tool groups off.
 - **Easy to check.** Backoffice health checks show which products were found and which API user the AI signed in as. In the AI tool, `get-mcp-health` explains what loaded and why.
 
@@ -33,7 +33,7 @@ Each person, or each AI agent, connects as its own API user, and in **Settings �
 
 ## 🚀 Get started in 5 steps
 
-![Connect in minutes: no config files to write by hand. The Umbrella dashboard is ready to connect as soon as the add-on is installed: pick a user, pick one of six AI tools, and copy the ready-made setup](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-connect.png)
+![Connect in minutes: no config files to write by hand. The Umbrella dashboard is ready to connect as soon as the add-on is installed: pick a user, pick your AI tool, and copy the ready-made setup](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-connect.png)
 
 You need Umbraco 17, and Node.js 22.23.4 or later (24.22.1 or later on Node 24, 26.12.1 or later on Node 26) on the machine running your AI tool.
 
@@ -49,7 +49,7 @@ dotnet add package Umbraco.Community.Umbrella
 
 Give the user's groups the sections the AI should work in (Content, Media, Settings, Forms, …). Each person who uses an AI tool gets an API user of their own.
 
-**3. Copy the config.** In **Settings → Umbrella → Overview** ("Connect an AI tool", click **Show steps** if it is closed), pick the API user and your AI tool: Claude Code, Claude Desktop, VS Code, Cursor or another client. For Claude Code there is also a plugin, installed with two commands the Overview fills in; it asks for the secret and keeps it in your system's credential store ([Claude Code plugin](https://github.com/MarcusK00/Umbrella/blob/v17/main/README.md#claude-code-plugin)). The plain version looks like this, with your site's address and the client id filled in:
+**3. Copy the config.** In **Settings → Umbrella → Overview** ("Connect an AI tool", click **Show steps** if it is closed), pick the API user and your AI tool: Claude Code, Claude Desktop, VS Code, Cursor or another client. The plain version looks like this, with your site's address and the client id filled in:
 
 ```json
 {
@@ -81,7 +81,28 @@ setx UMBRELLA_CLIENT_SECRET "<the client secret>"
 
 Then restart your AI tool and approve the `umbraco` server when asked. A config with the secret in it stays out of source control. The address must be `https://`.
 
+**Using Claude Code?** Skip steps 3 and 4 and install the plugin instead: see *Install the Claude Code plugin* below.
+
 **5. Say hello.** Ask the AI to *"call get-mcp-health"*. It lists each product and how many tools it loaded.
+
+## 🔌 Install the Claude Code plugin
+
+Umbrella is also a Claude Code plugin, so you don't edit a config file and the secret never lands in one. It works in the terminal, in the VS Code and JetBrains extensions, and in the Desktop app's Code tab. You need the site with this package installed and an API user (step 2).
+
+**1. Install it.** Claude Code fetches the plugin from GitHub, so there is nothing to download by hand. Run these two commands in a terminal. The Overview's **Claude Code (plugin)** option shows them with your site's address and the API user's client id filled in:
+
+```bash
+claude plugin marketplace add MarcusK00/Umbrella#v17/main
+claude plugin install umbrella@umbrella --config base_url=https://your-site --config client_id=umbraco-back-office-mcp
+```
+
+Inside Claude Code, `/plugin marketplace add MarcusK00/Umbrella#v17/main` and then `/plugin install umbrella@umbrella` do the same and ask for each value.
+
+**2. Add the secret.** In Claude Code, run `/plugin configure umbrella@umbrella`. It asks for the client secret, hides it as you type, and keeps it in your system's credential store, not in a file.
+
+**3. Start it.** Restart Claude Code, or run `/reload-plugins`. `/mcp` lists the server as `plugin:umbrella:umbraco`, and `/umbrella:health` checks the connection and explains what loaded.
+
+The plugin works in every folder you open. It isn't updated on its own: after upgrading Umbrella, run `claude plugin marketplace update umbrella` and `claude plugin update umbrella@umbrella`, then restart Claude Code. More on values, updates and limits: [Claude Code plugin](https://github.com/MarcusK00/Umbrella/blob/v17/main/README.md#claude-code-plugin) in the full documentation.
 
 ## 🧩 How it fits together
 
