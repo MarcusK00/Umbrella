@@ -9,7 +9,16 @@ One MCP server for your Umbraco 18 site. Umbrella detects which Umbraco products
 | [`Umbraco.Community.Umbrella`](https://www.nuget.org/packages/Umbraco.Community.Umbrella) (NuGet) | In your Umbraco site | Detects installed products, serves `GET /umbraco/management/api/v1/mcp/capabilities`, adds **MCP** health checks, and the **Umbrella** dashboard with the config for each AI tool |
 | [`umbrella-mcp`](https://www.npmjs.com/package/umbrella-mcp) (npm) | On your machine, started by your AI tool | Stdio MCP server: CMS tools always, Forms, Automate and Engage tools when the site has them. Tools are prefixed `cms--`, `forms--`, `automate--`, `engage--`; `get-mcp-health` explains what loaded and why |
 
-The site only needs the NuGet package, but installing it doesn't connect your AI tool. Each person connects their own: create an API user, copy the config from Settings → **Umbrella** → **Overview** into the AI tool, and supply the client secret ([Get started](#get-started)). The AI tool then starts `umbrella-mcp` with `npx`, which downloads it the first time. In Claude Code, the [Umbrella plugin](#claude-code-plugin) does the setup for you: it asks for the site, the client id and the secret, and keeps the secret in your system's credential store.
+The site only needs the NuGet package, but installing it doesn't connect your AI tool. Each person connects their own: create an API user, copy the config from Settings → **Umbrella** → **Overview** into the AI tool, and supply the client secret ([Get started](#get-started)). The AI tool then starts `umbrella-mcp` with `npx`, which downloads it the first time.
+
+**Using Claude Code?** Install the [Umbrella plugin](#claude-code-plugin) instead of editing a config file. Claude Code fetches it from GitHub, so there is nothing to download by hand:
+
+```bash
+claude plugin marketplace add MarcusK00/Umbrella#v18/main
+claude plugin install umbrella@umbrella --config base_url=https://your-site --config client_id=umbraco-back-office-mcp
+```
+
+Then run `/plugin configure umbrella@umbrella` in Claude Code to add the client secret, which it keeps in your system's credential store.
 
 ## Contents
 
@@ -115,7 +124,7 @@ Every tab on the Overview is a variant of this config:
 
 In Claude Code (the terminal, the VS Code and JetBrains extensions, and the Desktop app's Code tab) you can connect without editing a config file. This repository is a Claude Code plugin marketplace, and its Umbrella plugin starts `umbrella-mcp` with the site and API user you give it. The client secret goes to your system's credential store, not into a file.
 
-1. **Install the plugin.** The Overview's **Claude Code (plugin)** option shows these two commands with your site and client id filled in:
+1. **Install the plugin.** Claude Code fetches it from GitHub, so there is nothing to download by hand. The Overview's **Claude Code (plugin)** option shows these two commands with your site and client id filled in:
 
    ```bash
    claude plugin marketplace add MarcusK00/Umbrella#v18/main
