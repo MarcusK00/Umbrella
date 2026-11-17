@@ -4,5 +4,5 @@ contact_links:
     url: https://github.com/MarcusK00/Umbrella/security/advisories/new
     about: Report it privately, not in a public issue.
   - name: Setup and configuration docs
-    url: https://github.com/MarcusK00/Umbrella/blob/v17/main/README.md
+    url: https://github.com/MarcusK00/Umbrella/blob/v18/main/README.md
     about: Install, connect an AI tool, tool permissions, troubleshooting.

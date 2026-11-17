@@ -2,7 +2,7 @@ import type { McpProductModule } from "../module-contract.js";
 import { HEALTH_TOOL_NAME, buildRoutingInstructions, buildToolNameIndex, describeTool, prefixToolReferences } from "../routing.js";
 
 const mod = (id: string, useWhen: string[]): McpProductModule => ({
-  id, displayName: `Umbraco ${id}`, toolPrefix: `${id}--`, packageName: `@x/${id}`, expectedMajor: "17",
+  id, displayName: `Umbraco ${id}`, toolPrefix: `${id}--`, packageName: `@x/${id}`, expectedMajor: "18",
   description: `Umbraco ${id}: does ${id} things.`, useWhen,
   load: async () => { throw new Error("unused"); },
 });

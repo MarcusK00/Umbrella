@@ -4,9 +4,13 @@
 
 ## What CI checks
 
-`.github/workflows/ci.yml` runs on every PR to `v17/dev` or `v17/main` and on every push to `v17/main`. The same checks apply to both branches, so a PR from `v17/dev` to `v17/main` should hold no surprises.
+`.github/workflows/ci.yml` runs on every PR to `v18/dev` or `v18/main` and on every push to `v18/main`. The same checks apply to both branches, so a PR from `v18/dev` to `v18/main` should hold no surprises.
 
-A push to `v17/main` with a version that npm or NuGet doesn't have yet also runs `.github/workflows/release.yml`, which runs these checks again and then publishes both packages ([releasing.md](releasing.md)). Merging a version bump into `v17/main` is a release.
+A push to `v18/main` with a version that npm or NuGet doesn't have yet also runs `.github/workflows/release.yml`, which runs these checks again and then publishes both packages ([releasing.md](releasing.md)). Merging a version bump into `v18/main` is a release.
+
+## Two release lines
+
+Umbraco 17 and Umbraco 18 each have their own branches: `v17/dev` and `v17/main` for Umbrella 17.x, `v18/dev` and `v18/main` for Umbrella 18.x. Each branch carries its own copy of the workflows, so the checks and releases above apply per line. A fix that both lines need lands on `v17/dev` first and is then merged forward into `v18/dev`; never merge `v18/*` into `v17/*`.
 
 | Check | Runs | Does not cover |
 |---|---|---|
@@ -39,7 +43,7 @@ docker run --rm -v "$PWD:/repo" --workdir /repo rhysd/actionlint:1.7.7   # the w
 
 ## Branch protection
 
-Set once, by hand, in GitHub → Settings → Branches (or Rules → Rulesets) for both `v17/dev` and `v17/main`:
+Set once, by hand, in GitHub → Settings → Branches (or Rules → Rulesets) for `v17/dev`, `v17/main`, `v18/dev` and `v18/main`:
 
 - Require a pull request before merging.
 - Require status checks to pass: `dotnet`, `npm`, `guards`, `workflows`. They only appear in the picker after the workflow has run once.

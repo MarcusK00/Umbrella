@@ -7,7 +7,7 @@ body:
       value: |
         Thanks for reporting. Issues are public: remove client secrets, API keys, site URLs you don't want public and personal data before you submit.
 
-        Security vulnerabilities don't belong here, see [SECURITY.md](https://github.com/MarcusK00/Umbrella/blob/v17/main/SECURITY.md).
+        Security vulnerabilities don't belong here, see [SECURITY.md](https://github.com/MarcusK00/Umbrella/blob/v18/main/SECURITY.md).
   - type: textarea
     id: what-happened
     attributes:
@@ -43,7 +43,7 @@ body:
     attributes:
       label: Add-on version
       description: The `Umbraco.Community.Umbrella` version installed in the site.
-      placeholder: 17.0.0-alpha.7
+      placeholder: 18.0.0
     validations:
       required: true
   - type: input
@@ -51,14 +51,14 @@ body:
     attributes:
       label: umbrella-mcp version
       description: The version in your AI tool's config (`umbrella-mcp@<version>`), or `server.version` in `get-mcp-health`.
-      placeholder: 17.0.0-alpha.7
+      placeholder: 18.0.0
     validations:
       required: true
   - type: input
     id: umbraco-version
     attributes:
       label: Umbraco CMS version
-      placeholder: 17.7.0
+      placeholder: 18.3.2
     validations:
       required: true
   - type: textarea
@@ -67,8 +67,8 @@ body:
       label: Other Umbraco products and versions
       description: Forms, Automate, Engage, if installed.
       placeholder: |
-        Forms 17.6.1
-        Automate 17.4.0
+        Forms 18.3.0
+        Automate 18.6.0
   - type: dropdown
     id: ai-tool
     attributes:

@@ -30,7 +30,7 @@ npm/src/
   modules/          one file per product: cms.ts, forms.ts, automate.ts, engage.ts
   types/            declarations for the product packages' ./collections (product-modules.d.ts)
 tests/Umbraco.Mcp.Tests/   NUnit tests for the add-on
-demo-site/          Umbraco 17 with Forms, Automate and Engage, referencing the add-on project
+demo-site/          Umbraco 18 with Forms, Automate and Engage, referencing the add-on project
 scripts/            API user setup, end-to-end check, pack check
 ```
 
@@ -48,13 +48,13 @@ Each product has a detector in `Detection/Detectors/`. Apart from CMS (always in
 | `ApiName` | `forms-management` | **Enabled** = a live controller carries `[MapToApi("forms-management")]` |
 | `SectionAlias` | `Umb.Section.Forms` | The section the API user needs ("MCP API user" check); optional |
 
-Detection goes through two seams, `ILoadedAssemblyProvider` (the AppDomain) and `IRegisteredApiProvider` (MVC action descriptors, not Swagger options), so tests can fake both. The version comes from the assembly's informational version, without the `+commit` suffix.
+Detection goes through two seams, `ILoadedAssemblyProvider` (the AppDomain) and `IRegisteredApiProvider` (MVC action descriptors, not Swagger options), so tests can fake both. The version comes from the assembly's informational version, without the `+commit` suffix. Pick an assembly that holds the product's Management API and carries its version: Engage 18 ships `Umbraco.Engage.Core` as a package without an assembly, so Engage is detected by `Umbraco.Engage.Web`.
 
 The add-on takes **no package dependency** on any product: detection is by name only. `McpCapabilitiesService` catches detector exceptions and turns them into a product issue, so one broken detector never breaks the endpoint. Detectors are registered in `McpComposer`; their order there is the order products appear everywhere else.
 
 ### Endpoints
 
-All under `/umbraco/management/api/v1/mcp/`, in the Management API's "MCP" Swagger group.
+All under `/umbraco/management/api/v1/mcp/`, tagged "MCP" in the Management API document (`/umbraco/openapi/management.json`; Umbraco 18 builds it with Microsoft.AspNetCore.OpenApi, not Swashbuckle). Actions never declare 401 or 403 with `[ProducesResponseType]`: Umbraco 18 adds both to every backoffice operation and throws on a duplicate, which fails the whole document with a 500 (`OpenApiContractTests`).
 
 | Endpoint | Who may call it | What it does |
 |---|---|---|
@@ -100,7 +100,15 @@ A team can give each developer an API user, and the settings can differ per user
 
 ### Client config
 
-`McpClientConfig` builds the `{ "mcpServers": { "umbraco": … } }` JSON. `McpClientSnippets` builds the six snippets for one client id (Claude Code `.mcp.json` with `${UMBRELLA_CLIENT_SECRET}`, the `claude mcp add` command, Claude Desktop, VS Code with `inputs`, Cursor with `${env:...}`, other clients), and `GET client-setup` returns them for the API user picked on the Overview. None contains a secret. A loopback site adds `NODE_TLS_REJECT_UNAUTHORIZED=0`. The add-on writes no files: the site where the add-on runs is often not where the AI tool runs (Umbraco Cloud, editors without the source), and a shared file would sign everyone in as one API user.
+`McpClientConfig` builds the `{ "mcpServers": { "umbraco": … } }` JSON. `McpClientSnippets` builds the seven snippets for one client id (Claude Code `.mcp.json` with `${UMBRELLA_CLIENT_SECRET}`, the `claude mcp add` command, the two commands that install the Claude Code plugin, Claude Desktop, VS Code with `inputs`, Cursor with `${env:...}`, other clients), and `GET client-setup` returns them for the API user picked on the Overview. None contains a secret. A loopback site adds `NODE_TLS_REJECT_UNAUTHORIZED=0` (for the plugin, `--config tls_reject_unauthorized=0`).
+
+### Claude Code plugin
+
+The repository root is a Claude Code plugin marketplace: `.claude-plugin/marketplace.json` (marketplace `umbrella`) lists one plugin, `plugins/umbrella`. Its `.claude-plugin/plugin.json` declares four `userConfig` values (`base_url`, `client_id`, `client_secret` with `sensitive: true`, and `tls_reject_unauthorized`, default `1`), and its `.mcp.json` starts `npx -y umbrella-mcp@<version>` as the server `umbraco` with each value in an `UMBRACO_*` variable (or `NODE_TLS_REJECT_UNAUTHORIZED`) through `${user_config.<key>}`. Claude Code registers it as `plugin:umbrella:umbraco` and doesn't start it until every required value is set. `skills/health/SKILL.md` is `/umbrella:health`.
+
+- **Branch:** the dashboard's commands add the marketplace from `MarcusK00/Umbrella#v18/main` (`McpClientSnippets.PluginMarketplaceSource`), the released branch, so it never offers a version the registries don't have yet.
+- **Contract:** `ClaudePluginContractTests` checks that the marketplace and plugin names equal `McpClientSnippets.PluginMarketplace` and `PluginName`, that `plugin.json`'s `version` equals the add-on's, that `.mcp.json` runs `McpClientConfig.NpxArgs(<add-on version>)` under `McpClientConfig.ServerName`, and that each variable reads its `userConfig` value.
+- **Not in the npm package:** the plugin is only these files in the repository; nothing in `npm/` or the NuGet package changes for it. The add-on writes no files: the site where the add-on runs is often not where the AI tool runs (Umbraco Cloud, editors without the source), and a shared file would sign everyone in as one API user.
 
 `McpOverviewService` (`Overview/`) gathers the status, findings, products and API users once. The three health checks render the same findings through `McpHealthCheckRows` as short rows, and the dashboard renders them in full. The pointer to Settings → Umbrella (`McpHealthCheckRows.DashboardPointer`) is only in the "MCP client setup" description, so it shows once when the group runs.
 
@@ -113,7 +121,7 @@ A team can give each developer an API user, and the settings can differ per user
 1. **Sign in.** `initializeUmbracoFetch` with the three `UMBRACO_*` variables (missing → exit).
 2. **Load CMS** and install the client context with the CMS client as the default.
 3. **Credentials check.** `getUserCurrent()` fails fast (exit), and its result is the `user` that `collection.tools(user)` needs. `describeStartupError` (`startup-error.ts`) names the cause in the exit message: the site is not reachable (a socket error code such as `ECONNREFUSED`), its certificate was not accepted, or the token request was refused (bad credentials); anything else keeps the general message and prints the raw error.
-4. **Version check.** The site's version goes to CMS first (`LoadedModule.setUmbracoVersion`), so CMS lists the tools that need Umbraco 17.4 or 17.6. Then the check against Umbraco major 17 (the toolkit's `checkUmbracoVersion`). A mismatch does not stop startup: its message goes into the server instructions and `get-mcp-health`.
+4. **Version check.** The site's version goes to CMS first (`LoadedModule.setUmbracoVersion`), so CMS can offer tools that need a newer minor (CMS 17 gated tools on 17.4 and 17.6; CMS 18.1.11 takes the version but gates none). Then the check against Umbraco major 18 (the toolkit's `checkUmbracoVersion`). A mismatch does not stop startup: its message goes into the server instructions and `get-mcp-health`.
 5. **Capabilities.** `fetchCapabilities()` returns `ok`, `no-addon` (HTTP 404) or `unavailable`.
 6. **Select modules** (below).
 7. **Phase 1: load** each selected product module. A product package that isn't installed, or that has its own nested toolkit copy, is skipped with an issue. A load failure becomes an issue, never a crash.

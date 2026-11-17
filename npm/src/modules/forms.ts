@@ -5,7 +5,7 @@ export const formsModule: McpProductModule = {
   displayName: "Umbraco Forms",
   toolPrefix: "forms--",
   packageName: "@umbraco-forms/mcp",
-  expectedMajor: "17",
+  expectedMajor: "18",
   description: "Umbraco Forms: forms, their fields and the entries people submit.",
   useWhen: [
     "forms, form folders, fields, pages, conditions, themes and form templates",

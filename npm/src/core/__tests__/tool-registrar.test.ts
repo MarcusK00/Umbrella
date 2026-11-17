@@ -33,7 +33,7 @@ const loaded = (client: string, tools: ReturnType<typeof tool>[]): LoadedModule 
 });
 
 const mod = (id: string): McpProductModule => ({
-  id, displayName: id, toolPrefix: `${id}--`, packageName: `@x/${id}`, expectedMajor: "17", description: `${id} description`, useWhen: [`${id} requests`],
+  id, displayName: id, toolPrefix: `${id}--`, packageName: `@x/${id}`, expectedMajor: "18", description: `${id} description`, useWhen: [`${id} requests`],
   load: async () => { throw new Error("unused"); },
 });
 
