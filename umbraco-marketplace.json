@@ -1,0 +1,31 @@
+{
+  "$schema": "https://marketplace.umbraco.com/umbraco-marketplace-schema.json",
+  "Category": "Artificial Intelligence",
+  "AlternateCategory": "Developer Tools",
+  "PackageType": "Package",
+  "LicenseTypes": ["Free"],
+  "DocumentationUrl": "https://github.com/MarcusK00/Umbrella/blob/v17/main/README.md",
+  "IssueTrackerUrl": "https://github.com/MarcusK00/Umbrella/issues",
+  "Tags": [
+    "mcp",
+    "model context protocol",
+    "ai",
+    "ai agents",
+    "claude",
+    "forms",
+    "automate",
+    "engage",
+    "health check"
+  ],
+  "Screenshots": [
+    {
+      "ImageUrl": "https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-overview.png",
+      "Caption": "Settings → Umbrella → Overview: the tool access of each API user for CMS, Forms, Automate and Engage"
+    }
+  ],
+  "AuthorDetails": {
+    "Url": "https://github.com/MarcusK00",
+    "ImageUrl": "https://github.com/MarcusK00.png",
+    "SyncContributorsFromRepository": true
+  }
+}

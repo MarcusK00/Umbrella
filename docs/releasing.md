@@ -2,7 +2,7 @@
 
 `Umbraco.Community.Umbrella` (NuGet) and `umbrella-mcp` (npm) are released together, with the same version. The add-on tells AI tools to run `npx -y umbrella-mcp@<add-on version>`, so an add-on release without the matching npm release breaks setup for everyone who installs it.
 
-Merging a new version into `v17/main` publishes both: `.github/workflows/release.yml` runs on every push to `v17/main`, and does nothing unless that version is missing from npm or NuGet. Releases are stable from 17.0.0, but Umbrella is not on the Umbraco Marketplace yet, so the NuGet package has no `umbraco-marketplace` tag (see [Stable, test and Marketplace releases](#stable-test-and-marketplace-releases)).
+Merging a new version into `v17/main` publishes both: `.github/workflows/release.yml` runs on every push to `v17/main`, and does nothing unless that version is missing from npm or NuGet. Releases are stable from 17.0.0, and from 17.0.1 the NuGet package is listed on the Umbraco Marketplace (see [Umbraco Marketplace](#umbraco-marketplace)).
 
 ## Checklist
 
@@ -59,10 +59,19 @@ dotnet nuget push artifacts/Umbraco.Community.Umbrella.<version>.nupkg --source 
 
 The NuGet API key needs "Push only new package versions", limited to the glob `Umbraco.Community.Umbrella`.
 
-## Stable, test and Marketplace releases
+## Stable and test releases
 
-- **Stable releases** (now, from 17.0.0): plain versions such as `17.0.1`. npm publishes them under `latest`, and `dotnet add package Umbraco.Community.Umbrella` picks them without `--prerelease`. Still without the `umbraco-marketplace` tag.
+- **Stable releases** (now, from 17.0.0): plain versions such as `17.0.1`. npm publishes them under `latest`, and `dotnet add package Umbraco.Community.Umbrella` picks them without `--prerelease`.
 - **Test releases:** pre-release versions such as `17.1.0-beta.1` (the `17.0.0-alpha.N` versions were these). npm publishes them under their label, so `latest` stays on the stable version, and nuget.org hides them from searches unless "include prerelease" is ticked. Both registries are public.
-- **Marketplace release:** add `umbraco-marketplace` back to `<PackageTags>` in `src/Umbraco.Mcp/Umbraco.Mcp.csproj`. The Umbraco Marketplace lists NuGet packages that carry that tag.
 - **Nothing can be fully taken back:** nuget.org versions can only be unlisted, never deleted, and their version number stays used. npm allows `npm unpublish` within 72 hours. Use a new version number for every publish.
 - **Names:** `umbrella-mcp` on npm and `Umbraco.Community.Umbrella` on NuGet were unclaimed on 12-10-2026; the first publish claims them.
+
+## Umbraco Marketplace
+
+The [Umbraco Marketplace](https://marketplace.umbraco.com) lists `Umbraco.Community.Umbrella` from 17.0.1. Umbraco's guide is [Listing your package](https://docs.umbraco.com/umbraco-dxp/marketplace/listing-your-package); there is no submission form, approval or account.
+
+- **What lists it:** the `umbraco-marketplace` tag in `<PackageTags>` (`src/Umbraco.Mcp/Umbraco.Mcp.csproj`) and the NuGet dependency on an Umbraco package. The name, icon, authors, description and readme come from the NuGet package.
+- **Supported Umbraco versions** come from the dependency range, `[17.0.0, 18.0.0)` in `Directory.Packages.props`. For an Umbraco 18 line, publish under a range for 18 (the Marketplace combines the ranges of all versions).
+- **Listing details:** `umbraco-marketplace.json` in the repository root: categories, license, documentation and issue links, tags, the screenshot and author links. The Marketplace reads it from the root of the default branch of the NuGet project URL (`PackageProjectUrl`, this repository), so a change to it goes live once merged into `v17/dev`, without a release. It must match the [schema](https://marketplace.umbraco.com/umbraco-marketplace-schema.json), or the Marketplace ignores it. The schema's URL pattern needs a validator in non-Unicode regex mode (ajv: `unicodeRegExp: false`).
+- **Timing:** the Marketplace scans NuGet for newly tagged packages every day at 04:00 UTC and refreshes listed packages every 2 hours. To refresh one package sooner, `POST` `{"PackageId": "Umbraco.Community.Umbrella"}` with `Content-Type: application/json` to `https://functions.marketplace.umbraco.com/api/InitiateSinglePackageSyncFunction` (at most once a minute).
+- **Check** how the Marketplace reads the package at [marketplace.umbraco.com/validate](https://marketplace.umbraco.com/validate). Listing problems go to [Umbraco.Marketplace.Issues](https://github.com/umbraco/Umbraco.Marketplace.Issues/issues).
