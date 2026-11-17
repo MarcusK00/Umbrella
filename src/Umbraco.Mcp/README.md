@@ -81,16 +81,28 @@ setx UMBRELLA_CLIENT_SECRET "<the client secret>"
 
 Then restart your AI tool and approve the `umbraco` server when asked. A config with the secret in it stays out of source control. The address must be `https://`.
 
-**In Claude Code, you can use the plugin instead of steps 3 and 4.** Pick **Claude Code (plugin)** in the Overview, or run these two commands with your site's address and the API user's client id:
+**Using Claude Code?** Skip steps 3 and 4 and install the plugin instead: see *Install the Claude Code plugin* below.
+
+**5. Say hello.** Ask the AI to *"call get-mcp-health"*. It lists each product and how many tools it loaded.
+
+## 🔌 Install the Claude Code plugin
+
+Umbrella is also a Claude Code plugin, so you don't edit a config file and the secret never lands in one. It works in the terminal, in the VS Code and JetBrains extensions, and in the Desktop app's Code tab. You need the site with this package installed and an API user (step 2).
+
+**1. Install it.** Claude Code fetches the plugin from GitHub, so there is nothing to download by hand. Run these two commands in a terminal. The Overview's **Claude Code (plugin)** option shows them with your site's address and the API user's client id filled in:
 
 ```bash
 claude plugin marketplace add MarcusK00/Umbrella#v17/main
 claude plugin install umbrella@umbrella --config base_url=https://your-site --config client_id=umbraco-back-office-mcp
 ```
 
-Then run `/plugin configure umbrella@umbrella` in Claude Code. It asks for the client secret, hides it as you type, and keeps it in your system's credential store, not in a file. Restart Claude Code (or run `/reload-plugins`), and `/umbrella:health` checks the connection. It works in every folder you open, and the [Claude Code plugin](https://github.com/MarcusK00/Umbrella/blob/v17/main/README.md#claude-code-plugin) section of the full documentation has the details.
+Inside Claude Code, `/plugin marketplace add MarcusK00/Umbrella#v17/main` and then `/plugin install umbrella@umbrella` do the same and ask for each value.
 
-**5. Say hello.** Ask the AI to *"call get-mcp-health"*. It lists each product and how many tools it loaded.
+**2. Add the secret.** In Claude Code, run `/plugin configure umbrella@umbrella`. It asks for the client secret, hides it as you type, and keeps it in your system's credential store, not in a file.
+
+**3. Start it.** Restart Claude Code, or run `/reload-plugins`. `/mcp` lists the server as `plugin:umbrella:umbraco`, and `/umbrella:health` checks the connection and explains what loaded.
+
+The plugin works in every folder you open. It isn't updated on its own: after upgrading Umbrella, run `claude plugin marketplace update umbrella` and `claude plugin update umbrella@umbrella`, then restart Claude Code. More on values, updates and limits: [Claude Code plugin](https://github.com/MarcusK00/Umbrella/blob/v17/main/README.md#claude-code-plugin) in the full documentation.
 
 ## 🧩 How it fits together
 
