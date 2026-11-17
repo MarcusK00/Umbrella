@@ -19,8 +19,24 @@
   ],
   "Screenshots": [
     {
-      "ImageUrl": "https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-overview.png",
-      "Caption": "Settings → Umbrella → Overview: the tool access of each API user for CMS, Forms, Automate and Engage"
+      "ImageUrl": "https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-cover.png",
+      "Caption": "Umbrella: one AI connection for your whole Umbraco site"
+    },
+    {
+      "ImageUrl": "https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-animation.svg",
+      "Caption": "How it works: your AI tool starts one MCP server, which asks the site which products it has and loads only their tools, prefixed per product"
+    },
+    {
+      "ImageUrl": "https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-agents.svg",
+      "Caption": "Many AI agents, each with its own access: every API user gets Off, Read-only, No deletes or Full per product"
+    },
+    {
+      "ImageUrl": "https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-connect.png",
+      "Caption": "Connect in minutes: the Umbrella dashboard hands each AI tool a ready-made setup to copy"
+    },
+    {
+      "ImageUrl": "https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-teams.png",
+      "Caption": "Made for teams: everyone signs in as their own API user, so access follows the person"
     }
   ],
   "AuthorDetails": {
