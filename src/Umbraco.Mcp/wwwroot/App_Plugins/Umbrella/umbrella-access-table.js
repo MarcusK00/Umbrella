@@ -109,7 +109,9 @@ export class UmbrellaAccessTableElement extends UmbLitElement {
       <uui-table-cell class="total">${u.connected === false || u.toolCount === null || u.toolCount === undefined ? "–" : u.toolCount}</uui-table-cell>
       <uui-table-cell class="actions">
         <div class="row-actions">
-          <uui-button look="secondary" compact label="Edit permissions" @click=${() => this.#emit("edit-permissions", u.key)}></uui-button>
+          ${u.state === "disabled"
+            ? nothing
+            : html`<uui-button look="secondary" compact label="Edit permissions" @click=${() => this.#emit("edit-permissions", u.key)}></uui-button>`}
           <uui-button class="more" look="secondary" compact label="Actions for ${u.name}" popovertarget=${popover}>
             <uui-symbol-more></uui-symbol-more>
           </uui-button>
