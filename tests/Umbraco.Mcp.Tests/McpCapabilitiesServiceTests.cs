@@ -61,9 +61,10 @@ public class McpCapabilitiesServiceTests
     }
 
     [Test]
-    public void Engage_is_detected_by_its_core_assembly_and_management_api()
+    public void Engage_is_detected_by_its_web_assembly_and_management_api()
     {
-        var assemblies = new FakeAssemblies(("Umbraco.Engage.Core", typeof(Assert).Assembly));
+        // Engage 18 ships Umbraco.Engage.Core as a package without an assembly; Umbraco.Engage.Web holds the Management API.
+        var assemblies = new FakeAssemblies(("Umbraco.Engage.Web", typeof(Assert).Assembly));
         var apis = new FakeApis("engage-management");
 
         McpProductStatus s = new EngageDetector(assemblies, apis).Detect();
