@@ -69,7 +69,7 @@ The plugin works in every folder you open. More on values, updates and limits in
 | | |
 |---|---|
 | Umbraco | 17 (Umbrella 17.x) or 18 (Umbrella 18.x) |
-| Products | Umbraco CMS, Forms, Automate, Engage |
+| Products | Umbraco CMS. Forms, Automate and Engage are optional: Umbrella adds their tools when they are installed |
 | AI tool machine | Node.js 22.23.4+, 24.22.1+ or 26.12.1+ |
 
 ## More
