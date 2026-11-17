@@ -9,7 +9,7 @@ One MCP server for your Umbraco 18 site. Umbrella detects which Umbraco products
 | [`Umbraco.Community.Umbrella`](https://www.nuget.org/packages/Umbraco.Community.Umbrella) (NuGet) | In your Umbraco site | Detects installed products, serves `GET /umbraco/management/api/v1/mcp/capabilities`, adds **MCP** health checks, and the **Umbrella** dashboard with the config for each AI tool |
 | [`umbrella-mcp`](https://www.npmjs.com/package/umbrella-mcp) (npm) | On your machine, started by your AI tool | Stdio MCP server: CMS tools always, Forms, Automate and Engage tools when the site has them. Tools are prefixed `cms--`, `forms--`, `automate--`, `engage--`; `get-mcp-health` explains what loaded and why |
 
-The site only needs the NuGet package, but installing it doesn't connect your AI tool. Each person connects their own: create an API user, copy the config from Settings → **Umbrella** → **Overview** into the AI tool, and supply the client secret ([Get started](#get-started)). The AI tool then starts `umbrella-mcp` with `npx`, which downloads it the first time.
+The site only needs the NuGet package, but installing it doesn't connect your AI tool. Each person connects their own: create an API user, copy the config from Settings → **Umbrella** → **Overview** into the AI tool, and supply the client secret ([Get started](#get-started)). The AI tool then starts `umbrella-mcp` with `npx`, which downloads it the first time. In Claude Code, the [Umbrella plugin](#claude-code-plugin) does the setup for you: it asks for the site, the client id and the secret, and keeps the secret in your system's credential store.
 
 ## Contents
 
