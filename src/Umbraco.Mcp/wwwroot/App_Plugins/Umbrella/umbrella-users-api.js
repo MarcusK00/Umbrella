@@ -1,4 +1,4 @@
-import { managementRequest } from "./umbrella-api.js";
+import { managementRequest } from "./umbrella-management-api.js";
 
 /**
  * Umbraco's own user endpoints (Management API v1, Umbraco 17.0.0), called as the signed-in backoffice user. Umbraco
