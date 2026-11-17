@@ -1,10 +1,10 @@
 # ☂️ Umbrella
 
-**Let your AI tool work with your Umbraco 17 site: content, forms, automations and personalisation, through one MCP server.**
+**Let your AI tool work with your Umbraco 18 site: content, forms, automations and personalisation, through one MCP server.**
 
 Install this package in your site, then connect Claude Code, VS Code, Cursor or Claude Desktop with the config the backoffice gives you: each person connects their own AI tool. It gets tools for exactly the Umbraco products your site has. No product installed, no tools for it, so the AI isn't buried in tools it can't use.
 
-![Umbrella, an Umbraco community add-on: one AI connection for your whole Umbraco site. Umbraco 17 · CMS, Forms, Automate and Engage](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-cover.png)
+![Umbrella, an Umbraco community add-on: one AI connection for your whole Umbraco site. Umbraco 17 · CMS, Forms, Automate and Engage](https://raw.githubusercontent.com/MarcusK00/Umbrella/v18/main/docs/images/umbrella-cover.png)
 
 > "Create a contact form with name, email and message fields."
 > "Add a news article under the News page and save it as a draft."
@@ -19,23 +19,23 @@ Install this package in your site, then connect Claude Code, VS Code, Cursor or 
 
 ## ⚙️ How it works
 
-![Animation: an AI tool starts umbrella-mcp, which asks the Umbraco site which products are installed, loads CMS, Forms and Automate but not Engage, which isn't installed, and hands their prefixed tools back to the AI tool](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-animation.svg)
+![Animation: an AI tool starts umbrella-mcp, which asks the Umbraco site which products are installed, loads CMS, Forms and Automate but not Engage, which isn't installed, and hands their prefixed tools back to the AI tool](https://raw.githubusercontent.com/MarcusK00/Umbrella/v18/main/docs/images/umbrella-animation.svg)
 
 Your AI tool starts `umbrella-mcp`. The server signs in as an Umbraco API user, asks the site which products it has, and loads the tools for exactly those. Every tool is prefixed with its product (`forms--list-forms`), so the AI picks the right one.
 
 ## 👥 Many AI agents, each with its own access
 
-![Animation: a dev agent, a content agent and an ops agent connect to the same site through umbrella-mcp, each as its own API user. The dev agent has full access; the content agent can list forms but gets no delete tool for pages; the ops agent runs an automation and asks get-mcp-health what it can use. A table then shows each agent's access per product.](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-agents.svg)
+![Animation: a dev agent, a content agent and an ops agent connect to the same site through umbrella-mcp, each as its own API user. The dev agent has full access; the content agent can list forms but gets no delete tool for pages; the ops agent runs an automation and asks get-mcp-health what it can use. A table then shows each agent's access per product.](https://raw.githubusercontent.com/MarcusK00/Umbrella/v18/main/docs/images/umbrella-agents.svg)
 
 Each person, or each AI agent, connects as its own API user, and in **Settings → Umbrella → Tool Permissions** each API user can get its own access per product: **Off**, **Read-only**, **No deletes** or **Full**. A content agent can list forms but never gets a tool to delete pages; an ops agent can run automations while Forms stays off for it. `get-mcp-health` tells each agent what it can use.
 
-![Made for teams: everyone signs in as their own API user, so access follows the person, not the project. The Overview shows one row per person with who connected, when and with which version; Tool Permissions fine-tunes access down to groups of tools and can switch a product off for one person](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-teams.png)
+![Made for teams: everyone signs in as their own API user, so access follows the person, not the project. The Overview shows one row per person with who connected, when and with which version; Tool Permissions fine-tunes access down to groups of tools and can switch a product off for one person](https://raw.githubusercontent.com/MarcusK00/Umbrella/v18/main/docs/images/umbrella-teams.png)
 
 ## 🚀 Get started in 5 steps
 
-![Connect in minutes: no config files to write by hand. The Umbrella dashboard is ready to connect as soon as the add-on is installed: pick a user, pick one of six AI tools, and copy the ready-made setup](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-connect.png)
+![Connect in minutes: no config files to write by hand. The Umbrella dashboard is ready to connect as soon as the add-on is installed: pick a user, pick one of six AI tools, and copy the ready-made setup](https://raw.githubusercontent.com/MarcusK00/Umbrella/v18/main/docs/images/umbrella-connect.png)
 
-You need Umbraco 17, and Node.js 22.23.4 or later (24.22.1 or later on Node 24, 26.12.1 or later on Node 26) on the machine running your AI tool.
+You need Umbraco 18, and Node.js 22.23.4 or later (24.22.1 or later on Node 24, 26.12.1 or later on Node 26) on the machine running your AI tool.
 
 **1. Install the package** and restart the site:
 
@@ -56,7 +56,7 @@ Give the user's groups the sections the AI should work in (Content, Media, Setti
   "mcpServers": {
     "umbraco": {
       "command": "npx",
-      "args": ["-y", "umbrella-mcp@17.0.1"],
+      "args": ["-y", "umbrella-mcp@18.0.0"],
       "env": {
         "UMBRACO_BASE_URL": "https://your-site",
         "UMBRACO_CLIENT_ID": "umbraco-back-office-mcp",
@@ -96,14 +96,14 @@ Both are released together with the same version number. The package doesn't dep
 
 | | |
 |---|---|
-| Umbraco | 17 |
+| Umbraco | 18 |
 | Products | Umbraco CMS, Forms, Automate, Engage |
 | AI tool machine | Node.js 22.23.4+, 24.22.1+ or 26.12.1+ |
 
 ## 📚 More
 
-Configuration, turning tool groups off, troubleshooting and known limitations: **[full documentation on GitHub](https://github.com/MarcusK00/Umbrella/blob/v17/main/README.md)**.
+Configuration, turning tool groups off, troubleshooting and known limitations: **[full documentation on GitHub](https://github.com/MarcusK00/Umbrella/blob/v18/main/README.md)**.
 
-Bugs, ideas and questions: **[Umbrella issues on GitHub](https://github.com/MarcusK00/Umbrella/issues)**. Report security vulnerabilities privately, as described in the [security policy](https://github.com/MarcusK00/Umbrella/blob/v17/main/SECURITY.md).
+Bugs, ideas and questions: **[Umbrella issues on GitHub](https://github.com/MarcusK00/Umbrella/issues)**. Report security vulnerabilities privately, as described in the [security policy](https://github.com/MarcusK00/Umbrella/blob/v18/main/SECURITY.md).
 
 Umbrella is a community project, not an official Umbraco HQ package. MIT licensed.

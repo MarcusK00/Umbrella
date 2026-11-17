@@ -39,7 +39,7 @@ export const engageModule: McpProductModule = {
   displayName: "Umbraco Engage",
   toolPrefix: "engage--",
   packageName: "@umbraco-engage/mcp",
-  expectedMajor: "17",
+  expectedMajor: "18",
   description: "Umbraco Engage: personalisation, A/B tests and visitor analytics.",
   useWhen: [
     "A/B tests, their projects and variants",

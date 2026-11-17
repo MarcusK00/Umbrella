@@ -19,13 +19,15 @@ How to build, run and test Umbrella from a fresh clone. How the code fits togeth
    npm run build
    ```
 
-2. **Start the demo site** (Umbraco 17 with Forms, Automate and Engage, referencing the add-on project):
+2. **Start the demo site** (Umbraco 18 with Forms, Automate and Engage, referencing the add-on project):
 
    ```bash
    dotnet run --project demo-site --launch-profile Umbraco.Web.UI
    ```
 
-   It runs on https://localhost:44399 (and http://localhost:9399). The first start installs Umbraco unattended into a SQLite database under `demo-site/umbraco/Data/`, with the admin `admin@test.com` / `SecurePass1234` (`demo-site/appsettings.Development.json`).
+   It runs on https://localhost:44399 (and http://localhost:9399). The first start installs Umbraco unattended into the SQLite database `demo-site/umbraco/Data/Umbraco.v18.sqlite.db`, with the admin `admin@test.com` / `SecurePass1234` (`demo-site/appsettings.Development.json`).
+
+   **One database per major.** The v17 and v18 lines each need their own database: Umbraco migrates a database to the version that opens it, and an upgraded database won't open on the older major. On this line the default SQLite file is `Umbraco.v18.sqlite.db` (the v17 line uses `Umbraco.sqlite.db`). If you point the site at SQL Server in the gitignored `appsettings.Local.json`, put the v18 connection string in the gitignored `demo-site/appsettings.Local.v18.json`, which only this line loads, after `appsettings.Local.json`. An environment variable does not work for this: `appsettings.Local.json` is added after environment variables and wins.
 
 3. **Create the API user.** With the site running:
 
