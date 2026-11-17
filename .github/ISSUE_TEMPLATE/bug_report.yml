@@ -1,0 +1,108 @@
+name: Bug report
+description: Something in Umbrella doesn't work as described.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Issues are public: remove client secrets, API keys, site URLs you don't want public and personal data before you submit.
+
+        Security vulnerabilities don't belong here, see [SECURITY.md](https://github.com/MarcusK00/Umbrella/blob/v17/main/SECURITY.md).
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead. Include exact error messages.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Install the add-on and restart the site
+        2. Connect Claude Code with the config from Settings → Umbrella → Overview
+        3. Ask it to …
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where does it happen?
+      multiple: true
+      options:
+        - Add-on (detection, health checks, capabilities endpoint)
+        - Umbrella dashboard (Overview, Tool Permissions)
+        - MCP server startup or get-mcp-health
+        - A product's tools (CMS, Forms, Automate or Engage)
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: addon-version
+    attributes:
+      label: Add-on version
+      description: The `Umbraco.Community.Umbrella` version installed in the site.
+      placeholder: 17.0.0-alpha.7
+    validations:
+      required: true
+  - type: input
+    id: server-version
+    attributes:
+      label: umbrella-mcp version
+      description: The version in your AI tool's config (`umbrella-mcp@<version>`), or `server.version` in `get-mcp-health`.
+      placeholder: 17.0.0-alpha.7
+    validations:
+      required: true
+  - type: input
+    id: umbraco-version
+    attributes:
+      label: Umbraco CMS version
+      placeholder: 17.7.0
+    validations:
+      required: true
+  - type: textarea
+    id: products
+    attributes:
+      label: Other Umbraco products and versions
+      description: Forms, Automate, Engage, if installed.
+      placeholder: |
+        Forms 17.6.1
+        Automate 17.4.0
+  - type: dropdown
+    id: ai-tool
+    attributes:
+      label: AI tool
+      options:
+        - Claude Code
+        - Claude Desktop
+        - VS Code
+        - Cursor
+        - Other (say which below)
+        - Not relevant
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Operating system, Node.js version (`node --version`), and where the site runs (local, Umbraco Cloud, Azure, other hosting).
+      placeholder: macOS 15, Node 22.12, site on Umbraco Cloud
+  - type: textarea
+    id: health
+    attributes:
+      label: get-mcp-health output
+      description: Ask your AI tool to run `get-mcp-health` and paste the result. It contains the API user's name; replace it if you'd rather not share it.
+      render: json
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: MCP server output from your AI tool, Umbraco log entries, or screenshots of the dashboard or health checks.
+  - type: checkboxes
+    id: redacted
+    attributes:
+      label: Before you submit
+      options:
+        - label: I removed secrets, API keys and personal data from this report.
+          required: true
