@@ -288,7 +288,7 @@ export class UmbrellaNewConnectionModalElement extends UmbModalBaseElement {
     const error = this._suffix ? this.#suffixError : null;
     return html`
       <div class="field">
-        <uui-label for="name" required>Who is it for?</uui-label>
+        <uui-label for="name" required>Name of MCP client</uui-label>
         <uui-input
           id="name"
           label="Name"
