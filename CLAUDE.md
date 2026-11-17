@@ -20,7 +20,7 @@ Current docs, to keep in sync with the code:
 
 This repository is public and is Umbrella's public home: issues (the forms in `.github/ISSUE_TEMPLATE`), `SECURITY.md` with private vulnerability reporting, and the user docs in `README.md`. The NuGet `PackageProjectUrl`, the npm `homepage` and `bugs` fields and the READMEs link here; links to docs, `SECURITY.md` and images use `v17/main`, the released branch, because the default branch `v17/dev` can be ahead of the release. The earlier public tracker, MarcusK00/Umbrella-Issues, from when this repository was private, is no longer updated.
 
-Both packages are released; 17.0.0 is the first stable version (the `17.0.0-alpha.N` versions before it were test releases). From 17.0.1 the NuGet package carries the `umbraco-marketplace` tag, so the Umbraco Marketplace lists it, and `umbraco-marketplace.json` in the repository root holds the listing details (`docs/releasing.md`). The source folders, namespaces and solution keep their `Umbraco.Mcp` names; only the package ids changed. Earlier working names were `Umbraco.Mcp` / `@umbraco/mcp`.
+Both packages are released; 17.0.0 is the first stable version (the `17.0.0-alpha.N` versions before it were test releases). From 17.0.1 the NuGet package carries the `umbraco-marketplace` tag, so the Umbraco Marketplace lists it, and `umbraco-marketplace.json` in the repository root holds the listing details and `umbraco-marketplace-readme.md` the listing text (`docs/releasing.md`). The source folders, namespaces and solution keep their `Umbraco.Mcp` names; only the package ids changed. Earlier working names were `Umbraco.Mcp` / `@umbraco/mcp`.
 
 ## Commands
 
