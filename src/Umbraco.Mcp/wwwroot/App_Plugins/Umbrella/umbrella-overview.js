@@ -2,12 +2,14 @@ import { css, html, nothing } from "@umbraco-cms/backoffice/external/lit";
 import { UmbLitElement } from "@umbraco-cms/backoffice/lit-element";
 import { UMB_AUTH_CONTEXT } from "@umbraco-cms/backoffice/auth";
 import { UMB_NOTIFICATION_CONTEXT } from "@umbraco-cms/backoffice/notification";
-import { umbConfirmModal } from "@umbraco-cms/backoffice/modal";
+import { umbConfirmModal, umbOpenModal } from "@umbraco-cms/backoffice/modal";
 import { UmbTextStyles } from "@umbraco-cms/backoffice/style";
 import { formatDate, request } from "./umbrella-api.js";
 import { formatRelative } from "./umbrella-access.js";
 import "./umbrella-access-table.js";
 import "./umbrella-client-setup.js";
+import { UMBRELLA_API_USER_INFO_MODAL, UMBRELLA_NEW_SECRET_MODAL } from "./umbrella-modals.js";
+import { disableUser, enableUser } from "./umbrella-users-api.js";
 
 const AREAS = { products: "Products", server: "MCP server", apiUsers: "API users" };
 
@@ -84,12 +86,24 @@ export class UmbrellaOverviewElement extends UmbLitElement {
     }
   }
 
+  /** The API users whose MCP server has connected; rows created on the dashboard that haven't are left out. */
+  #connectedUsers() {
+    return this._data.apiUsers.filter((u) => u.connected !== false);
+  }
+
+  #user(key) {
+    return this._data.apiUsers.find((u) => u.key === key);
+  }
+
   async #forget(key) {
-    const user = this._data.apiUsers.find((u) => u.key === key);
+    const user = this.#user(key);
     try {
       await umbConfirmModal(this, {
         headline: `Forget ${user?.name ?? "this"} connection?`,
-        content: "This does not delete the API user. It appears here again the next time its MCP server connects.",
+        content:
+          user?.connected === false
+            ? "It is no longer listed here. The API user is not deleted."
+            : "This does not delete the API user. It appears here again the next time its MCP server connects.",
         confirmLabel: "Forget",
         color: "danger",
       });
@@ -107,14 +121,73 @@ export class UmbrellaOverviewElement extends UmbLitElement {
     }
   }
 
+  async #showInfo(key) {
+    const user = this.#user(key);
+    if (!user) return;
+    let result;
+    try {
+      result = await umbOpenModal(this, UMBRELLA_API_USER_INFO_MODAL, {
+        data: { user, products: this._data.products, addonVersion: this._data.addonVersion },
+      });
+    } catch {
+      return; // Closed.
+    }
+    if (result?.action === "edit-permissions") this.#editPermissions(key);
+    if (result?.action === "show-config") {
+      await this.#loadSetup(result.clientId);
+      this.#openConnect();
+    }
+  }
+
+  async #newSecret(key) {
+    const user = this.#user(key);
+    if (!user) return;
+    const takenClientIds = (this._setup?.apiUsers ?? []).flatMap((u) => u.clientIds);
+    try {
+      await umbOpenModal(this, UMBRELLA_NEW_SECRET_MODAL, { data: { user, takenClientIds } });
+    } catch {
+      // Closed without a new secret; something may still have changed, so reload below.
+    }
+    await this.#load();
+  }
+
+  async #toggleDisabled(key) {
+    const user = this.#user(key);
+    if (!user) return;
+    const disable = user.state === "active";
+    if (disable) {
+      try {
+        await umbConfirmModal(this, {
+          headline: `Disable ${user.name}?`,
+          content: "Its AI tool can no longer sign in. You can enable it again later.",
+          confirmLabel: "Disable",
+          color: "danger",
+        });
+      } catch {
+        return; // Cancelled.
+      }
+    }
+    this._busy = true;
+    try {
+      await (disable ? disableUser : enableUser)(this.#auth, key);
+      await this.#load();
+    } catch (error) {
+      this.#notifications?.peek("danger", {
+        data: { headline: disable ? "Could not disable the API user" : "Could not enable the API user", message: error.message },
+      });
+    } finally {
+      this._busy = false;
+    }
+  }
+
   #editPermissions(key) {
     this.dispatchEvent(new CustomEvent("umbrella-edit-permissions", { detail: { key }, bubbles: true, composed: true }));
   }
 
   /** Open when nobody has connected yet, or when something about the server or the API users needs attention. */
   #connectOpenByDefault() {
-    const { apiUsers, server, findings } = this._data;
-    return apiUsers.length === 0 || server === null || findings.some((f) => f.severity === "warning" && f.area !== "products");
+    const { server, findings } = this._data;
+    return this.#connectedUsers().length === 0 || server === null || findings.some((f) => f.severity === "warning" && f.area !== "products");
   }
 
   #openConnect() {
@@ -124,8 +197,7 @@ export class UmbrellaOverviewElement extends UmbLitElement {
 
   /** When an MCP server last started, and as which API user, under the status headline. */
   #renderFacts() {
-    const { apiUsers } = this._data;
-    const latest = apiUsers.reduce((a, u) => (!a || u.lastConnected > a.lastConnected ? u : a), null);
+    const latest = this.#connectedUsers().reduce((a, u) => (!a || u.lastConnected > a.lastConnected ? u : a), null);
     return html`<dl class="facts">
       <div>
         <dt>Last connection</dt>
@@ -152,7 +224,8 @@ export class UmbrellaOverviewElement extends UmbLitElement {
 
   /** All good (or ready to connect) with any notes, or what needs attention grouped by area. */
   #renderStatus() {
-    const { findings, apiUsers } = this._data;
+    const { findings } = this._data;
+    const apiUsers = this.#connectedUsers();
     const warnings = findings.filter((f) => f.severity === "warning");
     // The empty API users table already says nobody has connected.
     const notes = findings.filter((f) => f.severity === "info" && !(f.area === "apiUsers" && apiUsers.length === 0));
@@ -214,11 +287,10 @@ export class UmbrellaOverviewElement extends UmbLitElement {
   }
 
   #renderUsers() {
-    const { apiUsers, products } = this._data;
+    const { apiUsers, products, canManageUsers } = this._data;
+    const connected = this.#connectedUsers().length;
     return html`<uui-box id="users" headline="Access per API user" headline-variant="h2">
-      ${apiUsers.length
-        ? html`<span slot="header-actions" class="muted">${apiUsers.length} connected</span>`
-        : nothing}
+      ${connected ? html`<span slot="header-actions" class="muted">${connected} connected</span>` : nothing}
       ${apiUsers.length === 0
         ? html`<div class="empty">
             <umb-icon name="icon-users"></umb-icon>
@@ -230,7 +302,11 @@ export class UmbrellaOverviewElement extends UmbLitElement {
             .users=${apiUsers}
             .products=${products}
             .busy=${this._busy}
+            .canManageUsers=${canManageUsers === true}
             @edit-permissions=${(e) => this.#editPermissions(e.detail.key)}
+            @info=${(e) => this.#showInfo(e.detail.key)}
+            @new-secret=${(e) => this.#newSecret(e.detail.key)}
+            @toggle-disabled=${(e) => this.#toggleDisabled(e.detail.key)}
             @forget=${(e) => this.#forget(e.detail.key)}
           ></umbrella-access-table>`}
     </uui-box>`;

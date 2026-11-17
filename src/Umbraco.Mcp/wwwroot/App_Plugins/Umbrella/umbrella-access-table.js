@@ -1,23 +1,25 @@
 import { css, html, nothing, repeat } from "@umbraco-cms/backoffice/external/lit";
 import { UmbLitElement } from "@umbraco-cms/backoffice/lit-element";
 import { UmbTextStyles } from "@umbraco-cms/backoffice/style";
-import { formatDate } from "./umbrella-api.js";
-import { LEVEL_LABELS, formatRelative, glyphStyles, levelGlyph, tools } from "./umbrella-access.js";
+import { LEVEL_LABELS, glyphStyles, levelGlyph, tools } from "./umbrella-access.js";
 
 const STATE_TAGS = { disabled: "Disabled", lockedOut: "Locked out" };
 
 /**
- * The Overview's access table: one row per API user an MCP server connected as, one column per product (headed with
- * its version), and in each cell the access that user's server gets. The first row is the defaults, which every user
- * without its own settings follows. It holds no state; "Edit permissions" and "Forget" are events for the Overview.
+ * The Overview's access table: one row per API user an MCP server connected as, then the API users the New connection
+ * flow created that have not connected yet; one column per product (headed with its version), and in each cell the
+ * access that user's server gets. The first row is the defaults, which every user without its own settings follows.
+ * It holds no state; the buttons and the row's "…" menu are events for the Overview.
  *
- * Events (bubbling, composed): `edit-permissions` { key } ("" for the defaults) and `forget` { key }.
+ * Events (bubbling): `edit-permissions` { key } ("" for the defaults), `info`, `new-secret`, `toggle-disabled` and
+ * `forget`, each { key }. New secret and Disable/Enable are only offered when `canManageUsers`.
  */
 export class UmbrellaAccessTableElement extends UmbLitElement {
   static properties = {
     users: { attribute: false },
     products: { attribute: false },
     busy: { attribute: false },
+    canManageUsers: { attribute: false },
   };
 
   constructor() {
@@ -25,10 +27,17 @@ export class UmbrellaAccessTableElement extends UmbLitElement {
     this.users = [];
     this.products = [];
     this.busy = false;
+    this.canManageUsers = false;
   }
 
   #emit(type, key) {
     this.dispatchEvent(new CustomEvent(type, { detail: { key }, bubbles: true, composed: false }));
+  }
+
+  /** Runs a menu entry and closes the row's menu. */
+  #menu(type, key, popover) {
+    this.shadowRoot.getElementById(popover)?.hidePopover?.();
+    this.#emit(type, key);
   }
 
   /** The products an API user's settings can cover: installed and enabled, in the site's order. */
@@ -92,29 +101,39 @@ export class UmbrellaAccessTableElement extends UmbLitElement {
           <div class="name">
             <strong>${u.name}</strong>
             ${STATE_TAGS[u.state] ? html`<uui-tag color="warning" look="primary">${STATE_TAGS[u.state]}</uui-tag>` : nothing}
+            ${u.connected === false ? html`<uui-tag look="secondary">Not connected yet</uui-tag>` : nothing}
           </div>
         </div>
       </uui-table-cell>
       ${columns.map((p) => this.#renderUserCell(u, p))}
-      <uui-table-cell class="total">${u.toolCount === null || u.toolCount === undefined ? "–" : u.toolCount}</uui-table-cell>
+      <uui-table-cell class="total">${u.connected === false || u.toolCount === null || u.toolCount === undefined ? "–" : u.toolCount}</uui-table-cell>
       <uui-table-cell class="actions">
         <div class="row-actions">
           <uui-button look="secondary" compact label="Edit permissions" @click=${() => this.#emit("edit-permissions", u.key)}></uui-button>
-          <uui-button class="more" look="secondary" compact label="Details and actions for ${u.name}" popovertarget=${popover}>
+          <uui-button class="more" look="secondary" compact label="Actions for ${u.name}" popovertarget=${popover}>
             <uui-symbol-more></uui-symbol-more>
           </uui-button>
         </div>
         <uui-popover-container id=${popover} placement="bottom-end">
           <umb-popover-layout>
-            <dl class="details">
-              <div><dt>Client id</dt><dd>${u.clientIds?.length ? u.clientIds.join(", ") : "None"}</dd></div>
-              <div>
-                <dt>Last connected</dt>
-                <dd>${formatRelative(u.lastConnected)} <span class="sub">(${formatDate(u.lastConnected)})</span></dd>
-              </div>
-              <div><dt>User groups</dt><dd>${u.groups?.length ? u.groups.join(", ") : "None"}</dd></div>
-            </dl>
-            <uui-menu-item label="Forget connection" ?disabled=${this.busy} @click-label=${() => this.#emit("forget", u.key)}>
+            <uui-menu-item label="Info" @click-label=${() => this.#menu("info", u.key, popover)}>
+              <umb-icon slot="icon" name="icon-info"></umb-icon>
+            </uui-menu-item>
+            ${this.canManageUsers
+              ? html`<uui-menu-item label="New secret" ?disabled=${this.busy} @click-label=${() => this.#menu("new-secret", u.key, popover)}>
+                  <umb-icon slot="icon" name="icon-sync"></umb-icon>
+                </uui-menu-item>`
+              : nothing}
+            ${this.canManageUsers && (u.state === "active" || u.state === "disabled")
+              ? html`<uui-menu-item
+                  label=${u.state === "active" ? "Disable API user" : "Enable API user"}
+                  ?disabled=${this.busy}
+                  @click-label=${() => this.#menu("toggle-disabled", u.key, popover)}
+                >
+                  <umb-icon slot="icon" name=${u.state === "active" ? "icon-lock" : "icon-unlocked"}></umb-icon>
+                </uui-menu-item>`
+              : nothing}
+            <uui-menu-item label="Forget connection" ?disabled=${this.busy} @click-label=${() => this.#menu("forget", u.key, popover)}>
               <umb-icon slot="icon" name="icon-trash"></umb-icon>
             </uui-menu-item>
           </umb-popover-layout>
@@ -159,12 +178,6 @@ export class UmbrellaAccessTableElement extends UmbLitElement {
       .who { display: flex; align-items: center; gap: var(--uui-size-space-3); min-width: 12rem; }
       .who .name { flex-direction: row; align-items: center; flex-wrap: wrap; gap: var(--uui-size-space-2); }
       .who > div { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
-      .details {
-        display: flex; flex-direction: column; gap: var(--uui-size-space-3); min-width: 16rem; max-width: 24rem;
-        margin: 0; padding: var(--uui-size-space-4); border-bottom: 1px solid var(--uui-color-divider);
-      }
-      .details dt { font-size: var(--uui-type-small-size); color: var(--uui-color-text-alt); }
-      .details dd { margin: 2px 0 0; overflow-wrap: anywhere; }
       uui-avatar { flex: none; font-size: 0.75rem; width: 2rem; height: 2rem; }
       .defaults-icon {
         display: inline-grid; place-items: center; flex: none; width: 2rem; height: 2rem; border-radius: 50%;
