@@ -5,11 +5,11 @@ export const cmsModule: McpProductModule = {
   displayName: "Umbraco CMS",
   toolPrefix: "cms--",
   packageName: "@umbraco-cms/mcp-dev",
-  expectedMajor: "17",
+  expectedMajor: "18",
   required: true,
   description: "Umbraco CMS: the site's content, structure, media, members and settings.",
   useWhen: [
-    "content/documents, publishing, blueprints and the content and media recycle bins",
+    "content/documents, elements, publishing, blueprints and the content, element and media recycle bins",
     "document types, data types, templates, partial views, stylesheets and scripts",
     "media and media types",
     "members, users and user groups",

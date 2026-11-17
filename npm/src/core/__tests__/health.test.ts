@@ -3,7 +3,7 @@ import { buildHealthReport, type HealthState, type ModuleRuntimeState } from "..
 import type { McpProductModule } from "../module-contract.js";
 
 const mod = (id: string, displayName: string, required = false): McpProductModule => ({
-  id, displayName, toolPrefix: `${id}--`, packageName: `@x/${id}`, expectedMajor: "17", description: `${id} description`, useWhen: [`${id} requests`], required,
+  id, displayName, toolPrefix: `${id}--`, packageName: `@x/${id}`, expectedMajor: "18", description: `${id} description`, useWhen: [`${id} requests`], required,
   load: async () => { throw new Error("unused"); },
 });
 

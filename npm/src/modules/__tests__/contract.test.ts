@@ -18,7 +18,7 @@ describe.each(modules.map((m) => [m.id, m] as const))("module %s", (_id, module)
     expect(module.id).toMatch(/^[a-z][a-z0-9-]*$/);
     expect(module.toolPrefix).toBe(`${module.id}--`);
     expect(module.packageName).toMatch(/^@[a-z0-9-]+\/[a-z0-9-]+$/);
-    expect(module.expectedMajor).toBe("17");
+    expect(module.expectedMajor).toBe("18");
   });
 
   it("has routing text: description starts with the display name, useWhen is non-empty", () => {
@@ -70,7 +70,7 @@ describe("module set", () => {
   // CMS and Forms both have a recycle bin (and an empty-recycle-bin tool), so each must name its own.
   it("names whose recycle bin each product handles", () => {
     const useWhen = (id: string) => modules.find((m) => m.id === id)!.useWhen.join("; ");
-    expect(useWhen("cms")).toContain("content and media recycle bins");
+    expect(useWhen("cms")).toContain("content, element and media recycle bins");
     expect(useWhen("forms")).toContain("the Forms recycle bin");
   });
 

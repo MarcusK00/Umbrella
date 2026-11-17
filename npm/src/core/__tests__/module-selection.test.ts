@@ -3,13 +3,13 @@ import type { CapabilitiesResult, ProductCapability } from "../capabilities.js";
 import { majorOf, parseForcedModules, selectModules } from "../module-selection.js";
 
 const mod = (id: string, required = false): McpProductModule => ({
-  id, displayName: id, toolPrefix: `${id}--`, packageName: `@x/${id}`, expectedMajor: "17", description: `${id} description`, useWhen: [`${id} requests`], required,
+  id, displayName: id, toolPrefix: `${id}--`, packageName: `@x/${id}`, expectedMajor: "18", description: `${id} description`, useWhen: [`${id} requests`], required,
   load: async () => { throw new Error("not used"); },
 });
 const product = (id: string, over: Partial<ProductCapability> = {}): ProductCapability => ({
-  id, displayName: id, installed: true, enabled: true, version: "17.1.0", issues: [], ...over,
+  id, displayName: id, installed: true, enabled: true, version: "18.1.0", issues: [], ...over,
 });
-const ok = (...products: ProductCapability[]): CapabilitiesResult => ({ kind: "ok", payload: { addonVersion: "17.0.0", products } });
+const ok = (...products: ProductCapability[]): CapabilitiesResult => ({ kind: "ok", payload: { addonVersion: "18.0.0", products } });
 const modules = [mod("cms", true), mod("forms"), mod("automate")];
 const decision = (ds: ReturnType<typeof selectModules>, id: string) => ds.find((d) => d.module.id === id)!;
 
@@ -36,9 +36,9 @@ describe("selectModules", () => {
 
   // Review Focus 3: odd versions
   it.each([
-    ["17.6.1-beta.1+abc", true],
-    ["v17.2.0", true],
-    ["18.0.0", false],
+    ["18.6.1-beta.1+abc", true],
+    ["v18.2.0", true],
+    ["19.0.0", false],
   ])("version %s -> load=%s", (version, load) => {
     const ds = selectModules(modules, ok(product("forms", { version })), []);
     expect(decision(ds, "forms").load).toBe(load);
