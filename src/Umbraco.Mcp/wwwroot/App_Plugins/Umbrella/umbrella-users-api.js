@@ -1,7 +1,7 @@
 import { managementRequest } from "./umbrella-management-api.js";
 
 /**
- * Umbraco's own user endpoints (Management API v1, Umbraco 17.0.0), called as the signed-in backoffice user. Umbraco
+ * Umbraco's own user endpoints (Management API v1, Umbraco 18.0.0), called as the signed-in backoffice user. Umbraco
  * decides who may do what; these only shape the requests. Every function takes the auth context first and throws with
  * Umbraco's message when it refuses.
  */
