@@ -87,7 +87,7 @@ jobs:
         # Before publish, so dist/index.js exists when npm checks the bin entry (prepack builds it again).
         run: npm run build
       - name: Publish
-        # No --provenance: npm does not generate provenance for private repositories.
+        # No --provenance needed: trusted publishing from a public repository adds provenance on its own.
         run: npm publish --tag "${{ needs.version.outputs.npm-tag }}"
 
   nuget:
