@@ -52,6 +52,7 @@ public sealed class UserServiceMcpApiUserDirectory(IUserService users) : IMcpApi
             user.Name ?? user.Username,
             user.UserState,
             clientIds.ToList(),
-            ConnectedMcpApiUserProvider.ToSectionNames(user.AllowedSections));
+            ConnectedMcpApiUserProvider.ToSectionNames(user.AllowedSections),
+            user.Groups.Select(g => g.Name ?? g.Alias).ToList());
     }
 }

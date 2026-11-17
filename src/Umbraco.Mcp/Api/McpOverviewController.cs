@@ -6,6 +6,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Umbraco.Cms.Api.Management.Controllers;
 using Umbraco.Cms.Api.Management.Routing;
+using Umbraco.Cms.Core;
+using Umbraco.Cms.Core.Security;
 using Umbraco.Cms.Web.Common.Authorization;
 using Umbraco.Mcp.ApiUser;
 using Umbraco.Mcp.Client;
@@ -22,17 +24,47 @@ namespace Umbraco.Mcp.Api;
 public sealed class McpOverviewController(
     IMcpOverviewService overview,
     IMcpConnectionStore connections,
+    IMcpCreatedUserStore created,
     IMcpToolSettingsStore toolSettings,
     IMcpApiUserDirectory apiUsers,
+    IBackOfficeSecurityAccessor backOfficeSecurityAccessor,
     IConfiguration configuration,
     ILogger<McpOverviewController> logger) : ManagementApiControllerBase
 {
-    /// <summary>What the Overview dashboard shows: status, findings and the connected API users.</summary>
+    /// <summary>
+    /// What the Overview dashboard shows: status, findings and the API users, and whether the caller has the Users
+    /// section (so the dashboard offers to create and change API users; Umbraco's own endpoints still decide).
+    /// </summary>
     [HttpGet("overview")]
     [MapToApiVersion("1.0")]
     [Authorize(Policy = AuthorizationPolicies.SectionAccessSettings)]
     [ProducesResponseType(typeof(McpOverview), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetOverview() => Ok(await overview.GetOverviewAsync());
+    public async Task<IActionResult> GetOverview()
+    {
+        bool canManageUsers = backOfficeSecurityAccessor.BackOfficeSecurity?.CurrentUser?.AllowedSections
+            .Contains(Constants.Applications.Users, StringComparer.OrdinalIgnoreCase) ?? false;
+        return Ok(await overview.GetOverviewAsync() with { CanManageUsers = canManageUsers });
+    }
+
+    /// <summary>
+    /// Records that the dashboard's New connection flow created this API user, so the Overview lists it before its MCP
+    /// server first connects. Repeating it keeps the first time. 404 when the key is not an API user.
+    /// </summary>
+    [HttpPost("created-users/{userKey:guid}")]
+    [MapToApiVersion("1.0")]
+    [Authorize(Policy = AuthorizationPolicies.SectionAccessUsers)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> RecordCreatedUser(Guid userKey)
+    {
+        if (await apiUsers.GetAsync(userKey) is null)
+        {
+            return NotFound();
+        }
+
+        created.Record(userKey, DateTimeOffset.UtcNow);
+        return NoContent();
+    }
 
     /// <summary>
     /// The client config for one client id: <paramref name="clientId"/>, or the configured one when it is not given. Any
@@ -74,8 +106,9 @@ public sealed class McpOverviewController(
     }
 
     /// <summary>
-    /// Forgets that an API user has connected, and what its MCP server last reported. The user's own tool settings are kept.
-    /// It shows up again the next time the MCP server signs in.
+    /// Forgets that an API user has connected, and what its MCP server last reported, and that the New connection flow
+    /// created it. The user itself and its own tool settings are kept. It shows up again the next time the MCP server
+    /// signs in. 404 when there was neither a connection nor a record.
     /// </summary>
     [HttpDelete("connections/{userKey:guid}")]
     [MapToApiVersion("1.0")]
@@ -84,12 +117,18 @@ public sealed class McpOverviewController(
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public IActionResult ForgetConnection(Guid userKey)
     {
-        if (!connections.Remove(userKey))
+        bool wasConnected = connections.Remove(userKey);
+        bool wasCreated = created.Remove(userKey);
+        if (!wasConnected && !wasCreated)
         {
             return NotFound();
         }
 
-        toolSettings.ClearUserCatalogue(userKey);
+        if (wasConnected)
+        {
+            toolSettings.ClearUserCatalogue(userKey);
+        }
+
         return NoContent();
     }
 

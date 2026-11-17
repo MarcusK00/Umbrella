@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Umbraco.Cms.Core.Composing;
 using Umbraco.Cms.Core.DependencyInjection;
 using Umbraco.Mcp.ApiUser;
 using Umbraco.Mcp.Capabilities;
 using Umbraco.Mcp.Connections;
+using Umbraco.Mcp.Dashboard;
 using Umbraco.Mcp.Detection;
 using Umbraco.Mcp.Detection.Detectors;
 using Umbraco.Mcp.Overview;
@@ -26,9 +28,13 @@ public sealed class McpComposer : IComposer
 
         builder.Services.AddSingleton<IMcpCapabilitiesService, McpCapabilitiesService>();
         builder.Services.AddSingleton<IMcpConnectionStore, KeyValueMcpConnectionStore>();
+        builder.Services.AddSingleton<IMcpCreatedUserStore, KeyValueMcpCreatedUserStore>();
         builder.Services.AddSingleton<IMcpToolSettingsStore, KeyValueMcpToolSettingsStore>();
         builder.Services.AddScoped<IMcpApiUserProvider, ConnectedMcpApiUserProvider>();
         builder.Services.AddScoped<IMcpApiUserDirectory, UserServiceMcpApiUserDirectory>();
         builder.Services.AddScoped<IMcpOverviewService, McpOverviewService>();
+
+        // The dashboard's ES modules have no version in their address; make browsers revalidate them.
+        builder.Services.AddTransient<IStartupFilter, McpDashboardCacheStartupFilter>();
     }
 }
