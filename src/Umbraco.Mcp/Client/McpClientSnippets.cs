@@ -21,6 +21,21 @@ internal static class McpClientSnippets
 
     private const string VsCodeInputId = "umbrella-client-secret";
 
+    /// <summary>
+    /// The Claude Code plugin marketplace in this repository (<c>.claude-plugin/marketplace.json</c>), on the released
+    /// branch, so it never offers a version the registries don't have yet.
+    /// </summary>
+    internal const string PluginMarketplaceSource = "MarcusK00/Umbrella#v18/main";
+
+    /// <summary>The <c>name</c> in <c>.claude-plugin/marketplace.json</c>.</summary>
+    internal const string PluginMarketplace = "umbrella";
+
+    /// <summary>The <c>name</c> in <c>plugins/umbrella/.claude-plugin/plugin.json</c>.</summary>
+    internal const string PluginName = "umbrella";
+
+    /// <summary>Claude Code's id for the installed plugin, as its commands take it.</summary>
+    internal const string PluginId = $"{PluginName}@{PluginMarketplace}";
+
     public static IReadOnlyList<McpClientSnippet> Build(string? siteUrl, string clientId, string addonVersion)
     {
         string url = siteUrl ?? SiteUrlPlaceholder;
@@ -47,12 +62,23 @@ internal static class McpClientSnippets
 
         string cliEnv = string.Join(' ', Env(CliSecretPlaceholder).Select(e => $"--env {e.Key}={e.Value}"));
 
+        // The plugin asks for the secret itself (/plugin configure), so the command never contains it.
+        var pluginConfig = new List<string> { $"--config base_url={url}", $"--config client_id={clientId}" };
+        if (loopback)
+        {
+            pluginConfig.Add("--config tls_reject_unauthorized=0");
+        }
+
+        string plugin =
+            $"claude plugin marketplace add {PluginMarketplaceSource}\nclaude plugin install {PluginId} {string.Join(' ', pluginConfig)}";
+
         return
         [
             new("claude-code", "Claude Code", ".mcp.json", "json",
                 McpClientConfig.Build("npx", args, Env($"${{{McpClientConfig.SecretEnvironmentVariable}}}"))),
             new("claude-code-cli", "Claude Code (command)", null, "shell",
                 $"claude mcp add --transport stdio {cliEnv} {McpClientConfig.ServerName} -- npx {string.Join(' ', args)}"),
+            new("claude-code-plugin", "Claude Code (plugin)", null, "shell", plugin),
             new("claude-desktop", "Claude Desktop", "claude_desktop_config.json", "json",
                 McpClientConfig.Build("npx", args, Env(SecretPlaceholder))),
             new("vscode", "VS Code", ".vscode/mcp.json", "json", BuildVsCode(args, Env($"${{input:{VsCodeInputId}}}"))),

@@ -55,6 +55,7 @@ On Umbraco 17, use Umbrella 17.x instead: follow the [Umbraco 17 documentation](
    |---|---|
    | Claude Code | `.mcp.json` in the folder you open in Claude Code |
    | Claude Code (command) | a `claude mcp add` command to run in that folder; Claude Code keeps it in your own settings |
+   | Claude Code (plugin) | two commands that install the [Umbrella plugin](#claude-code-plugin), for every folder you open in Claude Code |
    | Claude Desktop | `claude_desktop_config.json` (Claude Desktop: Settings → Developer → Edit Config) |
    | VS Code | `.vscode/mcp.json` |
    | Cursor | `.cursor/mcp.json` |
@@ -64,6 +65,7 @@ On Umbraco 17, use Umbrella 17.x instead: follow the [Umbraco 17 documentation](
 
 4. **Supply the secret.** The config never contains the secret, only a way to supply it:
    - **VS Code** asks for it when the server starts.
+   - **The Claude Code plugin** asks for it when you run `/plugin configure umbrella@umbrella` in Claude Code, and keeps it in your system's credential store.
    - **Claude Code (`.mcp.json`) and Cursor** read it from the `UMBRELLA_CLIENT_SECRET` environment variable.
    - **The `claude mcp add` command, Claude Desktop and other clients** have a placeholder: replace it with the secret. That config then contains the secret, so keep it out of source control.
 
@@ -109,6 +111,40 @@ Every tab on the Overview is a variant of this config:
 - **HTTPS:** `UMBRACO_BASE_URL` must be `https://`, because the Management API token endpoint rejects plain HTTP. Open the backoffice over HTTPS to get the right address in the config.
 - **Local sites:** for a site on `localhost` the config sets `NODE_TLS_REJECT_UNAUTHORIZED=0`, because Node does not trust the ASP.NET Core development certificate. This turns off certificate checks for the MCP server process only, and only when the site is on the local machine.
 
+### Claude Code plugin
+
+In Claude Code (the terminal, the VS Code and JetBrains extensions, and the Desktop app's Code tab) you can connect without editing a config file. This repository is a Claude Code plugin marketplace, and its Umbrella plugin starts `umbrella-mcp` with the site and API user you give it. The client secret goes to your system's credential store, not into a file.
+
+1. **Install the plugin.** The Overview's **Claude Code (plugin)** option shows these two commands with your site and client id filled in:
+
+   ```bash
+   claude plugin marketplace add MarcusK00/Umbrella#v18/main
+   ```
+
+   ```bash
+   claude plugin install umbrella@umbrella --config base_url=https://your-site --config client_id=umbraco-back-office-mcp
+   ```
+
+   Inside Claude Code, `/plugin marketplace add MarcusK00/Umbrella#v18/main` and then `/plugin install umbrella@umbrella` do the same and ask for each value.
+
+2. **Add the secret.** In Claude Code, run `/plugin configure umbrella@umbrella`. It asks for the client secret and hides it as you type. The same command changes the other values later.
+
+3. **Start it.** Restart Claude Code, or run `/reload-plugins`. `/mcp` lists the server as `plugin:umbrella:umbraco`.
+
+The plugin also adds `/umbrella:health`, which calls `get-mcp-health` and explains what loaded and what to fix.
+
+| Value | Meaning |
+|---|---|
+| `base_url` | The site's `https://` address |
+| `client_id` | The API user's client id. Default `umbraco-back-office-mcp` |
+| `client_secret` | The API user's client secret. Kept in your system's credential store |
+| `tls_reject_unauthorized` | `1` (the default) checks the site's HTTPS certificate. `0` turns the checks off for this MCP server: only for a site on your own machine with the ASP.NET Core development certificate. The Overview's command sets it for a `localhost` site |
+
+- **Updates:** Claude Code doesn't update plugins from this marketplace on its own unless you turn auto-update on (`/plugin` → Marketplaces). After upgrading the add-on, run `claude plugin marketplace update umbrella` and `claude plugin update umbrella@umbrella`, then restart Claude Code.
+- **Version:** the marketplace follows `v18/main`, so it installs the latest 18.x release. If your site runs an older add-on, the Overview and `get-mcp-health` note that the versions differ. To install a specific release instead, add the marketplace from its release tag, for example `MarcusK00/Umbrella#v<version>`.
+- **One site per install:** the plugin keeps one set of values. For a second site, use the `claude mcp add` command from the Overview.
+- **Claude Code only:** Claude Desktop's chat, Cursor and VS Code's own MCP settings don't load Claude Code plugins. Use their configs from the Overview.
+
 ## Teams, editors and hosted sites
 
 Several people, or several AI agents, can work on the same site at once. Each connects as its own API user, and each API user can have its own access per product:
@@ -121,7 +157,7 @@ Give each person who connects an AI tool their own API user:
 - **Setting someone up:** create their API user with its own client id, and give its groups the sections they need. On Settings → **Umbrella** → **Overview** → **Connect an AI tool**, click **Show steps**, pick that user, copy the config for their AI tool, and send it to them. Send the client secret separately.
 - **Editors:** an editor doesn't need the site's source code. They need Node.js (the versions under [Compatibility](#compatibility)) and an AI tool, for example Claude Desktop. The Umbrella dashboard is in the Settings section, so someone with access to it sets them up.
 - **Hosted sites, such as Umbraco Cloud:** the MCP server runs on each person's machine and connects to the site over HTTPS, so it works with any environment. Open the dashboard on the environment the AI tools should use, so the config gets its address. Tool settings and the connection list are stored in that environment's database, so each environment has its own; create the API users on the environment the AI tools connect to.
-- **Shared repositories:** a `.mcp.json` committed to a repository holds one client id, so everyone who uses it signs in as the same API user. Use the `claude mcp add` command instead, which Claude Code keeps in each person's own settings, or keep `.mcp.json` out of the repository.
+- **Shared repositories:** a `.mcp.json` committed to a repository holds one client id, so everyone who uses it signs in as the same API user. Use the [Claude Code plugin](#claude-code-plugin) or the `claude mcp add` command instead, which Claude Code keeps in each person's own settings, or keep `.mcp.json` out of the repository.
 
 Tool settings are guardrails, not access control: see [Known limitations](#known-limitations).
 
@@ -216,6 +252,7 @@ If none of this explains it, [open an issue](https://github.com/MarcusK00/Umbrel
 | Authentication fails although the secret is right, or the server exits with `Error: UMBRACO_CLIENT_SECRET is required.` | `UMBRELLA_CLIENT_SECRET` was not set when your AI tool started, so the server received the literal text `${UMBRELLA_CLIENT_SECRET}`, or nothing | Set the variable, then restart the AI tool (not just the MCP server) |
 | The Overview's config has the wrong client id | The API user picker is on another user, or no API user has a client id yet | Pick the API user under **Connect an AI tool**. Only API users with client credentials are listed |
 | The server exits with `Error: UMBRACO_BASE_URL is required.` (or another variable) | The MCP client config has no `env` entry for it | Use the config from Settings → Umbrella → Overview |
+| With the Claude Code plugin, `/mcp` doesn't list `plugin:umbrella:umbraco` | A required value, usually the client secret, isn't set yet, so Claude Code doesn't start the server | Run `/plugin configure umbrella@umbrella` in Claude Code, then `/reload-plugins` |
 | The server exits with `its HTTPS certificate was not accepted`, or other TLS errors such as `self-signed certificate` | Node does not trust the site's certificate. The config from the Overview only turns checks off for `localhost` | Trust the certificate with `NODE_EXTRA_CA_CERTS=<path to the .pem>`, or for a local development host only, add `NODE_TLS_REJECT_UNAUTHORIZED=0` to `env` |
 | Only `cms--` tools are listed | The add-on is not installed or not reachable, or a product is not installed, not enabled, or not on major version 18 | `get-mcp-health` gives the reason per product. "MCP products" in the backoffice shows what the site detected |
 | One product's tools are missing although it is installed | It is switched **Off** in Settings → Umbrella → Tool Permissions, in the defaults or for this API user | `get-mcp-health` notes "Switched off in the backoffice". Set its access to another step and reconnect |

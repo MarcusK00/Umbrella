@@ -100,7 +100,15 @@ A team can give each developer an API user, and the settings can differ per user
 
 ### Client config
 
-`McpClientConfig` builds the `{ "mcpServers": { "umbraco": … } }` JSON. `McpClientSnippets` builds the six snippets for one client id (Claude Code `.mcp.json` with `${UMBRELLA_CLIENT_SECRET}`, the `claude mcp add` command, Claude Desktop, VS Code with `inputs`, Cursor with `${env:...}`, other clients), and `GET client-setup` returns them for the API user picked on the Overview. None contains a secret. A loopback site adds `NODE_TLS_REJECT_UNAUTHORIZED=0`. The add-on writes no files: the site where the add-on runs is often not where the AI tool runs (Umbraco Cloud, editors without the source), and a shared file would sign everyone in as one API user.
+`McpClientConfig` builds the `{ "mcpServers": { "umbraco": … } }` JSON. `McpClientSnippets` builds the seven snippets for one client id (Claude Code `.mcp.json` with `${UMBRELLA_CLIENT_SECRET}`, the `claude mcp add` command, the two commands that install the Claude Code plugin, Claude Desktop, VS Code with `inputs`, Cursor with `${env:...}`, other clients), and `GET client-setup` returns them for the API user picked on the Overview. None contains a secret. A loopback site adds `NODE_TLS_REJECT_UNAUTHORIZED=0` (for the plugin, `--config tls_reject_unauthorized=0`).
+
+### Claude Code plugin
+
+The repository root is a Claude Code plugin marketplace: `.claude-plugin/marketplace.json` (marketplace `umbrella`) lists one plugin, `plugins/umbrella`. Its `.claude-plugin/plugin.json` declares four `userConfig` values (`base_url`, `client_id`, `client_secret` with `sensitive: true`, and `tls_reject_unauthorized`, default `1`), and its `.mcp.json` starts `npx -y umbrella-mcp@<version>` as the server `umbraco` with each value in an `UMBRACO_*` variable (or `NODE_TLS_REJECT_UNAUTHORIZED`) through `${user_config.<key>}`. Claude Code registers it as `plugin:umbrella:umbraco` and doesn't start it until every required value is set. `skills/health/SKILL.md` is `/umbrella:health`.
+
+- **Branch:** the dashboard's commands add the marketplace from `MarcusK00/Umbrella#v18/main` (`McpClientSnippets.PluginMarketplaceSource`), the released branch, so it never offers a version the registries don't have yet.
+- **Contract:** `ClaudePluginContractTests` checks that the marketplace and plugin names equal `McpClientSnippets.PluginMarketplace` and `PluginName`, that `plugin.json`'s `version` equals the add-on's, that `.mcp.json` runs `McpClientConfig.NpxArgs(<add-on version>)` under `McpClientConfig.ServerName`, and that each variable reads its `userConfig` value.
+- **Not in the npm package:** the plugin is only these files in the repository; nothing in `npm/` or the NuGet package changes for it. The add-on writes no files: the site where the add-on runs is often not where the AI tool runs (Umbraco Cloud, editors without the source), and a shared file would sign everyone in as one API user.
 
 `McpOverviewService` (`Overview/`) gathers the status, findings, products and API users once. The three health checks render the same findings through `McpHealthCheckRows` as short rows, and the dashboard renders them in full. The pointer to Settings → Umbrella (`McpHealthCheckRows.DashboardPointer`) is only in the "MCP client setup" description, so it shows once when the group runs.
 
