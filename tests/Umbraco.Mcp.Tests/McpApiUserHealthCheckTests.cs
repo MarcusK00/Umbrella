@@ -29,6 +29,26 @@ public class McpApiUserHealthCheckTests
     }
 
     [Test]
+    public void Never_connected_user_gets_no_row()
+    {
+        List<HealthCheckStatus> rows = Rows(Make(users: [User("Connected"), User("New", connected: false)]));
+
+        Assert.That(rows, Has.Count.EqualTo(1));
+        Assert.That(rows[0].Message, Does.StartWith("The API user &quot;Connected&quot;"));
+    }
+
+    [Test]
+    public void Never_connected_user_gets_no_row_next_to_findings()
+    {
+        List<HealthCheckStatus> rows = Rows(Make(
+            findings: [new(McpFinding.Warning, McpFindingArea.ApiUsers, "The API user \"Bad\" is disabled.")],
+            users: [User("Bad", state: "disabled"), User("New", connected: false), User("Good")]));
+
+        Assert.That(rows.Select(r => r.ResultType), Is.EqualTo(new[] { StatusResultType.Warning, StatusResultType.Success }));
+        Assert.That(rows[1].Message, Does.StartWith("The API user &quot;Good&quot;"));
+    }
+
+    [Test]
     public void Warnings_and_healthy_users_both_show()
     {
         List<HealthCheckStatus> rows = Rows(Make(

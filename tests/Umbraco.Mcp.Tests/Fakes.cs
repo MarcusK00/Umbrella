@@ -78,6 +78,31 @@ internal sealed class FakeConnectionStore : IMcpConnectionStore
     }
 }
 
+internal sealed class FakeCreatedUserStore : IMcpCreatedUserStore
+{
+    public List<McpConnection> Recorded { get; } = [];
+
+    public List<Guid> Removed { get; } = [];
+
+    public Exception? Throws { get; init; }
+
+    public void Record(Guid userKey, DateTimeOffset at)
+    {
+        if (Recorded.All(c => c.UserKey != userKey))
+        {
+            Recorded.Add(new McpConnection(userKey, at));
+        }
+    }
+
+    public IReadOnlyCollection<McpConnection> GetAll() => Throws is null ? Recorded : throw Throws;
+
+    public bool Remove(Guid userKey)
+    {
+        Removed.Add(userKey);
+        return Recorded.RemoveAll(c => c.UserKey == userKey) > 0;
+    }
+}
+
 internal sealed class FakeBackOfficeSecurityAccessor(IUser? currentUser) : IBackOfficeSecurityAccessor, IBackOfficeSecurity
 {
     public IBackOfficeSecurity? BackOfficeSecurity => this;
@@ -191,4 +216,26 @@ internal sealed class FakeApiUserDirectory(params McpApiUserInfo[] users) : IMcp
             : throw Throws;
 
     public Task<McpApiUserInfo?> GetAsync(Guid key) => Task.FromResult(users.FirstOrDefault(u => u.Key == key));
+}
+
+/// <summary>A throwaway implementation of a large Umbraco interface: only the listed members answer.</summary>
+internal class Stub : DispatchProxy
+{
+    private Dictionary<string, object?> _answers = new();
+
+    public static T Create<T>(Dictionary<string, object?> answers)
+        where T : class
+    {
+        T proxy = Create<T, Stub>();
+        ((Stub)(object)proxy)._answers = answers;
+        return proxy;
+    }
+
+    protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+    {
+        string name = targetMethod!.Name.StartsWith("get_", StringComparison.Ordinal) ? targetMethod.Name[4..] : targetMethod.Name;
+        return _answers.TryGetValue(name, out object? answer)
+            ? answer
+            : throw new NotSupportedException($"Stub has no answer for {targetMethod.Name}.");
+    }
 }
