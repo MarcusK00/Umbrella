@@ -2,6 +2,8 @@
 
 Install Umbrella in your site, then connect Claude Code, VS Code, Cursor or Claude Desktop with the config the backoffice gives you. The AI gets tools for exactly the Umbraco products your site has: Umbraco CMS always, plus Umbraco Forms, Automate and Engage when they are installed. No product installed, no tools for it, so the AI isn't buried in tools it can't use.
 
+![Umbrella, an Umbraco community add-on: one AI connection for your whole Umbraco site. Umbraco 17 · CMS, Forms, Automate and Engage](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-cover.png)
+
 > "Create a contact form with name, email and message fields."
 > "Add a news article under the News page and save it as a draft."
 > "Which personas do we have in Engage?"
@@ -16,6 +18,8 @@ Install Umbrella in your site, then connect Claude Code, VS Code, Cursor or Clau
 
 ## How it works
 
+![Animation: an AI tool starts umbrella-mcp, which asks the Umbraco site which products are installed, loads CMS, Forms and Automate but not Engage, which isn't installed, and hands their prefixed tools back to the AI tool](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-animation.svg)
+
 Umbrella has two parts, released together with the same version number:
 
 | Part | Where it runs | Job |
@@ -25,7 +29,17 @@ Umbrella has two parts, released together with the same version number:
 
 The server signs in as an Umbraco API user, asks the site which products it has, and loads the tools for exactly those. The package doesn't depend on any product package: it detects them by name.
 
+## Many AI agents, each with its own access
+
+![Animation: a dev agent, a content agent and an ops agent connect to the same site through umbrella-mcp, each as its own API user. The dev agent has full access; the content agent can list forms but gets no delete tool for pages; the ops agent runs an automation and asks get-mcp-health what it can use. A table then shows each agent's access per product.](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-agents.svg)
+
+Each person, or each AI agent, connects as its own API user and gets its own access per product. A content agent can list forms but never gets a tool to delete pages; an ops agent can run automations while Forms stays off for it. `get-mcp-health` tells each agent what it can use.
+
+![Made for teams: everyone signs in as their own API user, so access follows the person, not the project. The Overview shows one row per person with who connected, when and with which version; Tool Permissions fine-tunes access down to groups of tools and can switch a product off for one person](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-teams.png)
+
 ## Get started
+
+![Connect in minutes: no config files to write by hand. The Umbrella dashboard is ready to connect as soon as the add-on is installed: pick a user, pick your AI tool, and copy the ready-made setup](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-connect.png)
 
 1. **Install the package** and restart the site: `dotnet add package Umbraco.Community.Umbrella`. Umbrella's major version follows Umbraco's, and without `--version` this installs the newest version, which needs the newest Umbraco. On an older Umbraco, add `--version` with the newest matching version from [the NuGet version list](https://www.nuget.org/packages/Umbraco.Community.Umbrella#versions-body-tab), for example the newest 17.x on Umbraco 17.
 2. **Create an API user** (Users → Create → API user) with client credentials, and give its groups the sections the AI should work in. Copy the secret when you create it: Umbraco only keeps a hash.
