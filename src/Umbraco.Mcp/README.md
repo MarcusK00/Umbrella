@@ -56,7 +56,7 @@ Give the user's groups the sections the AI should work in (Content, Media, Setti
   "mcpServers": {
     "umbraco": {
       "command": "npx",
-      "args": ["-y", "umbrella-mcp@17.0.1"],
+      "args": ["-y", "umbrella-mcp@17.0.2"],
       "env": {
         "UMBRACO_BASE_URL": "https://your-site",
         "UMBRACO_CLIENT_ID": "umbraco-back-office-mcp",
