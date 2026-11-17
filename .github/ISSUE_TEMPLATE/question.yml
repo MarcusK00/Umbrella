@@ -1,0 +1,15 @@
+name: Question
+description: How do I …? Is this expected?
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Setup, configuration and troubleshooting are in the [NuGet package's readme](https://www.nuget.org/packages/Umbraco.Community.Umbrella). `get-mcp-health` in your AI tool and the **MCP** health checks in the backoffice answer most "why is this missing" questions.
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+      description: What you want to do, what you tried, and the add-on and umbrella-mcp versions if relevant.
+    validations:
+      required: true

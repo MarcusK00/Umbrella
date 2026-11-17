@@ -1,0 +1,225 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 258" width="720" height="387" role="img" aria-labelledby="t d">
+  <title id="t">How Umbrella gives each AI agent its own access</title>
+  <desc id="d">Three AI agents, each signed in as its own API user, talk to an Umbraco site through umbrella-mcp. The site has CMS, Forms and Automate; Engage is not installed. The dev agent has full access and publishes a page and edits a form. The content agent has no deletes on CMS, read-only Forms and Automate switched off: it lists forms, but gets no delete tool. The ops agent has read-only CMS, Forms off and full Automate: it runs an automation, and get-mcp-health tells it what it can use. A final table shows the access per agent, as set under Settings, Umbrella.</desc>
+  <defs>
+    <radialGradient id="halo">
+      <stop offset="0" stop-color="#5c68e0" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#5c68e0" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <style>
+    /* One 26s timeline (1% = 0.26s). Every keyframe set hides its element again by itself,
+       so an element's animation-delay is simply the second at which it appears. */
+    * { animation: 26s infinite both; }
+    text { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; fill: #f7f4ef; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .quiet { fill: #a9aef5; }
+    .b { fill: #f7f4ef; font-weight: 600; }
+    .diagram { animation-name: diagram; }
+    .table { animation-name: table; }
+    .spin, .pulse { transform-box: fill-box; transform-origin: center; }
+    .spin { animation: spin 8s linear infinite; }
+    .act { animation-name: act; }
+    .lane { opacity: .45; animation-name: lane; }
+    .end { animation-name: end; }
+    .long { animation-name: long; }
+    .say { animation-name: say; }
+    .call { animation-name: call; }
+    .short { animation-name: short; }
+    .m { animation-timing-function: cubic-bezier(.5, 0, .3, 1); filter: drop-shadow(0 0 3px currentColor); }
+    .run { animation-name: run; }
+    .stop { animation-name: stop; }
+    .pulse { animation-name: pulse; }
+    .deny { animation-name: deny; }
+    .row { animation-name: row; }
+    .full rect { fill: #f7f4ef; } .full text { fill: #1b2060; font-weight: 600; }
+    .nod rect { fill: none; stroke: #f7f4ef; }
+    .ro rect { fill: none; stroke: #a9aef5; } .ro text { fill: #a9aef5; }
+    .off rect { fill: none; stroke: #a9aef5; stroke-opacity: .5; stroke-dasharray: 2 3; } .off text { fill: #a9aef5; fill-opacity: .6; }
+
+    @keyframes diagram { 0%, 1.5% { opacity: 0; } 3%, 75% { opacity: 1; } 76.5%, 100% { opacity: 0; } }
+    @keyframes table { 0%, 77% { opacity: 0; } 78.5%, 97% { opacity: 1; } 99%, 100% { opacity: 0; } }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes act { 0% { opacity: 0; } 1.3%, 21.9% { opacity: 1; } 23.3%, 100% { opacity: 0; } }
+    @keyframes lane { 0% { stroke-dashoffset: 1; opacity: .45; } 3.1%, 20.4% { stroke-dashoffset: 0; opacity: .45; } 21.7%, 100% { stroke-dashoffset: 0; opacity: 0; } }
+    @keyframes end { 0% { opacity: 0; transform: translateX(-6px); } 1.3%, 18.5% { opacity: 1; transform: none; } 19.8%, 100% { opacity: 0; transform: none; } }
+    @keyframes long { 0% { opacity: 0; } 1.5%, 67% { opacity: 1; } 68.5%, 100% { opacity: 0; } }
+    @keyframes say { 0% { opacity: 0; transform: translateY(6px); } 1.2%, 8.1% { opacity: 1; transform: none; } 9.3%, 100% { opacity: 0; transform: translateY(-6px); } }
+    @keyframes call { 0% { opacity: 0; } .8%, 6.2% { opacity: 1; } 7.3%, 100% { opacity: 0; } }
+    @keyframes short { 0% { opacity: 0; } .8%, 5% { opacity: 1; } 6.2%, 100% { opacity: 0; } }
+    @keyframes run { 0% { stroke-dashoffset: .14; opacity: 0; } .1% { stroke-dashoffset: .14; opacity: 1; } 4.2% { stroke-dashoffset: -1; opacity: 1; } 4.3%, 100% { stroke-dashoffset: -1; opacity: 0; } }
+    @keyframes stop { 0% { stroke-dashoffset: .5; opacity: 0; } .1% { stroke-dashoffset: .5; opacity: 1; } 1.9% { stroke-dashoffset: -1; opacity: 1; } 2%, 100% { stroke-dashoffset: -1; opacity: 0; } }
+    @keyframes pulse { 0% { opacity: 0; transform: scale(1); } .3% { opacity: .9; transform: scale(1.05); } 3.5%, 100% { opacity: 0; transform: scale(3.2); } }
+    @keyframes deny { 0% { fill: #a9aef5; } .6%, 8% { fill: #ff6b6b; } 9%, 100% { fill: #a9aef5; } }
+    @keyframes row { 0% { opacity: 0; transform: translateY(6px); } 1.3%, 18% { opacity: 1; transform: none; } 19.5%, 100% { opacity: 0; transform: none; } }
+
+    /* Without motion: a still of the dev agent's first request. */
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; }
+      .x, .m, .pulse, .table { display: none; }
+    }
+  </style>
+
+  <rect width="480" height="258" rx="16" fill="#1b2060"/>
+
+  <!-- ============ Part 1: three agents, one after the other, each with its own access ============ -->
+  <g class="diagram" transform="translate(12 0)">
+    <circle cx="240" cy="129" r="78" fill="url(#halo)"/>
+
+    <!-- lanes: one per product this agent may use, redrawn when the next agent connects -->
+    <g fill="none" stroke-width="2" stroke-linecap="round">
+      <path class="lane" d="M240 129 C298 129 298 57 356 57" pathLength="1" stroke-dasharray="1" stroke="#f7f4ef" style="animation-delay:1.2s"/>
+      <path class="lane" d="M240 129 C298 129 298 105 356 105" pathLength="1" stroke-dasharray="1" stroke="#fea390" style="animation-delay:1.32s"/>
+      <path class="lane" d="M240 129 C298 129 298 153 356 153" pathLength="1" stroke-dasharray="1" stroke="#7ee0d2" style="animation-delay:1.44s"/>
+      <path class="lane x" d="M240 129 C298 129 298 57 356 57" pathLength="1" stroke-dasharray="1" stroke="#f7f4ef" style="animation-delay:7.4s"/>
+      <path class="lane x" d="M240 129 C298 129 298 105 356 105" pathLength="1" stroke-dasharray="1" stroke="#fea390" style="animation-delay:7.52s"/>
+      <path class="lane x" d="M240 129 C298 129 298 57 356 57" pathLength="1" stroke-dasharray="1" stroke="#f7f4ef" style="animation-delay:13.6s"/>
+      <path class="lane x" d="M240 129 C298 129 298 153 356 153" pathLength="1" stroke-dasharray="1" stroke="#7ee0d2" style="animation-delay:13.72s"/>
+      <g class="long" style="animation-delay:1.9s"><path d="M240 129 C298 129 298 201 356 201" stroke="#a9aef5" stroke-opacity=".3" stroke-dasharray="2 5"/></g>
+      <path d="M186 129 H240" stroke="#f7f4ef" stroke-opacity=".45"/>
+    </g>
+
+    <!-- requests: a streak from the agent, through the server, to one product (or no further than the server) -->
+    <g fill="none" stroke-width="3" stroke-linecap="round" stroke="currentColor">
+      <path class="m run" d="M186 129 H240 C298 129 298 57 356 57" pathLength="1" stroke-dasharray=".14 2" style="color:#f7f4ef;animation-delay:2.8s"/>
+      <path class="m run" d="M186 129 H240 C298 129 298 105 356 105" pathLength="1" stroke-dasharray=".14 2" style="color:#fea390;animation-delay:5.1s"/>
+      <path class="m run" d="M186 129 H240 C298 129 298 105 356 105" pathLength="1" stroke-dasharray=".14 2" style="color:#fea390;animation-delay:9s"/>
+      <path class="m stop" d="M186 129 H240" pathLength="1" stroke-dasharray=".5 2" style="color:#ff6b6b;animation-delay:11s"/>
+      <path class="m run" d="M186 129 H240 C298 129 298 153 356 153" pathLength="1" stroke-dasharray=".14 2" style="color:#7ee0d2;animation-delay:15.1s"/>
+      <path class="m stop" d="M186 129 H240" pathLength="1" stroke-dasharray=".5 2" style="color:#f7f4ef;animation-delay:17.5s"/>
+    </g>
+
+    <!-- arrival rings on the products -->
+    <g fill="none" stroke-width="1.5">
+      <circle class="pulse" cx="360" cy="57" r="4.5" stroke="#f7f4ef" style="animation-delay:3.85s"/>
+      <circle class="pulse" cx="360" cy="105" r="4.5" stroke="#fea390" style="animation-delay:6.15s"/>
+      <circle class="pulse" cx="360" cy="105" r="4.5" stroke="#fea390" style="animation-delay:10.05s"/>
+      <circle class="pulse" cx="360" cy="153" r="4.5" stroke="#7ee0d2" style="animation-delay:16.15s"/>
+    </g>
+
+    <text class="quiet" x="354" y="30" font-size="9">your Umbraco site</text>
+
+    <!-- dev agent: full access everywhere -->
+    <g class="end" style="animation-delay:1.7s">
+      <circle cx="360" cy="57" r="4.5" fill="#f7f4ef"/>
+      <text x="374" y="56" font-size="12" font-weight="600">CMS</text><text class="quiet" x="374" y="68" font-size="9">Full</text>
+    </g>
+    <g class="end" style="animation-delay:1.82s">
+      <circle cx="360" cy="105" r="4.5" fill="#fea390"/>
+      <text x="374" y="104" font-size="12" font-weight="600">Forms</text><text class="quiet" x="374" y="116" font-size="9">Full</text>
+    </g>
+    <g class="end" style="animation-delay:1.94s">
+      <circle cx="360" cy="153" r="4.5" fill="#7ee0d2"/>
+      <text x="374" y="152" font-size="12" font-weight="600">Automate</text><text class="quiet" x="374" y="164" font-size="9">Full</text>
+    </g>
+
+    <!-- content agent: no deletes, read-only, off -->
+    <g class="end x" style="animation-delay:7.9s">
+      <circle cx="360" cy="57" r="4.5" fill="#f7f4ef"/>
+      <text x="374" y="56" font-size="12" font-weight="600">CMS</text><text class="quiet deny" x="374" y="68" font-size="9" style="animation-delay:11.5s">No deletes</text>
+    </g>
+    <g class="end x" style="animation-delay:8.02s">
+      <circle cx="360" cy="105" r="4.5" fill="#fea390"/>
+      <text x="374" y="104" font-size="12" font-weight="600">Forms</text><text class="quiet" x="374" y="116" font-size="9">Read-only</text>
+    </g>
+    <g class="end x" style="animation-delay:8.14s"><g opacity=".45">
+      <circle cx="360" cy="153" r="4" fill="none" stroke="#7ee0d2" stroke-width="1.5"/>
+      <text x="374" y="152" font-size="12" font-weight="600">Automate</text><text class="quiet" x="374" y="164" font-size="9">Off</text>
+    </g></g>
+
+    <!-- ops agent: read-only, off, full -->
+    <g class="end x" style="animation-delay:14.1s">
+      <circle cx="360" cy="57" r="4.5" fill="#f7f4ef"/>
+      <text x="374" y="56" font-size="12" font-weight="600">CMS</text><text class="quiet" x="374" y="68" font-size="9">Read-only</text>
+    </g>
+    <g class="end x" style="animation-delay:14.22s"><g opacity=".45">
+      <circle cx="360" cy="105" r="4" fill="none" stroke="#fea390" stroke-width="1.5"/>
+      <text x="374" y="104" font-size="12" font-weight="600">Forms</text><text class="quiet" x="374" y="116" font-size="9">Off</text>
+    </g></g>
+    <g class="end x" style="animation-delay:14.34s">
+      <circle cx="360" cy="153" r="4.5" fill="#7ee0d2"/>
+      <text x="374" y="152" font-size="12" font-weight="600">Automate</text><text class="quiet" x="374" y="164" font-size="9">Full</text>
+    </g>
+
+    <!-- the same for every agent: Engage is not on this site -->
+    <g class="long" style="animation-delay:1.9s"><g opacity=".45">
+      <circle cx="360" cy="201" r="4" fill="none" stroke="#a9aef5" stroke-width="1.5"/>
+      <text x="374" y="200" font-size="12" font-weight="600">Engage</text><text class="quiet" x="374" y="212" font-size="9">not installed</text>
+    </g></g>
+
+    <!-- the server: it asks the site again for each agent that connects -->
+    <g fill="none">
+      <circle class="pulse" cx="240" cy="129" r="13" stroke="#f7f4ef" stroke-width="1.5" style="animation-delay:1s"/>
+      <circle class="pulse" cx="240" cy="129" r="13" stroke="#f7f4ef" stroke-width="1.5" style="animation-delay:7.2s"/>
+      <circle class="pulse" cx="240" cy="129" r="13" stroke="#f7f4ef" stroke-width="1.5" style="animation-delay:13.4s"/>
+      <circle class="pulse" cx="240" cy="129" r="13" stroke="#ff6b6b" stroke-width="2" style="animation-delay:11.45s"/>
+      <circle class="pulse" cx="240" cy="129" r="13" stroke="#ff6b6b" stroke-width="2" style="animation-delay:11.75s"/>
+      <circle class="pulse" cx="240" cy="129" r="13" stroke="#f7f4ef" stroke-width="2" style="animation-delay:17.95s"/>
+    </g>
+    <circle cx="240" cy="129" r="13" fill="#1b2060"/>
+    <circle class="spin" cx="240" cy="129" r="13" fill="none" stroke="#f7f4ef" stroke-width="1.5" stroke-dasharray="5 4.08" stroke-linecap="round"/>
+    <circle cx="240" cy="129" r="5.5" fill="#fea390"/>
+    <text class="mono" x="240" y="159" font-size="9.5" text-anchor="middle">umbrella-mcp</text>
+    <text class="quiet" x="240" y="171" font-size="9" text-anchor="middle">one server</text>
+
+    <!-- who is asking: agent 1, 2, 3 -->
+    <text class="act quiet" x="24" y="104" font-size="9" style="animation-delay:.8s"><tspan class="b">Dev agent</tspan> · own API user</text>
+    <text class="act quiet x" x="24" y="104" font-size="9" style="animation-delay:7s"><tspan class="b">Content agent</tspan> · own API user</text>
+    <text class="act quiet x" x="24" y="104" font-size="9" style="animation-delay:13.2s"><tspan class="b">Ops agent</tspan> · own API user</text>
+    <g fill="none" stroke="#a9aef5" stroke-opacity=".7"><circle cx="164" cy="101" r="2.5"/><circle cx="172" cy="101" r="2.5"/><circle cx="180" cy="101" r="2.5"/></g>
+    <circle class="act" cx="164" cy="101" r="3" fill="#f7f4ef" style="animation-delay:.8s"/>
+    <circle class="act x" cx="172" cy="101" r="3" fill="#f7f4ef" style="animation-delay:7s"/>
+    <circle class="act x" cx="180" cy="101" r="3" fill="#f7f4ef" style="animation-delay:13.2s"/>
+
+    <!-- what you ask, and the tool the agent picks for it -->
+    <rect x="16" y="113" width="170" height="32" rx="16" fill="#f7f4ef" fill-opacity=".08" stroke="#f7f4ef" stroke-opacity=".25"/>
+    <g font-size="11.5">
+      <text class="say" x="32" y="133" style="animation-delay:2.1s">Publish the home page</text>
+      <text class="say x" x="32" y="133" style="animation-delay:4.4s">Add a phone field</text>
+      <text class="say x" x="32" y="133" style="animation-delay:8.3s">List my forms</text>
+      <text class="say x" x="32" y="133" style="animation-delay:10.6s">Delete that old page</text>
+      <text class="say x" x="32" y="133" style="animation-delay:14.5s">Run the welcome flow</text>
+      <text class="say x" x="32" y="133" style="animation-delay:17s">What can I use here?</text>
+    </g>
+    <g class="mono" font-size="9">
+      <text class="call" x="32" y="164" style="animation-delay:2.5s">→ cms--publish-document</text>
+      <text class="call x" x="32" y="164" style="fill:#fea390;animation-delay:4.8s">→ forms--add-form-fields</text>
+      <text class="call x" x="32" y="164" style="fill:#fea390;animation-delay:8.7s">→ forms--list-forms</text>
+      <text class="call x" x="32" y="164" style="fill:#7ee0d2;animation-delay:14.8s">→ automate--trigger-automation</text>
+      <text class="call x" x="32" y="164" style="animation-delay:17.3s">→ get-mcp-health</text>
+    </g>
+    <text class="short x" x="32" y="164" font-size="10" style="fill:#ff6b6b;animation-delay:11.5s">✕ no delete tool offered</text>
+    <text class="short x quiet" x="32" y="178" font-size="9.5" style="animation-delay:18s">✓ CMS read-only, Automate full</text>
+  </g>
+
+  <!-- ============ Part 2: the same three agents as the dashboard shows them ============ -->
+  <g class="table">
+    <text class="quiet" x="40" y="44" font-size="9.5">Settings → Umbrella</text>
+    <text x="40" y="65" font-size="15" font-weight="700">Every agent gets its own access</text>
+    <g class="quiet" font-size="9.5" text-anchor="middle">
+      <text x="262" y="92">CMS</text><text x="340" y="92">Forms</text><text x="418" y="92">Automate</text>
+    </g>
+    <path d="M40 101 H451 M40 131 H451 M40 161 H451 M40 191 H451" stroke="#f7f4ef" stroke-opacity=".12"/>
+    <g font-size="9.5" text-anchor="middle">
+      <g class="row" style="animation-delay:20.5s">
+        <text x="40" y="120" font-size="11.5" font-weight="600" text-anchor="start">Dev agent</text>
+        <g class="full"><rect x="229" y="106" width="66" height="20" rx="10"/><text x="262" y="119.5">Full</text></g>
+        <g class="full"><rect x="307" y="106" width="66" height="20" rx="10"/><text x="340" y="119.5">Full</text></g>
+        <g class="full"><rect x="385" y="106" width="66" height="20" rx="10"/><text x="418" y="119.5">Full</text></g>
+      </g>
+      <g class="row" style="animation-delay:20.8s">
+        <text x="40" y="150" font-size="11.5" font-weight="600" text-anchor="start">Content agent</text>
+        <g class="nod"><rect x="229" y="136" width="66" height="20" rx="10"/><text x="262" y="149.5">No deletes</text></g>
+        <g class="ro"><rect x="307" y="136" width="66" height="20" rx="10"/><text x="340" y="149.5">Read-only</text></g>
+        <g class="off"><rect x="385" y="136" width="66" height="20" rx="10"/><text x="418" y="149.5">Off</text></g>
+      </g>
+      <g class="row" style="animation-delay:21.1s">
+        <text x="40" y="180" font-size="11.5" font-weight="600" text-anchor="start">Ops agent</text>
+        <g class="ro"><rect x="229" y="166" width="66" height="20" rx="10"/><text x="262" y="179.5">Read-only</text></g>
+        <g class="off"><rect x="307" y="166" width="66" height="20" rx="10"/><text x="340" y="179.5">Off</text></g>
+        <g class="full"><rect x="385" y="166" width="66" height="20" rx="10"/><text x="418" y="179.5">Full</text></g>
+      </g>
+    </g>
+    <text class="row quiet" x="40" y="222" font-size="9.5" style="animation-delay:21.5s"><tspan class="mono b">get-mcp-health</tspan> tells each agent what it can use, and why</text>
+  </g>
+</svg>

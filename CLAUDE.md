@@ -18,9 +18,9 @@ Current docs, to keep in sync with the code:
 - `docs/development.md`: setup from a fresh clone, tests, the e2e scripts.
 - `docs/adding-a-product.md`, `docs/releasing.md`, `docs/merging.md`.
 
-This repository is private. The public home is [MarcusK00/Umbrella-Issues](https://github.com/MarcusK00/Umbrella-Issues): the issue tracker (issue forms, labels, `SECURITY.md` with private vulnerability reporting) and a copy of `README.md` that `scripts/sync-tracker-docs.mjs` writes on each release. The NuGet readme, `PackageProjectUrl` and the npm `bugs` field point there; never link users to this repository. The exceptions are metadata the registries need: the csproj `RepositoryUrl`, and the npm `repository` field, which npm trusted publishing checks against the repository the release workflow runs in.
+This repository is public and is Umbrella's public home: issues (the forms in `.github/ISSUE_TEMPLATE`), `SECURITY.md` with private vulnerability reporting, and the user docs in `README.md`. The NuGet `PackageProjectUrl`, the npm `homepage` and `bugs` fields and the READMEs link here; links to docs, `SECURITY.md` and images use `v17/main`, the released branch, because the default branch `v17/dev` can be ahead of the release. The earlier public tracker, MarcusK00/Umbrella-Issues, from when this repository was private, is no longer updated.
 
-Both packages are released; 17.0.0 is the first stable version (the `17.0.0-alpha.N` versions before it were test releases). The NuGet package has no `umbraco-marketplace` tag until a Marketplace release (`docs/releasing.md`). The source folders, namespaces and solution keep their `Umbraco.Mcp` names; only the package ids changed. Earlier working names were `Umbraco.Mcp` / `@umbraco/mcp`.
+Both packages are released; 17.0.0 is the first stable version (the `17.0.0-alpha.N` versions before it were test releases). From 17.0.1 the NuGet package carries the `umbraco-marketplace` tag, so the Umbraco Marketplace lists it, and `umbraco-marketplace.json` in the repository root holds the listing details (`docs/releasing.md`). The source folders, namespaces and solution keep their `Umbraco.Mcp` names; only the package ids changed. Earlier working names were `Umbraco.Mcp` / `@umbraco/mcp`.
 
 ## Commands
 
@@ -57,7 +57,6 @@ node scripts/create-api-user.mjs        # creates client "umbraco-back-office-mc
 scripts/e2e.sh                          # needs the site running, npm/.env and a built npm/dist
 scripts/pack-check.sh                   # packs umbrella-mcp, installs it with npx in an empty folder, checks it against the site
 bash scripts/check-guards.sh            # repo guards CI runs on every PR; see docs/merging.md
-node scripts/sync-tracker-docs.mjs ../Umbrella-Issues   # copies README.md to the public tracker checkout (release step)
 ```
 
 - **Demo admin:** `admin@test.com` / `SecurePass1234` (unattended install, set in `demo-site/appsettings.Development.json`).
@@ -154,7 +153,7 @@ No changes in `npm/src/core/`. The contract test then covers the new module auto
 
 ## Constraints and conventions
 
-- **Versions:** Umbraco **17 only**: `Umbraco.Cms.Api.Management` 17.0.0 (the package's minimum Umbraco, so sites on any 17.x can install it; the add-on must compile against it), `net10.0`, central NuGet versions in `Directory.Packages.props`. The demo site has its own `Directory.Packages.props` (Umbraco.Cms 17.7.0, Forms 17.6.1, Automate 17.4.0, Engage 17.5.0, Forms.Automate 17.0.3). Don't upgrade dependency versions unprompted.
+- **Versions:** Umbraco **17 only**: `Umbraco.Cms.Api.Management` `[17.0.0, 18.0.0)` (the NuGet dependency range: minimum 17.0.0, so sites on any 17.x can install it and the add-on must compile against it; below 18, which the Marketplace shows as the supported versions), `net10.0`, central NuGet versions in `Directory.Packages.props`. The demo site has its own `Directory.Packages.props` (Umbraco.Cms 17.7.0, Forms 17.6.1, Automate 17.4.0, Engage 17.5.0, Forms.Automate 17.0.3). Don't upgrade dependency versions unprompted.
 - **npm:** ESM (`"type": "module"`, NodeNext, `.js` import suffixes in TS), TypeScript strict, Node `^22.23.4 || ^24.22.1 || >=26.12.1` (`engines`, the products' range).
 - **Tests:**
   - .NET tests are NUnit 3 with hand-written fakes (`tests/Umbraco.Mcp.Tests/Fakes.cs`) at the `ILoadedAssemblyProvider` / `IRegisteredApiProvider` seams.
@@ -164,4 +163,4 @@ No changes in `npm/src/core/`. The contract test then covers the new module auto
   - `npm/.env.example` holds placeholders only.
   - On boot Umbraco writes a generated `Imaging:HMACSecretKey` into `demo-site/appsettings.json` unless one is configured. Keep the key in the gitignored `demo-site/appsettings.Local.json` (loaded in Debug builds) so the tracked file stays at `""`. Stage files explicitly rather than with `git add -A`.
 - **Docs:** dates use DD-MM-YYYY. User docs (`README.md`, `npm/README.md`, `src/Umbraco.Mcp/README.md`) describe the released packages; keep the version in their config examples equal to the package version.
-- **Publishing:** never publish to npm or NuGet unless asked; nothing guards against it any more, since `"private": true` is gone. `.github/workflows/release.yml` publishes both (trusted publishing, no stored keys) when a push to `v17/main` carries a version the registries don't have, so merging a version bump into `v17/main` is a release (`docs/releasing.md`). Don't add the `umbraco-marketplace` tag back unless asked.
+- **Publishing:** never publish to npm or NuGet unless asked; nothing guards against it any more, since `"private": true` is gone. `.github/workflows/release.yml` publishes both (trusted publishing, no stored keys) when a push to `v17/main` carries a version the registries don't have, so merging a version bump into `v17/main` is a release (`docs/releasing.md`). Keep the `umbraco-marketplace` tag and the `[17.0.0, 18.0.0)` Umbraco range: the Marketplace lists the package and its supported versions from them.

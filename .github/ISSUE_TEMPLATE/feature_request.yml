@@ -1,0 +1,35 @@
+name: Feature request
+description: An idea for Umbrella, the dashboard or the MCP server.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The task or problem, not the solution yet. For example "editors on our team need …".
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would help?
+      description: How you'd like Umbrella to handle it.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      multiple: true
+      options:
+        - Add-on (detection, health checks)
+        - Umbrella dashboard (Overview, Tool Permissions)
+        - MCP server (startup, filters, tool names, get-mcp-health)
+        - Support for another Umbraco product
+        - Documentation
+        - Other
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What do you do today instead?
+      description: Workarounds or other tools you've tried.
