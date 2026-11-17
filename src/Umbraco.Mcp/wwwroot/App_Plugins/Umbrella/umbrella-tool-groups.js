@@ -167,6 +167,9 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     if (!(await this.confirmLeave())) return;
     // An API user that connected after this page loaded: load the list again so it shows up.
     if (key && !this._data.apiUsers?.some((u) => u.key === key)) await this.#load();
+    // Disabled API users aren't listed here; asked for one, show the defaults.
+    if (key && !this.#listedUsers().some((u) => u.key === key)) key = "";
+    if (key === this._selected) return;
     if (key === "") {
       this.#showDefaults();
       return;
@@ -317,9 +320,14 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     return (this._data?.products ?? []).filter((p) => p.installed && !noAccess.includes(p.id));
   }
 
+  /** The API users Tool Permissions lists: every one except disabled users, whose AI tools can't sign in anyway. */
+  #listedUsers() {
+    return (this._data?.apiUsers ?? []).filter((u) => u.state !== "disabled");
+  }
+
   /** In the defaults view: the API users that override a product and so don't follow these defaults. */
   #overrideNote(product) {
-    const names = (this._data.apiUsers ?? []).filter((u) => u.overriddenProducts?.includes(product.id)).map((u) => u.name);
+    const names = this.#listedUsers().filter((u) => u.overriddenProducts?.includes(product.id)).map((u) => u.name);
     if (names.length === 0) return null;
     return names.length === 1
       ? `1 API user has its own ${product.displayName} settings: ${names[0]}.`
@@ -380,7 +388,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
   }
 
   #renderList() {
-    const users = this._data.apiUsers ?? [];
+    const users = this.#listedUsers();
     const entry = (key, name, sub, avatar, tag) => html`<li>
       <button
         class="entry"
@@ -417,21 +425,22 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
                 return entry(u.key, u.name, u.clientIds?.join(", "), html`<uui-avatar name=${u.name}></uui-avatar>`, tag);
               })}
             </ul>`
-        : html`<p class="list-empty">API users appear here once you create one in Users.</p>`}
+        : html`<p class="list-empty">API users appear here once one is created with New connection on the Overview. Disabled API users aren't listed.</p>`}
     </nav>`;
   }
 
   /** Who is being edited, and what that means; in the user view also the way back to the defaults for everything. */
   #renderEditorHead() {
     if (!this._selected) {
-      const following = (this._data.apiUsers ?? []).filter((u) => !u.overriddenProducts?.length).length;
+      const listed = this.#listedUsers();
+      const following = listed.filter((u) => !u.overriddenProducts?.length).length;
       return html`<div class="editor-head">
         <span class="defaults-icon large"><umb-icon name="icon-settings"></umb-icon></span>
         <div class="editor-title">
           <h2 tabindex="-1">Defaults</h2>
           <p class="muted">
             What every API user's MCP server gets, unless the user has its own settings for a product.
-            ${following ? html`${following} of ${this._data.apiUsers.length} API users follow these for every product.` : nothing}
+            ${following ? html`${following} of ${listed.length} API users follow these for every product.` : nothing}
           </p>
         </div>
       </div>

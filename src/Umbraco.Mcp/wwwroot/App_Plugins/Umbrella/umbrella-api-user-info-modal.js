@@ -97,7 +97,9 @@ export class UmbrellaApiUserInfoModalElement extends UmbModalBaseElement {
           ${this.#renderAccess(user, products)}
         </uui-box>
         <div class="links">
-          <uui-button look="secondary" label="Edit permissions" @click=${() => this.#submit({ action: "edit-permissions" })}></uui-button>
+          ${user.state === "disabled"
+            ? nothing
+            : html`<uui-button look="secondary" label="Edit permissions" @click=${() => this.#submit({ action: "edit-permissions" })}></uui-button>`}
           ${clientId
             ? html`<uui-button look="secondary" label="Show config" @click=${() => this.#submit({ action: "show-config", clientId })}></uui-button>`
             : nothing}
