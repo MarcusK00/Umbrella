@@ -8,7 +8,7 @@ import { formatDate, request } from "./umbrella-api.js";
 import { formatRelative } from "./umbrella-access.js";
 import "./umbrella-access-table.js";
 import "./umbrella-client-setup.js";
-import { UMBRELLA_API_USER_INFO_MODAL, UMBRELLA_NEW_SECRET_MODAL } from "./umbrella-modals.js";
+import { UMBRELLA_API_USER_INFO_MODAL, UMBRELLA_NEW_CONNECTION_MODAL, UMBRELLA_NEW_SECRET_MODAL } from "./umbrella-modals.js";
 import { disableUser, enableUser } from "./umbrella-users-api.js";
 
 const AREAS = { products: "Products", server: "MCP server", apiUsers: "API users" };
@@ -139,10 +139,25 @@ export class UmbrellaOverviewElement extends UmbLitElement {
     }
   }
 
+  /** Every client id an API user already has, so a new one can't clash. */
+  #takenClientIds() {
+    return (this._setup?.apiUsers ?? []).flatMap((u) => u.clientIds);
+  }
+
+  async #newConnection() {
+    const products = this._data.products.filter((p) => p.installed && p.enabled);
+    try {
+      await umbOpenModal(this, UMBRELLA_NEW_CONNECTION_MODAL, { data: { products, takenClientIds: this.#takenClientIds() } });
+    } catch {
+      // Closed before Done; a user may still have been created, so reload below.
+    }
+    await this.#load();
+  }
+
   async #newSecret(key) {
     const user = this.#user(key);
     if (!user) return;
-    const takenClientIds = (this._setup?.apiUsers ?? []).flatMap((u) => u.clientIds);
+    const takenClientIds = this.#takenClientIds();
     try {
       await umbOpenModal(this, UMBRELLA_NEW_SECRET_MODAL, { data: { user, takenClientIds } });
     } catch {
@@ -289,14 +304,30 @@ export class UmbrellaOverviewElement extends UmbLitElement {
   #renderUsers() {
     const { apiUsers, products, canManageUsers } = this._data;
     const connected = this.#connectedUsers().length;
+    const newConnection = (look) =>
+      html`<uui-button look=${look} label="New connection" @click=${this.#newConnection}>
+        <umb-icon name="icon-add"></umb-icon> New connection
+      </uui-button>`;
     return html`<uui-box id="users" headline="Access per API user" headline-variant="h2">
-      ${connected ? html`<span slot="header-actions" class="muted">${connected} connected</span>` : nothing}
+      ${connected || canManageUsers
+        ? html`<div slot="header-actions" class="header-actions">
+            ${connected ? html`<span class="muted">${connected} connected</span>` : nothing}
+            ${canManageUsers && apiUsers.length > 0 ? newConnection("primary") : nothing}
+          </div>`
+        : nothing}
       ${apiUsers.length === 0
         ? html`<div class="empty">
             <umb-icon name="icon-users"></umb-icon>
             <p><strong>No MCP server has connected yet</strong></p>
-            <p class="muted">When an AI tool starts the MCP server, the API user it signs in as appears here with the tools it gets.</p>
-            <uui-button look="primary" label="Connect an AI tool" @click=${this.#openConnect}></uui-button>
+            <p class="muted">
+              ${canManageUsers
+                ? "New connection creates an API user for a person or agent and hands over the config for their AI tool."
+                : "When an AI tool starts the MCP server, the API user it signs in as appears here with the tools it gets."}
+            </p>
+            <div class="empty-actions">
+              ${canManageUsers ? newConnection("primary") : nothing}
+              <uui-button look=${canManageUsers ? "secondary" : "primary"} label="Connect an AI tool" @click=${this.#openConnect}></uui-button>
+            </div>
           </div>`
         : html`<umbrella-access-table
             .users=${apiUsers}
@@ -418,7 +449,8 @@ export class UmbrellaOverviewElement extends UmbLitElement {
       .empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--uui-size-space-2); padding: var(--uui-size-layout-2) var(--uui-size-space-5); }
       .empty > umb-icon { font-size: 2rem; color: var(--uui-color-text-alt); }
       .empty p { margin: 0; max-width: 50ch; }
-      .empty uui-button { margin-top: var(--uui-size-space-3); }
+      .empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--uui-size-space-2); margin-top: var(--uui-size-space-3); }
+      .header-actions { display: flex; align-items: center; gap: var(--uui-size-space-4); }
 
       .field { display: flex; flex-direction: column; align-items: stretch; gap: var(--uui-size-space-3); }
       .field > p { margin: 0; max-width: 70ch; }

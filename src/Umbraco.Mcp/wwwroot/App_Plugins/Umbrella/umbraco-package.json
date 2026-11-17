@@ -12,6 +12,12 @@
     },
     {
       "type": "modal",
+      "alias": "Umbrella.Modal.NewConnection",
+      "name": "Umbrella new connection",
+      "element": "/App_Plugins/Umbrella/umbrella-new-connection-modal.js"
+    },
+    {
+      "type": "modal",
       "alias": "Umbrella.Modal.ApiUserInfo",
       "name": "Umbrella API user info",
       "element": "/App_Plugins/Umbrella/umbrella-api-user-info-modal.js"

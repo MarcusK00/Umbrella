@@ -25,6 +25,15 @@ export async function listUserGroups(auth) {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/** The user with this key, or null when there is none (or it can't be read). */
+export async function getUser(auth, userId) {
+  try {
+    return await managementRequest(auth, "GET", `user/${encodeURIComponent(userId)}`);
+  } catch {
+    return null;
+  }
+}
+
 /** Creates an API user with the given key, so a retry after a lost response finds the same user. */
 export function createApiUser(auth, { id, name, clientId, groupIds }) {
   return managementRequest(auth, "POST", "user", {
