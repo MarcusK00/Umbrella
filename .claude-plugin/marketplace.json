@@ -1,0 +1,17 @@
+{
+  "name": "umbrella",
+  "owner": {
+    "name": "MarcusK00",
+    "url": "https://github.com/MarcusK00"
+  },
+  "metadata": {
+    "description": "Umbrella: one MCP server for your Umbraco site, with the tools for the Umbraco products it has installed."
+  },
+  "plugins": [
+    {
+      "name": "umbrella",
+      "source": "./plugins/umbrella",
+      "description": "Connects Claude Code to an Umbraco 17 site through the umbrella-mcp server. Asks for the site address, the API user's client id and its client secret when you install it."
+    }
+  ]
+}
