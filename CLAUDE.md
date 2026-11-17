@@ -18,7 +18,7 @@ Current docs, to keep in sync with the code:
 - `docs/development.md`: setup from a fresh clone, tests, the e2e scripts.
 - `docs/adding-a-product.md`, `docs/releasing.md`, `docs/merging.md`.
 
-This repository is private. The public home is [MarcusK00/Umbrella-Issues](https://github.com/MarcusK00/Umbrella-Issues): the issue tracker (issue forms, labels, `SECURITY.md` with private vulnerability reporting) and a copy of `README.md` that `scripts/sync-tracker-docs.mjs` writes on each release. The NuGet readme, `PackageProjectUrl` and the npm `bugs` field point there; never link users to this repository. The exceptions are metadata the registries need: the csproj `RepositoryUrl`, and the npm `repository` field, which npm trusted publishing checks against the repository the release workflow runs in.
+This repository is public and is Umbrella's public home: issues (the forms in `.github/ISSUE_TEMPLATE`), `SECURITY.md` with private vulnerability reporting, and the user docs in `README.md`. The NuGet `PackageProjectUrl`, the npm `homepage` and `bugs` fields and the READMEs link here; links to docs, `SECURITY.md` and images use `v17/main`, the released branch, because the default branch `v17/dev` can be ahead of the release. The earlier public tracker, MarcusK00/Umbrella-Issues, from when this repository was private, is no longer updated.
 
 Both packages are released; 17.0.0 is the first stable version (the `17.0.0-alpha.N` versions before it were test releases). The NuGet package has no `umbraco-marketplace` tag until a Marketplace release (`docs/releasing.md`). The source folders, namespaces and solution keep their `Umbraco.Mcp` names; only the package ids changed. Earlier working names were `Umbraco.Mcp` / `@umbraco/mcp`.
 
@@ -57,7 +57,6 @@ node scripts/create-api-user.mjs        # creates client "umbraco-back-office-mc
 scripts/e2e.sh                          # needs the site running, npm/.env and a built npm/dist
 scripts/pack-check.sh                   # packs umbrella-mcp, installs it with npx in an empty folder, checks it against the site
 bash scripts/check-guards.sh            # repo guards CI runs on every PR; see docs/merging.md
-node scripts/sync-tracker-docs.mjs ../Umbrella-Issues   # copies README.md to the public tracker checkout (release step)
 ```
 
 - **Demo admin:** `admin@test.com` / `SecurePass1234` (unattended install, set in `demo-site/appsettings.Development.json`).

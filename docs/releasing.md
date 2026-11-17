@@ -21,11 +21,7 @@ Merging a new version into `v17/main` publishes both: `.github/workflows/release
    ```
    `pack-check.sh` installs the packed package with `npx` in an empty folder, where npm ignores our `overrides`. It catches a product package that would end up on its own toolkit copy.
 5. **Merge `v17/dev` into `v17/main`.** The Release workflow then publishes (see [What the workflow does](#what-the-workflow-does)). Follow it under Actions → Release.
-6. **Public docs.** This repository is private, so users read the docs in the public tracker, [MarcusK00/Umbrella-Issues](https://github.com/MarcusK00/Umbrella-Issues), where the NuGet readme and `PackageProjectUrl` link. After the release, copy `README.md` there and push it (the workflow doesn't do this):
-   ```bash
-   node scripts/sync-tracker-docs.mjs ../Umbrella-Issues   # a checkout of the tracker
-   ```
-   The script drops the Develop section, adds "Report a problem", and copies `LICENSE` and `docs/images`. The NuGet readme shows `docs/images/umbrella-overview.png` from the tracker (nuget.org only shows images from allowed domains such as `raw.githubusercontent.com`, not packed or relative ones), so push the tracker before the package is published, or the picture is missing on nuget.org. It fails when the README no longer has the sections it edits, or links to a file the tracker doesn't have.
+6. **Public docs.** Nothing to copy: users read the docs in this repository. The links in the READMEs and the NuGet readme's Overview picture (`raw.githubusercontent.com/…/v17/main/docs/images/umbrella-overview.png`; nuget.org only shows images from allowed domains, not packed or relative ones) point at `v17/main`, so they show the release as soon as it is merged.
 7. **Check** that `npx -y umbrella-mcp@<version> --list-tools` works against a site with the new add-on, with `UMBRACO_BASE_URL`, `UMBRACO_CLIENT_ID` and `UMBRACO_CLIENT_SECRET` set. In that site, Settings → Health Check → MCP → "MCP client setup" should show the same version.
 
 ## What the workflow does
@@ -38,7 +34,7 @@ Merging a new version into `v17/main` publishes both: `.github/workflows/release
 | `nuget` | `dotnet pack` and `dotnet nuget push`, only after npm succeeded or already had the version, so the version the add-on points to exists. |
 | `github-release` | Tags the commit `v<version>` and creates a GitHub release with generated notes (marked pre-release for a pre-release version). |
 
-Neither registry needs a stored API key: both use trusted publishing, where the job exchanges a short-lived GitHub OIDC token for a one-time credential. The workflow is safe to run again: a registry that already has the version is skipped, so after a failed NuGet push, re-run the failed jobs (or Actions → Release → Run workflow on `v17/main`) and only NuGet runs. npm doesn't generate provenance for a private repository, so the workflow doesn't ask for it. npm does check that `repository.url` in `npm/package.json` matches the repository the workflow runs in (`MarcusK00/Umbrella`), so keep that field when the repository moves or is renamed.
+Neither registry needs a stored API key: both use trusted publishing, where the job exchanges a short-lived GitHub OIDC token for a one-time credential. The workflow is safe to run again: a registry that already has the version is skipped, so after a failed NuGet push, re-run the failed jobs (or Actions → Release → Run workflow on `v17/main`) and only NuGet runs. npm adds a provenance statement on its own when a public repository publishes through trusted publishing (17.0.0 has one), so the workflow doesn't pass `--provenance`. npm does check that `repository.url` in `npm/package.json` matches the repository the workflow runs in (`MarcusK00/Umbrella`), so keep that field when the repository moves or is renamed.
 
 ## One-time setup
 
