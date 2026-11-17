@@ -43,10 +43,26 @@ Each person, or each AI agent, connects as its own API user and gets its own acc
 
 1. **Install the package** and restart the site: `dotnet add package Umbraco.Community.Umbrella`. Umbrella's major version follows Umbraco's, and without `--version` this installs the newest version, which needs the newest Umbraco. On an older Umbraco, add `--version` with the newest matching version from [the NuGet version list](https://www.nuget.org/packages/Umbraco.Community.Umbrella#versions-body-tab), for example the newest 17.x on Umbraco 17.
 2. **Create an API user** (Users → Create → API user) with client credentials, and give its groups the sections the AI should work in. Copy the secret when you create it: Umbraco only keeps a hash.
-3. **Copy the config** from **Settings → Umbrella → Overview**: pick the API user and your AI tool, and follow the steps it shows. For Claude Code you can install the plugin instead.
+3. **Copy the config** from **Settings → Umbrella → Overview**: pick the API user and your AI tool, and follow the steps it shows. Using Claude Code? Install the plugin instead: see *Claude Code plugin* below.
 4. **Say hello.** Ask the AI to *"call get-mcp-health"*. It lists each product and how many tools it loaded.
 
 The setup guide has each step in detail, including the secret, the Claude Code plugin and troubleshooting: [for Umbraco 18](https://github.com/MarcusK00/Umbrella/blob/v18/main/README.md) and [for Umbraco 17](https://github.com/MarcusK00/Umbrella/blob/v17/main/README.md).
+
+## Claude Code plugin
+
+Umbrella is also a Claude Code plugin, so you don't edit a config file and the secret never lands in one. It works in the Claude Code terminal, in the VS Code and JetBrains extensions, and in the Desktop app's Code tab. You need the site with the package installed and an API user (steps 1 and 2 above).
+
+1. **Install it.** Claude Code fetches the plugin from GitHub. Run two commands in a terminal; the Overview's **Claude Code (plugin)** option shows them with your site's address and the API user's client id filled in:
+
+   ```bash
+   claude plugin marketplace add MarcusK00/Umbrella#v18/main   # on Umbraco 17: #v17/main
+   claude plugin install umbrella@umbrella --config base_url=https://your-site --config client_id=umbraco-back-office-mcp
+   ```
+
+2. **Add the secret.** In Claude Code, run `/plugin configure umbrella@umbrella`. It asks for the client secret, hides it as you type, and keeps it in your system's credential store.
+3. **Start it.** Restart Claude Code or run `/reload-plugins`. `/mcp` lists the server as `plugin:umbrella:umbraco`, and `/umbrella:health` checks the connection and explains what loaded.
+
+The plugin works in every folder you open. More on values, updates and limits in the full documentation: [Umbraco 18](https://github.com/MarcusK00/Umbrella/blob/v18/main/README.md#claude-code-plugin) or [Umbraco 17](https://github.com/MarcusK00/Umbrella/blob/v17/main/README.md#claude-code-plugin).
 
 ## Requirements
 
