@@ -3,6 +3,7 @@ using NUnit.Framework;
 using Umbraco.Cms.Core.Models.Membership;
 using Umbraco.Mcp.ApiUser;
 using Umbraco.Mcp.Capabilities;
+using Umbraco.Mcp.Connections;
 using Umbraco.Mcp.Detection;
 using Umbraco.Mcp.Overview;
 using Umbraco.Mcp.ToolSettings;
@@ -78,13 +79,31 @@ public class McpOverviewServiceTests
     private static McpOverviewService Service(
         IMcpToolSettingsStore? settings = null,
         IMcpApiUserProvider? users = null,
-        IMcpCapabilitiesService? caps = null) =>
+        IMcpCapabilitiesService? caps = null,
+        IMcpCreatedUserStore? created = null,
+        IMcpApiUserDirectory? directory = null) =>
         new(
             caps ?? new StubCapabilities(new McpCapabilities(Addon, AllProducts)),
             settings ?? new FakeToolSettingsStore { Catalogue = Catalogue(Addon, ("cms", 1)) },
             users ?? new FakeApiUserProvider(User(UserState.Active, "Umb.Section.Forms", "Ua.Section.Automate")),
+            created ?? new FakeCreatedUserStore(),
+            directory ?? new FakeApiUserDirectory(),
             Sections.Select(s => (IMcpProductDetector)new StubDetector(s.Key, s.Value)).ToList(),
             NullLogger<McpOverviewService>.Instance);
+
+    private static McpApiUserInfo Info(string name, UserState state = UserState.Active) =>
+        new(Guid.NewGuid(), name, state, [$"umbraco-back-office-{name.ToLowerInvariant()}"], ["Umb.Section.Forms"], ["Form managers", "Editors"]);
+
+    private static FakeCreatedUserStore CreatedStore(params McpApiUserInfo[] users)
+    {
+        var store = new FakeCreatedUserStore();
+        foreach (McpApiUserInfo u in users)
+        {
+            store.Record(u.Key, Reported);
+        }
+
+        return store;
+    }
 
     [Test]
     public void No_problems_gives_no_warnings()
@@ -623,5 +642,131 @@ public class McpOverviewServiceTests
         Assert.That(row.ToolCount, Is.Null);
         McpFinding finding = overview.Findings.Single(f => f.Area == McpFindingArea.Server);
         Assert.That(finding.Message, Does.StartWith("The MCP server last started as umbrella-mcp 16.9.0"));
+    }
+
+    [Test]
+    public async Task Created_user_that_never_connected_is_a_row_with_connected_false()
+    {
+        McpApiUserInfo bea = Info("Bea");
+        McpProductStatus[] own =
+        [
+            Product("cms", "Umbraco CMS"),
+            Product("forms", "Umbraco Forms") with { ReadOnly = true, SettingsScope = McpSettingsScope.User },
+            Product("automate", "Umbraco Automate"),
+        ];
+        var service = Service(
+            users: new FakeApiUserProvider(),
+            created: CreatedStore(bea),
+            directory: new FakeApiUserDirectory(bea),
+            caps: new StubCapabilities(
+                new McpCapabilities(Addon, AllProducts),
+                new Dictionary<Guid, McpCapabilities> { [bea.Key] = new McpCapabilities(Addon, own) }));
+
+        McpOverviewApiUser row = (await service.GetOverviewAsync()).ApiUsers.Single();
+
+        Assert.That(row.Key, Is.EqualTo(bea.Key));
+        Assert.That(row.Connected, Is.False);
+        Assert.That(row.LastConnected, Is.Null);
+        Assert.That(row.Name, Is.EqualTo("Bea"));
+        Assert.That(row.ClientIds, Is.EqualTo(new[] { "umbraco-back-office-bea" }));
+        Assert.That(row.Groups, Is.EqualTo(new[] { "Editors", "Form managers" }));
+        Assert.That(row.Sections, Is.EqualTo(new[] { "Umb.Section.Forms" }));
+        Assert.That(row.ToolCount, Is.Null);
+        McpOverviewAccess forms = row.Access.Single(a => a.ProductId == "forms");
+        Assert.That(forms.Level, Is.EqualTo(McpToolLevel.ReadOnly));
+        Assert.That(forms.Scope, Is.EqualTo(McpSettingsScope.User));
+        Assert.That(forms.ToolCount, Is.Null);
+        Assert.That(row.Access.Single(a => a.ProductId == "automate").SectionAccess, Is.False);
+    }
+
+    [Test]
+    public async Task Created_user_that_has_connected_appears_once_as_connected()
+    {
+        McpApiUser anna = NamedUser("Anna");
+        McpApiUserInfo annaInfo = new(anna.Key, "Anna", UserState.Active, ["umbraco-back-office-mcp"], ["Umb.Section.Forms"]);
+        var service = Service(
+            users: new FakeApiUserProvider(anna),
+            created: CreatedStore(annaInfo),
+            directory: new FakeApiUserDirectory(annaInfo));
+
+        McpOverviewApiUser row = (await service.GetOverviewAsync()).ApiUsers.Single();
+
+        Assert.That(row.Connected, Is.True);
+        Assert.That(row.LastConnected, Is.EqualTo(Reported));
+    }
+
+    [Test]
+    public async Task Created_user_missing_from_directory_is_skipped()
+    {
+        McpApiUserInfo gone = Info("Gone");
+        var service = Service(users: new FakeApiUserProvider(), created: CreatedStore(gone), directory: new FakeApiUserDirectory());
+
+        McpOverview overview = await service.GetOverviewAsync();
+
+        Assert.That(overview.ApiUsers, Is.Empty);
+    }
+
+    [Test]
+    public async Task Never_connected_rows_come_after_connected_ones_sorted_by_name()
+    {
+        McpApiUserInfo zoe = Info("zoe");
+        McpApiUserInfo bea = Info("Bea");
+        var service = Service(
+            users: new FakeApiUserProvider(NamedUser("Anna")),
+            created: CreatedStore(zoe, bea),
+            directory: new FakeApiUserDirectory(zoe, bea));
+
+        McpOverview overview = await service.GetOverviewAsync();
+
+        Assert.That(overview.ApiUsers.Select(u => u.Name), Is.EqualTo(new[] { "Anna", "Bea", "zoe" }));
+    }
+
+    [Test]
+    public async Task Never_connected_user_raises_no_findings()
+    {
+        McpApiUserInfo bea = Info("Bea", UserState.Disabled);
+        McpOverview without = await Service(users: new FakeApiUserProvider()).GetOverviewAsync();
+
+        McpOverview with = await Service(
+            users: new FakeApiUserProvider(),
+            created: CreatedStore(bea),
+            directory: new FakeApiUserDirectory(bea)).GetOverviewAsync();
+
+        Assert.That(with.Findings, Is.EqualTo(without.Findings));
+        Assert.That(with.ApiUsers.Single().State, Is.EqualTo("disabled"));
+    }
+
+    [Test]
+    public async Task Reading_never_connected_users_failing_leaves_them_out()
+    {
+        McpApiUserInfo bea = Info("Bea");
+        var service = Service(
+            users: new FakeApiUserProvider(NamedUser("Anna")),
+            created: new FakeCreatedUserStore { Throws = new InvalidOperationException("boom") },
+            directory: new FakeApiUserDirectory(bea));
+
+        McpOverview overview = await service.GetOverviewAsync();
+
+        Assert.That(overview.ApiUsers.Select(u => u.Name), Is.EqualTo(new[] { "Anna" }));
+    }
+
+    [Test]
+    public async Task Products_carry_their_section_alias()
+    {
+        McpOverview overview = await Service().GetOverviewAsync();
+
+        Assert.That(overview.Products.Single(p => p.Id == "forms").SectionAlias, Is.EqualTo("Umb.Section.Forms"));
+        Assert.That(overview.Products.Single(p => p.Id == "cms").SectionAlias, Is.Null);
+    }
+
+    [Test]
+    public async Task Connected_user_row_carries_sections_and_connected_true()
+    {
+        var service = Service(users: new FakeApiUserProvider(NamedUser("Anna")));
+
+        McpOverviewApiUser row = (await service.GetOverviewAsync()).ApiUsers.Single();
+
+        Assert.That(row.Connected, Is.True);
+        Assert.That(row.Sections, Is.EqualTo(new[] { "Umb.Section.Forms", "Ua.Section.Automate" }));
     }
 }
