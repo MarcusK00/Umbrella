@@ -33,10 +33,12 @@ jobs:
           npm_version=$(node -p 'require("./npm/package.json").version')
           nuget_version=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' src/Umbraco.Mcp/Umbraco.Mcp.csproj)
           [ "$npm_version" = "$nuget_version" ] || { echo "::error::npm/package.json is $npm_version, Umbraco.Mcp.csproj is $nuget_version"; exit 1; }
-          # The pre-release label is the npm dist-tag (17.0.0-alpha.8 -> alpha), as in docs/releasing.md; stable -> latest.
+          # The pre-release label is the npm dist-tag (17.0.0-alpha.8 -> alpha), as in docs/releasing.md. Stable versions of
+          # this line go under lts-<major> (17.0.2 -> lts-17): latest belongs to the newest line, Umbraco 18 on v18/main.
           label=$(sed -n 's/^[0-9.]*-\([a-z]*\).*/\1/p' <<<"$npm_version")
+          major=${npm_version%%.*}
           echo "version=$npm_version" >> "$GITHUB_OUTPUT"
-          echo "npm-tag=${label:-latest}" >> "$GITHUB_OUTPUT"
+          echo "npm-tag=${label:-lts-$major}" >> "$GITHUB_OUTPUT"
       - name: Check registries
         id: registries
         env:

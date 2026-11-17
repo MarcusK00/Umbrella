@@ -30,7 +30,7 @@ Merging a new version into `v17/main` publishes both: `.github/workflows/release
 |---|---|
 | `version` | Reads the version from `npm/package.json` and the csproj (fails if they differ) and checks whether npm and NuGet have it. When both have it, every other job is skipped. |
 | `ci` | Runs `ci.yml` (`dotnet`, `npm`, `guards`, `workflows`) on the merged commit. Nothing publishes if it fails. |
-| `npm` | `npm publish --tag <label>` from `npm/`, where the label is the pre-release label (`17.0.0-alpha.8` → `alpha`) or `latest` for a stable version. The add-on pins the exact version, so users never depend on the dist-tag. |
+| `npm` | `npm publish --tag <label>` from `npm/`, where the label is the pre-release label (`17.0.0-alpha.8` → `alpha`) or `lts-17` for a stable version: `latest` belongs to the newest line, Umbraco 18, released from `v18/main`. The add-on pins the exact version, so users never depend on the dist-tag. |
 | `nuget` | `dotnet pack` and `dotnet nuget push`, only after npm succeeded or already had the version, so the version the add-on points to exists. |
 | `github-release` | Tags the commit `v<version>` and creates a GitHub release with generated notes (marked pre-release for a pre-release version). |
 
@@ -61,8 +61,8 @@ The NuGet API key needs "Push only new package versions", limited to the glob `U
 
 ## Stable and test releases
 
-- **Stable releases** (now, from 17.0.0): plain versions such as `17.0.1`. npm publishes them under `latest`, and `dotnet add package Umbraco.Community.Umbrella` picks them without `--prerelease`.
-- **Test releases:** pre-release versions such as `17.1.0-beta.1` (the `17.0.0-alpha.N` versions were these). npm publishes them under their label, so `latest` stays on the stable version, and nuget.org hides them from searches unless "include prerelease" is ticked. Both registries are public.
+- **Stable releases** (now, from 17.0.0): plain versions such as `17.0.1`. npm publishes them under `lts-17` (17.0.0 and 17.0.1 went out under `latest`, before the Umbraco 18 line existed), and `dotnet add package Umbraco.Community.Umbrella` picks them without `--prerelease`.
+- **Test releases:** pre-release versions such as `17.1.0-beta.1` (the `17.0.0-alpha.N` versions were these). npm publishes them under their label, so `lts-17` stays on the stable version, and nuget.org hides them from searches unless "include prerelease" is ticked. Both registries are public.
 - **Nothing can be fully taken back:** nuget.org versions can only be unlisted, never deleted, and their version number stays used. npm allows `npm unpublish` within 72 hours. Use a new version number for every publish.
 - **Names:** `umbrella-mcp` on npm and `Umbraco.Community.Umbrella` on NuGet were unclaimed on 12-10-2026; the first publish claims them.
 
