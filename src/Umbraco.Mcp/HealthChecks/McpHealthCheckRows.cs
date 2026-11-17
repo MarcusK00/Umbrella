@@ -38,7 +38,7 @@ internal static class McpHealthCheckRows
         }
         else if (area == McpFindingArea.ApiUsers)
         {
-            foreach (McpOverviewApiUser user in overview.ApiUsers.Where(IsHealthy))
+            foreach (McpOverviewApiUser user in Connected(overview).Where(IsHealthy))
             {
                 rows.Add(Row(StatusResultType.Success, UserSuccess(user)));
             }
@@ -83,7 +83,7 @@ internal static class McpHealthCheckRows
                 break;
 
             case McpFindingArea.ApiUsers:
-                foreach (McpOverviewApiUser user in overview.ApiUsers)
+                foreach (McpOverviewApiUser user in Connected(overview))
                 {
                     yield return Row(StatusResultType.Success, UserSuccess(user));
                 }
@@ -92,6 +92,9 @@ internal static class McpHealthCheckRows
         }
     }
 
+    /// <summary>A user created on the dashboard that has not connected yet is not part of the health checks.</summary>
+    private static IEnumerable<McpOverviewApiUser> Connected(McpOverview overview) => overview.ApiUsers.Where(u => u.Connected);
+
     /// <summary>A user that can sign in. Missing section access is only a note, so such a user still gets its success row.</summary>
     private static bool IsHealthy(McpOverviewApiUser user) => user.State == "active";
 
@@ -99,7 +102,7 @@ internal static class McpHealthCheckRows
     {
         string ids = user.ClientIds.Count > 0 ? $" ({string.Join(", ", user.ClientIds)})" : string.Empty;
         string reach = user.Reachable.Count > 0 ? $" and can reach {string.Join(", ", user.Reachable)}" : string.Empty;
-        return $"The API user \"{user.Name}\"{ids} last connected {Utc(user.LastConnected)} UTC{reach}.";
+        return $"The API user \"{user.Name}\"{ids} last connected {Utc(user.LastConnected!.Value)} UTC{reach}.";
     }
 
     private static string Utc(DateTimeOffset when) => when.UtcDateTime.ToString("dd-MM-yyyy HH:mm", CultureInfo.InvariantCulture);
