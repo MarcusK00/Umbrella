@@ -4,7 +4,7 @@ One MCP server for your Umbraco 18 site. It loads the Umbraco CMS tools, plus Um
 
 ## Setup
 
-Product detection needs the [`Umbraco.Community.Umbrella`](https://www.nuget.org/packages/Umbraco.Community.Umbrella) NuGet package in the site. That package also shows the client config for each API user in the backoffice (Settings → Umbrella → Overview), so you normally never install this package by hand. Your AI tool starts it with `npx`:
+Product detection needs the [`Umbraco.Community.Umbrella`](https://www.nuget.org/packages/Umbraco.Community.Umbrella) NuGet package in the site. That package also adds **New connection** to the backoffice (Settings → Umbrella → Overview), which creates an API user with its client secret and access and shows the config for your AI tool, so you normally never install this package by hand. Your AI tool starts it with `npx`:
 
 ```json
 {
@@ -23,7 +23,7 @@ Product detection needs the [`Umbraco.Community.Umbrella`](https://www.nuget.org
 ```
 
 - Use the same version as the NuGet package: the two are released together.
-- The client id and secret belong to an Umbraco API user with client credentials. Give its user groups the sections of the products the AI should use.
+- The client id and secret belong to an Umbraco API user with client credentials. **New connection** on Settings → Umbrella → Overview creates one, with its secret and its user groups; without access to the Users section, create it in Users and give its user groups the sections of the products the AI should use.
 - `UMBRACO_BASE_URL` must be `https://`: the Management API token endpoint rejects plain HTTP.
 
 Without the NuGet package, the server still starts, with CMS tools only.
