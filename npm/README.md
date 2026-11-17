@@ -46,4 +46,6 @@ Every tool group is on until the dashboard saves a list for that product (the de
 
 Requires Node.js 22.23.4 or later (24.22.1 or later on Node 24, 26.12.1 or later on Node 26) and Umbraco 18. The add-on this server pairs with, including setup and configuration: https://www.nuget.org/packages/Umbraco.Community.Umbrella
 
+On Umbraco 17, use umbrella-mcp 17.x with the add-on's 17.x version: the add-on's Umbrella dashboard shows the exact `npx` line for the installed version, and the Umbraco 17 documentation is at https://github.com/MarcusK00/Umbrella/blob/v17/main/README.md.
+
 Bugs, ideas and questions: https://github.com/MarcusK00/Umbrella/issues

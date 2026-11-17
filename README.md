@@ -39,6 +39,8 @@ Without the add-on, the server still starts, with CMS tools only. Details for co
 
 You need Umbraco 18, and Node.js 22.23.4 or later (24.22.1 or later on Node 24, 26.12.1 or later on Node 26) on the machine that runs your AI tool.
 
+On Umbraco 17, use Umbrella 17.x instead: follow the [Umbraco 17 documentation](https://github.com/MarcusK00/Umbrella/blob/v17/main/README.md), and add `--version` with the newest 17.x version from [the NuGet version list](https://www.nuget.org/packages/Umbraco.Community.Umbrella#versions-body-tab), because `dotnet add package` without it installs the newest version, which needs Umbraco 18.
+
 1. **Install the add-on** in your site and restart it:
 
    ```bash
