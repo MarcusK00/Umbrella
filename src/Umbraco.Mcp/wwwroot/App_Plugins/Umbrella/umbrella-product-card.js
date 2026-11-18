@@ -111,11 +111,6 @@ export class UmbrellaProductCardElement extends UmbLitElement {
     return collection.tools.filter((t) => allowedAt(this.level, t) && this.disabledTools.has(t.name)).length;
   }
 
-  #renderTag() {
-    if (this.mode === "follows") return html`<uui-tag look="secondary">Follows default</uui-tag>`;
-    return nothing;
-  }
-
   #renderHeaderAction() {
     if (this.mode === "follows") {
       return html`<uui-button
@@ -429,7 +424,6 @@ export class UmbrellaProductCardElement extends UmbLitElement {
         <div class="follows-box-header">
           <h5 class="uui-h5 headline">
             <span>${name}</span>
-            ${this.#renderTag()}
           </h5>
           <div class="follows-box-actions">${this.#renderHeaderAction()}</div>
         </div>
@@ -440,7 +434,6 @@ export class UmbrellaProductCardElement extends UmbLitElement {
     return html`<uui-box class="mode-${this.mode}">
       <div slot="headline" class="headline">
         <span>${name}</span>
-        ${this.#renderTag()}
       </div>
       ${this.#renderHeaderAction()}
       <div class="access-section">
