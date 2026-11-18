@@ -163,6 +163,8 @@ Several people, or several AI agents, can work on the same site at once. Each co
 
 ![Animation: a dev agent, a content agent and an ops agent connect to the same site through umbrella-mcp, each as its own API user. The dev agent has full access; the content agent can list forms but gets no delete tool for pages; the ops agent runs an automation and asks get-mcp-health what it can use. A table then shows each agent's access per product.](docs/images/umbrella-agents.svg)
 
+![Overview dashboard: connection status, default permissions per product, and one row per API user with Client setup and New connection](docs/images/umbrella-dashboard-overview.png)
+
 Give each person who connects an AI tool their own API user:
 
 - **Why one each:** the Overview's **Access per API user** table shows each API user that connected, and [Tool Permissions](#different-settings-per-api-user) can give each one their own settings. People who share an API user share its settings and show up as one user.
@@ -206,6 +208,10 @@ Filters match the products' own tool names, before the prefix is added. For exam
 The command `npx -y umbrella-mcp@<version> --list-tools`, run with the same environment variables, prints the tool names the server would register and exits.
 
 ## Tool permissions
+
+![Per-user tool permissions: set site-wide defaults or customise Off, Read-only, No deletes or Full per product for each API user](docs/images/umbrella-tool-permissions.png)
+
+![Tool groups and individual tools: toggle entire groups or single tools on and off, with Read-only and Destructive badges](docs/images/umbrella-tool-groups.jpg)
 
 Settings → **Umbrella** → **Tool Permissions** sets which tools the MCP server exposes. On the left you pick whose settings you edit: **Defaults** (every API user) or one API user. On the right, each product the site has installed has a card with an **access** setting, four steps from least to most:
 
