@@ -24,7 +24,8 @@ public sealed record McpToolSettingsResponse(
     IReadOnlyList<string> ReadOnlyModules,
     IReadOnlyList<string> NoDestructiveModules,
     IReadOnlyList<string> OffModules,
-    IReadOnlyList<McpToolSettingsApiUser> ApiUsers);
+    IReadOnlyList<McpToolSettingsApiUser> ApiUsers,
+    IReadOnlyDictionary<string, IReadOnlyList<string>> DisabledTools);
 
 /// <summary>An API user for the dashboard's picker, with when its MCP server last reported and which products it overrides.</summary>
 /// <param name="State">"active", "disabled" or "lockedOut".</param>
@@ -50,7 +51,7 @@ public sealed record McpUserToolSettingsResponse(
     McpCatalogueSource CatalogueSource,
     IReadOnlyList<string> NoSectionAccess);
 
-public sealed record McpProductOverrideRequest(IReadOnlyList<string?>? DisabledCollections, string? Level);
+public sealed record McpProductOverrideRequest(IReadOnlyList<string?>? DisabledCollections, string? Level, IReadOnlyList<string?>? DisabledTools = null);
 
 /// <summary>Replaces one API user's overrides. An empty map makes the user follow the defaults again.</summary>
 public sealed record McpUserToolSettingsRequest(IReadOnlyDictionary<string, McpProductOverrideRequest?>? Overrides);
@@ -66,13 +67,15 @@ public sealed record McpToolSettingsRequest(
     IReadOnlyDictionary<string, IReadOnlyList<string>?>? DisabledCollections,
     IReadOnlyList<string?>? ReadOnlyModules = null,
     IReadOnlyList<string?>? NoDestructiveModules = null,
-    IReadOnlyList<string?>? OffModules = null);
+    IReadOnlyList<string?>? OffModules = null,
+    IReadOnlyDictionary<string, IReadOnlyList<string>?>? DisabledTools = null);
 
 public sealed record McpToolSettings(
     IReadOnlyDictionary<string, IReadOnlyList<string>> DisabledCollections,
     IReadOnlyList<string> ReadOnlyModules,
     IReadOnlyList<string> NoDestructiveModules,
-    IReadOnlyList<string> OffModules);
+    IReadOnlyList<string> OffModules,
+    IReadOnlyDictionary<string, IReadOnlyList<string>> DisabledTools);
 
 [ApiVersion("1.0")]
 [VersionedApiBackOfficeRoute("mcp")]
@@ -105,7 +108,8 @@ public sealed class McpToolSettingsController(
             store.GetReadOnlyModules(),
             store.GetNoDestructiveModules(),
             store.GetOffModules(),
-            users));
+            users,
+            store.GetDisabledTools()));
     }
 
     /// <summary>
@@ -203,9 +207,10 @@ public sealed class McpToolSettingsController(
         string? readOnlyError = McpToolSettingsValidation.TryNormalizeModuleIds(request?.ReadOnlyModules, known, "readOnlyModules", out var readOnly);
         string? noDestructiveError = McpToolSettingsValidation.TryNormalizeModuleIds(request?.NoDestructiveModules, known, "noDestructiveModules", out var noDestructive);
         string? offError = McpToolSettingsValidation.TryNormalizeModuleIds(request?.OffModules, known, "offModules", out var off);
+        string? toolsError = McpToolSettingsValidation.TryNormalizeToolNames(request?.DisabledTools, known, out var disabledTools);
         string? overlapError = McpToolSettingsValidation.CheckLevelOverlap(off, readOnly, noDestructive);
         string? requiredError = McpToolSettingsValidation.CheckRequiredNotOff(off);
-        if ((settingsError ?? readOnlyError ?? noDestructiveError ?? offError ?? overlapError ?? requiredError) is { } error)
+        if ((settingsError ?? readOnlyError ?? noDestructiveError ?? offError ?? toolsError ?? overlapError ?? requiredError) is { } error)
         {
             return BadRequest(new ProblemDetails { Title = "Invalid MCP tool settings", Detail = error });
         }
@@ -214,7 +219,8 @@ public sealed class McpToolSettingsController(
         store.SetReadOnlyModules(readOnly);
         store.SetNoDestructiveModules(noDestructive);
         store.SetOffModules(off);
-        return Ok(new McpToolSettings(disabled, readOnly, noDestructive, off));
+        store.SetDisabledTools(disabledTools);
+        return Ok(new McpToolSettings(disabled, readOnly, noDestructive, off, disabledTools));
     }
 
     /// <summary>
