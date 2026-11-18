@@ -54,7 +54,7 @@ The panel then shows the client secret once (copy it: Umbraco only keeps a hash)
   "mcpServers": {
     "umbraco": {
       "command": "npx",
-      "args": ["-y", "umbrella-mcp@17.1.0"],
+      "args": ["-y", "umbrella-mcp@17.1.1"],
       "env": {
         "UMBRACO_BASE_URL": "https://your-site",
         "UMBRACO_CLIENT_ID": "umbraco-back-office-mcp",
