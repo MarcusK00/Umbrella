@@ -1,4 +1,5 @@
 import type { LoadedModule, McpProductModule } from "../core/module-contract.js";
+import { formsToolPatches } from "./forms-patches.js";
 
 export const formsModule: McpProductModule = {
   id: "forms",
@@ -13,6 +14,7 @@ export const formsModule: McpProductModule = {
     "form workflows (actions that run after a form is submitted), data sources and prevalue sources",
     "the Forms recycle bin (deleted forms and folders)",
   ],
+  toolPatches: formsToolPatches,
   load: async (): Promise<LoadedModule> => {
     const m = await import("@umbraco-forms/mcp/collections");
     return {
