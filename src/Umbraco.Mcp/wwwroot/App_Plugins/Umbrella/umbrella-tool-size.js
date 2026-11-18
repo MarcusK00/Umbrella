@@ -1,5 +1,5 @@
 /**
- * Pure helpers for `tools/list` context size estimates on Overview and Tool Permissions.
+ * Pure helpers for `tools/list` context size estimates on Tool Permissions and the API user Info modal.
  * Kept in its own module with zero backoffice imports so browsers never hit missing exports on cached older files,
  * and plain `node` can test it directly.
  */
@@ -17,11 +17,11 @@ export function estimateTokens(bytes) {
 }
 
 /**
- * Human-readable approximate token label, clearly marked as an estimate.
- * Examples: `~45k est.` (compact) or `~45k est. tokens` (`unit: true`).
+ * Compact approximate token figure (`~` signals an estimate without repeating "est." on every row).
+ * Examples: `~45k` (compact) or `~45k tokens` (`unit: true`).
  */
 export function formatApproxTokens(bytes, { unit = false } = {}) {
-  const suffix = unit ? " est. tokens" : " est.";
+  const suffix = unit ? " tokens" : "";
   if (bytes <= 0) return `0${suffix}`;
   const tokens = estimateTokens(bytes);
   if (tokens < 1000) return `~${tokens}${suffix}`;
@@ -59,7 +59,7 @@ export function groupKeptSizeBytes(collection, state) {
   return collection.toolCount === 0 ? 0 : null;
 }
 
-/** What a group would cost at `level` if switched on (useful for sorting and showing size on Off groups). */
+/** What a group would cost at `level` if switched on (used for sorting and showing size on Off groups). */
 export function groupPotentialSizeBytes(collection, level) {
   return groupKeptSizeBytes(collection, { level: level === "off" ? "full" : level, groupOn: true, disabledTools: new Set() });
 }

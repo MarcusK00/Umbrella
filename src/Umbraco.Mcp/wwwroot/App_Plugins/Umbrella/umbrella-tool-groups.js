@@ -31,6 +31,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     _edit: { state: true },
     _activeProduct: { state: true },
     _userFilter: { state: true },
+    _viewMode: { state: true },
   };
 
   #auth;
@@ -50,6 +51,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     this._edit = { disabled: {}, levels: {}, tools: {} };
     this._activeProduct = "";
     this._userFilter = "";
+    this._viewMode = "tools";
     new UmbrellaUnsavedGuard(this, { isDirty: () => this.dirty, confirm: () => this.confirmLeave() });
     this.consumeContext(UMB_NOTIFICATION_CONTEXT, (ctx) => (this.#notifications = ctx));
     this.consumeContext(UMB_AUTH_CONTEXT, (ctx) => {
@@ -390,11 +392,45 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     return { kept, total, keptBytes: size?.keptBytes ?? null };
   }
 
+  #hasAnySizes(products) {
+    return products.some(
+      (p) => this.#showCounts(p.id) && this.#moduleFor(p.id)?.collections?.some((c) => typeof c.sizeBytes === "number"),
+    );
+  }
+
+  #effectiveViewMode(products) {
+    return this.#hasAnySizes(products) ? this._viewMode : "tools";
+  }
+
+  #renderViewModeToggle(products) {
+    if (!this.#hasAnySizes(products)) return nothing;
+    return html`<div class="view-toggle" role="group" aria-label="Metric display">
+      <button
+        type="button"
+        class="view-toggle-btn"
+        aria-pressed=${this._viewMode === "tools" ? "true" : "false"}
+        @click=${() => (this._viewMode = "tools")}
+      >
+        Tools
+      </button>
+      <button
+        type="button"
+        class="view-toggle-btn"
+        aria-pressed=${this._viewMode === "size" ? "true" : "false"}
+        title="Show approximate context size (~4 chars/token) and sort groups largest first"
+        @click=${() => (this._viewMode = "size")}
+      >
+        Context size
+      </button>
+    </div>`;
+  }
+
   /**
    * Stretching product boxes inside the header box. When fewer products are available (e.g. due to section access),
    * the boxes grow to fill the available row width; when more products are added in the future, they wrap and fill cleanly.
    */
   #renderProductTabs(products) {
+    const viewMode = this.#effectiveViewMode(products);
     return html`<div class="product-tabs-bar">
       <div class="product-tabs" role="tablist" aria-label="Products">
         ${products.map((p) => {
@@ -402,8 +438,9 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
           const { state, mode } = this.#productState(p);
           const counts = this.#productToolSummary(p, state);
           const shortName = p.displayName.replace(/^Umbraco /, "");
-          const sizeText = counts && counts.keptBytes !== null ? ` · ${formatApproxTokens(counts.keptBytes)}` : "";
-          const sizeTitle = counts && counts.keptBytes !== null ? formatSizeTooltip(counts.keptBytes) : "";
+          const showSize = viewMode === "size" && counts && counts.keptBytes !== null;
+          const badgeText = counts ? (showSize ? formatApproxTokens(counts.keptBytes) : `${counts.kept}/${counts.total}`) : null;
+          const badgeTitle = showSize ? formatSizeTooltip(counts.keptBytes) : "";
           return html`<button
             type="button"
             role="tab"
@@ -420,7 +457,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
                 ${levelGlyph(state.level)}
                 <span>${LEVEL_LABELS[state.level] ?? LEVEL_LABELS.full}</span>
               </span>
-              ${counts ? html`<span class="product-tab-count" title=${sizeTitle || nothing}>${counts.kept}/${counts.total}${sizeText}</span>` : nothing}
+              ${badgeText ? html`<span class="product-tab-count" title=${badgeTitle || nothing}>${badgeText}</span>` : nothing}
             </div>
           </button>`;
         })}
@@ -442,6 +479,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
       .editable=${mode !== "follows" && !this._saving && !this._busy}
       .locked=${this._saving || this._busy}
       .showCounts=${this.#showCounts(id)}
+      .viewMode=${this.#effectiveViewMode([product])}
       .mode=${mode}
       .userKey=${this._selected}
       .userName=${userName}
@@ -542,6 +580,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
               <uui-tag look="secondary">All API users</uui-tag>
             </div>
           </div>
+          ${this.#renderViewModeToggle(visibleProducts)}
         </div>
         ${visibleProducts.length > 0 ? this.#renderProductTabs(visibleProducts) : nothing}
       </uui-box>`;
@@ -557,6 +596,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
             ${user?.clientIds?.length ? html`<span class="client-pill">${user.clientIds.join(", ")}</span>` : nothing}
           </div>
         </div>
+        ${this.#renderViewModeToggle(visibleProducts)}
       </div>
       ${visibleProducts.length > 0 ? this.#renderProductTabs(visibleProducts) : nothing}
     </uui-box>`;
@@ -883,6 +923,37 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
         font-family: var(--uui-font-monospace, ui-monospace, Menlo, Consolas, monospace);
         font-size: var(--uui-type-small-size);
         color: var(--uui-color-text-alt);
+      }
+      .view-toggle {
+        display: inline-flex;
+        flex: none;
+        padding: 2px;
+        border: 1px solid var(--uui-color-border);
+        border-radius: var(--uui-border-radius);
+        background: var(--uui-color-surface-alt);
+      }
+      .view-toggle-btn {
+        padding: 4px var(--uui-size-space-3);
+        border: 0;
+        border-radius: calc(var(--uui-border-radius) - 1px);
+        background: transparent;
+        font: inherit;
+        font-size: var(--uui-type-small-size);
+        font-weight: 600;
+        color: var(--uui-color-text-alt);
+        cursor: pointer;
+        transition: background-color 120ms ease, color 120ms ease;
+      }
+      .view-toggle-btn:hover:not([aria-pressed="true"]) {
+        color: var(--uui-color-text);
+      }
+      .view-toggle-btn[aria-pressed="true"] {
+        background: var(--uui-color-current);
+        color: var(--uui-color-current-contrast);
+      }
+      .view-toggle-btn:focus-visible {
+        outline: 2px solid var(--uui-color-focus);
+        outline-offset: 1px;
       }
 
       .product-tabs-bar {

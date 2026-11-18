@@ -3,7 +3,6 @@ import { UmbLitElement } from "@umbraco-cms/backoffice/lit-element";
 import { UmbTextStyles } from "@umbraco-cms/backoffice/style";
 import { formatDate } from "./umbrella-api.js";
 import { LEVEL_LABELS, formatRelative, glyphStyles, levelGlyph, tools } from "./umbrella-access.js";
-import { formatApproxTokens, formatSizeTooltip } from "./umbrella-tool-size.js";
 
 const STATE_TAGS = { disabled: "Disabled", lockedOut: "Locked out" };
 
@@ -47,10 +46,10 @@ export class UmbrellaAccessTableElement extends UmbLitElement {
     return this.products.filter((p) => p.installed && p.enabled);
   }
 
-  #renderCellContent(primary, secondary, isMuted = false, own = false, secondaryTitle = "") {
+  #renderCellContent(primary, secondary, isMuted = false, own = false) {
     return html`<div class="cell">
       <div class="cell-primary ${isMuted ? "is-muted" : ""}">${primary}</div>
-      <div class="cell-secondary" title=${secondaryTitle || nothing}>
+      <div class="cell-secondary">
         <span>${secondary}</span>
         ${own
           ? html`<uui-tag class="compact-tag" look="secondary" title="This API user has its own settings for this product">Own</uui-tag>`
@@ -78,7 +77,6 @@ export class UmbrellaAccessTableElement extends UmbLitElement {
     const level = a.level ?? "full";
     const isOff = level === "off";
     const own = a.scope === "user";
-    const hasSize = !isOff && a.sizeBytes !== null && a.sizeBytes !== undefined;
     const primary = html`${levelGlyph(level)}<span>${LEVEL_LABELS[level] ?? LEVEL_LABELS.full}</span>`;
     const secondary = isOff
       ? "Not loaded"
@@ -86,12 +84,9 @@ export class UmbrellaAccessTableElement extends UmbLitElement {
         ? u.connected === false
           ? "Pending"
           : "Not reported"
-        : hasSize
-          ? `${tools(a.toolCount)} · ${formatApproxTokens(a.sizeBytes)}`
-          : tools(a.toolCount);
-    const secondaryTitle = hasSize ? formatSizeTooltip(a.sizeBytes) : "";
+        : tools(a.toolCount);
     return html`<uui-table-cell class="product-col" style=${productStyle}>
-      ${this.#renderCellContent(primary, secondary, isOff, own, secondaryTitle)}
+      ${this.#renderCellContent(primary, secondary, isOff, own)}
     </uui-table-cell>`;
   }
 
@@ -275,7 +270,7 @@ export class UmbrellaAccessTableElement extends UmbLitElement {
         min-width: 0;
       }
       .product-col .cell {
-        min-width: 9.25rem;
+        min-width: 7.75rem;
       }
       .last-connected-col .cell {
         min-width: 7.25rem;
