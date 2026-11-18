@@ -195,7 +195,7 @@ Tool settings are guardrails, not access control: see [Known limitations](#known
 | `UMBRACO_NO_DESTRUCTIVE` | `true` leaves out the destructive tools, for every module. To do this for one product, use the Umbrella dashboard |
 | `UMBRACO_INCLUDE_SLICES`, `UMBRACO_EXCLUDE_SLICES` | Apply to every module |
 
-`UMBRACO_INCLUDE_TOOL_COLLECTIONS` and `UMBRACO_EXCLUDE_TOOL_COLLECTIONS` were removed in 17.1.0: choose tool groups in [Tool Permissions](#tool-permissions).
+`UMBRACO_INCLUDE_TOOL_COLLECTIONS` and `UMBRACO_EXCLUDE_TOOL_COLLECTIONS` were removed in 18.1.0: choose tool groups in [Tool Permissions](#tool-permissions).
 
 Filters match the products' own tool names, before the prefix is added. For example, to leave out the Forms tool that deletes forms (the tool groups are chosen on the dashboard):
 
@@ -224,7 +224,7 @@ Under the access setting, a bar shows how many of the product's tools the AI too
 - **Before the first start:** Tool Permissions has no tool groups until an MCP server has started once, because the server reports its tool groups when it starts.
 - **The access setting always applies:** it only removes tools, so the environment can't undo it. A product switched off stays off even when `UMBRACO_MCP_MODULES` forces it on. `UMBRACO_READONLY=true` makes every product read-only and `UMBRACO_NO_DESTRUCTIVE=true` removes destructive tools from every product, whatever the dashboard says.
 - **If the site can't be read:** when the MCP server can't read the site's settings it can't apply the dashboard's access settings, so set `UMBRACO_NO_DESTRUCTIVE=true` (or `UMBRACO_READONLY=true`) in the AI tool's config to enforce it regardless.
-- **Older servers:** an MCP server from before the No deletes step ignores it, one from before Off loads the product anyway, and one older than 17.1.0 still offers the tools switched off one by one. The Overview warns when that is the case (for example **1 tool is switched off, but the MCP server of … is older and still offers them**), and the card notes it; update the server version in each AI tool's config. The version notes on the Overview and in `get-mcp-health` flag a server that isn't the add-on's version. When the last report has no counts for No deletes, the card warns that the MCP server still includes destructive tools.
+- **Older servers:** an MCP server from before the No deletes step ignores it, one from before Off loads the product anyway, and one older than 18.1.0 still offers the tools switched off one by one. The Overview warns when that is the case (for example **1 tool is switched off, but the MCP server of … is older and still offers them**), and the card notes it; update the server version in each AI tool's config. The version notes on the Overview and in `get-mcp-health` flag a server that isn't the add-on's version. When the last report has no counts for No deletes, the card warns that the MCP server still includes destructive tools.
 - **Not a security control:** anyone with the API user's credentials can call the Management API directly. Use the API user's groups and sections to limit what it can do.
 
 The settings and the reported tool groups are stored in the `umbracoKeyValue` table, so they survive restarts and are shared by every server of a load-balanced site. Changing them needs access to the Settings section.

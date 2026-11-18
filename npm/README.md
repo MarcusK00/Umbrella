@@ -42,7 +42,7 @@ Tool groups switched off in the backoffice (Settings → Umbrella) are left out 
 
 Every tool group is on until the dashboard saves a list for that product (the defaults, or that API user's own settings).
 
-`UMBRACO_INCLUDE_TOOL_COLLECTIONS` and `UMBRACO_EXCLUDE_TOOL_COLLECTIONS` were removed in 17.1.0: choose tool groups in Tool Permissions.
+`UMBRACO_INCLUDE_TOOL_COLLECTIONS` and `UMBRACO_EXCLUDE_TOOL_COLLECTIONS` were removed in 18.1.0: choose tool groups in Tool Permissions.
 
 `umbrella-mcp --list-tools`, run with the same environment variables, prints the tool names it would register, then exits.
 

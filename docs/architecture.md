@@ -197,7 +197,7 @@ The shared provider only exists once if every product uses the same toolkit copy
 | Dashboard: off (`off`) | Not a filter: `selectModules()` does not load the module at all (see Module selection) |
 | Dashboard: no destructive tools (`noDestructive`) | Always applied, ORed with `UMBRACO_NO_DESTRUCTIVE`. Removes tools where `isDestructive(tool)` (`npm/src/core/destructive.ts`: `annotations.destructiveHint === true`) holds. Read-only is the stricter level and wins in the stored levels. Umbrella keeps no list of its own |
 
-`buildEffectiveFilterInput` combines these: the saved site list, else the module's defaults. `UMBRACO_INCLUDE_TOOL_COLLECTIONS` and `UMBRACO_EXCLUDE_TOOL_COLLECTIONS` were removed in 17.1.0; `removedCollectionEnvVars` lists the ones still set, and `get-mcp-health` notes that they are no longer read. The catalogue sent back to the site is built before filters, so the dashboard can also show groups that are switched off; it marks default-off groups with `disabledByDefault: true`, and the dashboard starts a product without a saved list from them.
+`buildEffectiveFilterInput` combines these: the saved site list, else the module's defaults. `UMBRACO_INCLUDE_TOOL_COLLECTIONS` and `UMBRACO_EXCLUDE_TOOL_COLLECTIONS` were removed in 18.1.0; `removedCollectionEnvVars` lists the ones still set, and `get-mcp-health` notes that they are no longer read. The catalogue sent back to the site is built before filters, so the dashboard can also show groups that are switched off; it marks default-off groups with `disabledByDefault: true`, and the dashboard starts a product without a saved list from them.
 
 ### Health
 
