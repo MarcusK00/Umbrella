@@ -704,7 +704,7 @@ footer { margin-block-start: 72px; padding-block-start: 20px; border-top: 1px so
     <p>Each loaded module's tools pass the same gates, using the product's own unprefixed names. Environment variables live in the AI tool's config; site settings come from the dashboard via capabilities.</p>
     <figure>
       <div class="scroll">
-        <svg class="min-xl" viewBox="0 0 1080 362" role="img" aria-label="Forms tools pass four gates: switched-off tool groups, environment tool filters, read-only, and no deletes. Survivors are prefixed and registered. Which list switches groups off is the first that exists of: the site's saved list, the module defaults.">
+        <svg class="min-xl" viewBox="0 0 1080 340" role="img" aria-label="Forms tools pass four gates: switched-off tool groups, environment tool filters, read-only, and no deletes. Survivors are prefixed and registered. Which list switches groups off is the first that exists of: the site's saved list, the module defaults.">
           <rect class="box server" x="20" y="80" width="130" height="80" rx="8"/>
           <text class="t mid" x="85" y="112">All Forms tools</text>
           <text class="s mid" x="85" y="130">from the package's</text>
@@ -760,7 +760,7 @@ footer { margin-block-start: 72px; padding-block-start: 20px; border-top: 1px so
           <text class="s" x="598" y="320">One level per product. Off never gets here: the module isn't loaded.</text>
         </svg>
       </div>
-      <figcaption>The collection variables UMBRACO_INCLUDE/EXCLUDE_TOOL_COLLECTIONS are no longer read; get-mcp-health says so when one is set. The catalogue sent back to the site is built before any of these gates, so the dashboard can show switched-off groups too.</figcaption>
+      <figcaption>After these gates, <code>registerModuleTools</code> also skips every tool switched off by name (<code>disabledTools</code> in capabilities); the catalogue lists each tool so the dashboard can show them. The collection variables UMBRACO_INCLUDE/EXCLUDE_TOOL_COLLECTIONS are no longer read; get-mcp-health says so when one is set. The catalogue sent back to the site is built before any of these gates, so the dashboard can show switched-off groups too.</figcaption>
     </figure>
   </section>
 
