@@ -2,6 +2,7 @@ import { css, html, live, nothing } from "@umbraco-cms/backoffice/external/lit";
 import { UmbLitElement } from "@umbraco-cms/backoffice/lit-element";
 import { UmbTextStyles } from "@umbraco-cms/backoffice/style";
 import { LEVELS, LEVEL_LABELS, glyphStyles, groupLabel, levelGlyph, tools } from "./umbrella-access.js";
+import { allowedAt, filterGroups, groupKeptCount, switchedOffSummary } from "./umbrella-tool-logic.js";
 
 const HINTS = {
   off: (product) => `Not loaded. Your AI tool won't see any ${product} tools.`,
@@ -12,16 +13,13 @@ const HINTS = {
 
 const REQUIRED_HINT = "CMS can't be switched off: the MCP server signs in through it.";
 
-/** Above this many groups the list gets a filter. */
-const FILTER_FROM = 8;
-
 /**
  * One product on the Tool Permissions tab: its access level, how many tools that leaves, and behind a disclosure its
  * tool groups. A product a user view follows from the defaults shows only a summary. It holds no settings of its own;
  * every change is an event for the page to apply.
  *
  * Events (bubbling, composed): `level-change` { productId, level }, `groups-change` { productId, names, enabled },
- * `customise` { productId } and `reset` { productId }.
+ * `tools-change` { productId, names, enabled }, `customise` { productId } and `reset` { productId }.
  */
 export class UmbrellaProductCardElement extends UmbLitElement {
   static properties = {
@@ -29,6 +27,7 @@ export class UmbrellaProductCardElement extends UmbLitElement {
     module: { attribute: false },
     level: { attribute: false },
     disabled: { attribute: false },
+    disabledTools: { attribute: false },
     editable: { attribute: false },
     locked: { attribute: false },
     showCounts: { attribute: false },
@@ -39,6 +38,7 @@ export class UmbrellaProductCardElement extends UmbLitElement {
     notes: { attribute: false },
     _open: { state: true },
     _filter: { state: true },
+    _openGroups: { state: true },
   };
 
   constructor() {
@@ -47,6 +47,8 @@ export class UmbrellaProductCardElement extends UmbLitElement {
     this.module = null;
     this.level = "full";
     this.disabled = new Set();
+    // Tool names switched off in this product's groups (unprefixed).
+    this.disabledTools = new Set();
     this.editable = true;
     // While the page saves or loads a user: nothing can be changed, also not "Customise".
     this.locked = false;
@@ -60,34 +62,88 @@ export class UmbrellaProductCardElement extends UmbLitElement {
     this.notes = [];
     this._open = false;
     this._filter = "";
+    this._openGroups = new Set();
   }
 
   #emit(type, detail) {
     this.dispatchEvent(new CustomEvent(type, { detail: { productId: this.product.id, ...detail }, bubbles: true, composed: false }));
   }
 
-  /** The group's tools left under read-only or no deletes; null at full access or when an older MCP server did not report the count. */
-  #keptCount(collection) {
-    const kept =
-      this.level === "readOnly" ? collection.readOnlyToolCount : this.level === "noDestructive" ? collection.nonDestructiveToolCount : null;
-    return typeof kept === "number" ? kept : null;
-  }
-
-  /** "12", or "4 of 12" under read-only or no deletes. */
-  #toolCount(collection) {
-    const kept = this.#keptCount(collection);
-    return kept === null ? `${collection.toolCount}` : `${kept} of ${collection.toolCount}`;
+  #stateFor(collection) {
+    return { level: this.level, groupOn: !this.disabled.has(collection.name), disabledTools: this.disabledTools };
   }
 
   /** How many tools the AI tool gets with these settings, out of every tool the product reported; null without counts. */
   #available() {
     if (!this.showCounts || !this.module) return null;
     const total = this.module.collections.reduce((sum, c) => sum + c.toolCount, 0);
-    const kept =
-      this.level === "off"
-        ? 0
-        : this.module.collections.filter((c) => !this.disabled.has(c.name)).reduce((sum, c) => sum + (this.#keptCount(c) ?? c.toolCount), 0);
+    const kept = this.module.collections.reduce((sum, c) => sum + groupKeptCount(c, this.#stateFor(c)), 0);
     return { kept, total };
+  }
+
+  /** The tools switched off in a group that is on and that the level would otherwise offer. */
+  #offInGroup(collection) {
+    if (!Array.isArray(collection.tools)) return 0;
+    return collection.tools.filter((t) => allowedAt(this.level, t) && this.disabledTools.has(t.name)).length;
+  }
+
+  #toggleOpen(name) {
+    const next = new Set(this._openGroups);
+    if (next.has(name)) next.delete(name);
+    else next.add(name);
+    this._openGroups = next;
+  }
+
+  #renderSwitchedOff() {
+    if (this.disabledTools.size === 0 || this.level === "off") return nothing;
+    const names = [...this.disabledTools].sort();
+    return html`<div class="switched-off">
+      <span class="muted">${switchedOffSummary(names)}</span>
+      <uui-button
+        look="secondary"
+        compact
+        label="Switch them on"
+        ?disabled=${!this.editable}
+        @click=${() => this.#emit("tools-change", { names, enabled: true })}
+      ></uui-button>
+    </div>`;
+  }
+
+  #renderTools(c, tools, checkedGroup) {
+    const all = c.tools;
+    const anyOff = all.some((t) => this.disabledTools.has(t.name));
+    return html`<div class="tools">
+      ${anyOff
+        ? html`<uui-button
+            class="switch-all"
+            look="secondary"
+            compact
+            label="Switch all ${all.length} on"
+            ?disabled=${!this.editable}
+            @click=${() => this.#emit("tools-change", { names: all.map((t) => t.name), enabled: true })}
+          ></uui-button>`
+        : nothing}
+      <ul>
+        ${tools.map((t) => {
+          const allowed = allowedAt(this.level, t);
+          const reason = allowed ? "" : this.level === "readOnly" ? "Not offered at Read-only." : "Removed by No deletes.";
+          return html`<li>
+            <uui-checkbox
+              label=${t.name}
+              .checked=${live(allowed && !this.disabledTools.has(t.name))}
+              ?disabled=${!this.editable || !allowed || !checkedGroup}
+              @change=${(e) => this.#emit("tools-change", { names: [t.name], enabled: e.target.checked })}
+            ></uui-checkbox>
+            <span class="tool-meta">
+              ${t.readOnly ? html`<uui-tag look="secondary" size="s">Read-only</uui-tag>` : nothing}
+              ${t.destructive ? html`<uui-tag look="secondary" color="danger" size="s">Destructive</uui-tag>` : nothing}
+            </span>
+            ${t.description ? html`<span class="tool-description">${t.description}</span>` : nothing}
+            ${reason ? html`<span class="tool-reason">${reason}</span>` : nothing}
+          </li>`;
+        })}
+      </ul>
+    </div>`;
   }
 
   #renderTag() {
@@ -157,30 +213,27 @@ export class UmbrellaProductCardElement extends UmbLitElement {
     }
     const collections = this.module.collections;
     const on = collections.filter((c) => !this.disabled.has(c.name)).length;
-    const filter = this._filter.trim().toLowerCase();
-    const shown = filter
-      ? collections.filter((c) => c.name.toLowerCase().includes(filter) || groupLabel(c.name).toLowerCase().includes(filter))
-      : collections;
-    const names = shown.map((c) => c.name);
+    const filter = this._filter.trim();
+    const shown = filterGroups(collections, this._filter, groupLabel);
+    const names = shown.map((g) => g.collection.name);
+    const off = this.disabledTools.size;
     return html`<div class="groups-section">
       <button class="disclosure" aria-expanded=${this._open ? "true" : "false"} @click=${() => (this._open = !this._open)}>
         <uui-symbol-expand ?open=${this._open}></uui-symbol-expand>
         <span>Tool groups</span>
-        <span class="muted">${on} of ${collections.length} switched on</span>
+        <span class="muted">${on} of ${collections.length} switched on${off > 0 ? ` · ${tools(off)} off` : ""}</span>
       </button>
       ${this._open
         ? html`<div class="groups-toolbar">
-              ${collections.length > FILTER_FROM
-                ? html`<uui-input
-                    class="filter"
-                    label="Filter tool groups"
-                    placeholder="Filter groups"
-                    .value=${this._filter}
-                    @input=${(e) => (this._filter = e.target.value)}
-                  >
-                    <umb-icon slot="prepend" name="icon-search"></umb-icon>
-                  </uui-input>`
-                : nothing}
+              <uui-input
+                class="filter"
+                label="Filter groups and tools"
+                placeholder="Filter groups and tools"
+                .value=${this._filter}
+                @input=${(e) => (this._filter = e.target.value)}
+              >
+                <umb-icon slot="prepend" name="icon-search"></umb-icon>
+              </uui-input>
               <uui-button
                 look="secondary"
                 compact
@@ -197,19 +250,40 @@ export class UmbrellaProductCardElement extends UmbLitElement {
               ></uui-button>
             </div>
             ${shown.length === 0
-              ? html`<p class="muted">No tool group matches "${this._filter}".</p>`
+              ? html`<p class="muted">No tool group or tool matches "${this._filter}".</p>`
               : html`<ul class="groups">
-                  ${shown.map((c) => {
+                  ${shown.map(({ collection: c, tools: groupTools, matchedGroup }) => {
                     const checked = !this.disabled.has(c.name);
-                    const empty = checked && this.#keptCount(c) === 0;
+                    const kept = groupKeptCount(c, this.#stateFor(c));
+                    const empty = checked && kept === 0;
+                    const hasTools = Array.isArray(c.tools);
+                    const isOpen = hasTools && (this._openGroups.has(c.name) || (!!filter && !matchedGroup));
+                    const offCount = checked ? this.#offInGroup(c) : 0;
+                    const label = groupLabel(c.name);
                     return html`<li class=${checked ? (empty ? "empty" : "") : "unchecked"} title=${c.name}>
-                      <uui-toggle
-                        label=${groupLabel(c.name)}
-                        .checked=${live(checked)}
-                        ?disabled=${!this.editable}
-                        @change=${(e) => this.#emit("groups-change", { names: [c.name], enabled: e.target.checked })}
-                      ></uui-toggle>
-                      ${this.showCounts ? html`<span class="count">${this.#toolCount(c)}</span>` : nothing}
+                      <div class="group-row">
+                        ${hasTools
+                          ? html`<button
+                              class="expand"
+                              aria-expanded=${isOpen ? "true" : "false"}
+                              aria-label=${isOpen ? `Hide the tools in ${label}` : `Show the tools in ${label}`}
+                              @click=${() => this.#toggleOpen(c.name)}
+                            >
+                              <uui-symbol-expand ?open=${isOpen}></uui-symbol-expand>
+                            </button>`
+                          : html`<span class="expand-spacer"></span>`}
+                        <uui-toggle
+                          label=${label}
+                          .checked=${live(checked)}
+                          ?disabled=${!this.editable}
+                          @change=${(e) => this.#emit("groups-change", { names: [c.name], enabled: e.target.checked })}
+                        ></uui-toggle>
+                        ${this.showCounts
+                          ? html`<span class="count">${checked ? `${kept} of ${c.toolCount} tools` : "Off"}</span>
+                              ${offCount > 0 ? html`<uui-tag look="secondary" size="s">${offCount} off</uui-tag>` : nothing}`
+                          : nothing}
+                      </div>
+                      ${isOpen ? this.#renderTools(c, groupTools ?? c.tools, checked) : nothing}
                     </li>`;
                   })}
                 </ul>`}`
@@ -223,6 +297,9 @@ export class UmbrellaProductCardElement extends UmbLitElement {
     return html`<div class="follows">
       <span class="level ${this.level === "off" ? "off" : ""}">${levelGlyph(this.level)} ${LEVEL_LABELS[this.level] ?? LEVEL_LABELS.full}</span>
       ${available && this.level !== "off" ? html`<span class="muted">${available.kept} of ${tools(available.total)}</span>` : nothing}
+      ${this.disabledTools.size > 0 && this.level !== "off"
+        ? html`<span class="muted">${this.disabledTools.size} ${this.disabledTools.size === 1 ? "tool" : "tools"} switched off</span>`
+        : nothing}
       ${(this.notes ?? []).map((n) => html`<p class="note"><umb-icon name="icon-info"></umb-icon><span>${n}</span></p>`)}
     </div>`;
   }
@@ -247,7 +324,7 @@ export class UmbrellaProductCardElement extends UmbLitElement {
               </p>
               ${this.isRequired ? html`<p class="muted small">${REQUIRED_HINT}</p>` : nothing}
             </div>
-            ${this.#renderMeter()} ${this.#renderGroups()}
+            ${this.#renderMeter()} ${this.#renderSwitchedOff()} ${this.#renderGroups()}
             ${(this.notes ?? []).map((n) => html`<p class="note"><umb-icon name="icon-info"></umb-icon><span>${n}</span></p>`)}`}
     </uui-box>`;
   }
@@ -284,16 +361,28 @@ export class UmbrellaProductCardElement extends UmbLitElement {
       .groups-toolbar { display: flex; align-items: center; gap: var(--uui-size-space-2); flex-wrap: wrap; margin: var(--uui-size-space-3) 0; }
       .filter { flex: 0 1 18rem; }
       .filter umb-icon { margin-left: var(--uui-size-space-3); color: var(--uui-color-text-alt); }
-      .groups {
-        list-style: none; margin: 0; padding: 0;
-        display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); column-gap: var(--uui-size-space-6);
+      .groups { list-style: none; margin: 0; padding: 0; }
+      .groups > li { padding: var(--uui-size-space-2) 0; border-bottom: 1px solid var(--uui-color-divider); }
+      .group-row { display: flex; align-items: center; gap: var(--uui-size-space-3); }
+      .group-row uui-toggle { flex: 1; min-width: 0; }
+      .expand {
+        display: inline-flex; align-items: center; justify-content: center; width: 1.5rem; height: 1.5rem; padding: 0;
+        background: none; border: 0; color: inherit; cursor: pointer; border-radius: var(--uui-border-radius);
       }
-      .groups li {
-        display: flex; align-items: center; justify-content: space-between; gap: var(--uui-size-space-3);
-        padding: var(--uui-size-space-2) 0; border-bottom: 1px solid var(--uui-color-divider);
-      }
+      .expand:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offset: 1px; }
+      .expand-spacer { display: inline-block; width: 1.5rem; flex: none; }
       .groups li.unchecked .count, .groups li.empty .count { color: var(--uui-color-disabled-contrast); }
       .count { color: var(--uui-color-text-alt); font-size: var(--uui-type-small-size); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+      .switched-off { display: flex; align-items: center; gap: var(--uui-size-space-3); flex-wrap: wrap; margin-top: var(--uui-size-space-3); }
+      .tools { margin: var(--uui-size-space-2) 0 var(--uui-size-space-1) calc(1.5rem + var(--uui-size-space-3)); padding-left: var(--uui-size-space-4); border-left: 2px solid var(--uui-color-divider); }
+      .tools ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--uui-size-space-3); }
+      .switch-all { margin-bottom: var(--uui-size-space-3); }
+      .tools li { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--uui-size-space-3); row-gap: 2px; }
+      .tools uui-checkbox { font-family: var(--uui-font-monospace, monospace); font-size: var(--uui-type-small-size); }
+      .tool-meta { display: inline-flex; gap: var(--uui-size-space-2); }
+      .tool-description, .tool-reason { flex-basis: 100%; padding-left: calc(var(--uui-size-space-6, 24px) + var(--uui-size-space-2)); color: var(--uui-color-text-alt); font-size: var(--uui-type-small-size); }
+      .tool-reason { font-style: italic; }
 
       .note { display: flex; gap: var(--uui-size-space-2); align-items: baseline; margin: var(--uui-size-space-3) 0 0; color: var(--uui-color-text-alt); }
       .note umb-icon { flex: none; }
