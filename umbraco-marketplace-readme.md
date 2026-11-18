@@ -1,3 +1,5 @@
+[![NuGet downloads](https://img.shields.io/nuget/dt/umbraco.community.umbrella)](https://www.nuget.org/packages/Umbraco.Community.Umbrella)
+
 **Let your AI tool work with your Umbraco site: content, forms, automations and personalisation, through one MCP server.**
 
 Install Umbrella in your site, then connect Claude Code, Codex, Antigravity, VS Code, Cursor or Claude Desktop with the config the backoffice gives you. The AI gets tools for exactly the Umbraco products your site has: Umbraco CMS always, plus Umbraco Forms, Automate and Engage when they are installed. No product installed, no tools for it, so the AI isn't buried in tools it can't use.
@@ -38,11 +40,11 @@ Each person, or each AI agent, connects as its own API user and gets its own acc
 
 ![Overview dashboard: connection status, default permissions per product, and one row per API user with Client setup and New connection](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-dashboard-overview.png)
 
-## Get started
-
 ![Per-user tool permissions: set site-wide defaults or customise Off, Read-only, No deletes or Full per product for each API user](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-tool-permissions.png)
 
 ![Tool groups and individual tools: toggle entire groups or single tools on and off, with Read-only and Destructive badges](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-tool-groups.jpg)
+
+## Get started
 
 1. **Install the package** and restart the site. Umbrella's major version follows Umbraco's, so pick the command for your Umbraco version:
 
