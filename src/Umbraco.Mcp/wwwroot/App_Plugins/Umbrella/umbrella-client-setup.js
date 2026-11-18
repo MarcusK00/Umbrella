@@ -11,7 +11,8 @@ export const PLUGIN_ID = "umbrella@umbrella";
 
 /**
  * Per AI tool from McpClientSnippets: its icon, where the config goes, and how the secret gets in: "env" (read from
- * SECRET_VARIABLE), "prompt" (the tool asks), "plugin" (the Claude Code plugin asks) or "placeholder" (replaced by hand).
+ * SECRET_VARIABLE), "codex-env" (read from UMBRACO_CLIENT_SECRET), "prompt" (the tool asks), "plugin" (the Claude
+ * Code plugin asks), "antigravity-plugin" (Antigravity prompts on enable) or "placeholder" (replaced by hand).
  */
 export const CLIENTS = {
   "claude-code": { icon: "icon-terminal", where: "Put the file in the folder you open in Claude Code.", secret: "env" },
@@ -32,6 +33,16 @@ export const CLIENTS = {
   },
   vscode: { icon: "icon-code", where: "The path is relative to your project folder.", secret: "prompt" },
   cursor: { icon: "icon-code", where: "The path is relative to your project folder.", secret: "env" },
+  "codex-plugin": {
+    icon: "icon-plugin",
+    where: "Run these commands in a terminal (add the exports to your shell profile to keep them). They install the Umbrella plugin for Codex and set the site and client id.",
+    secret: "codex-env",
+  },
+  "antigravity-plugin": {
+    icon: "icon-plugin",
+    where: "Run the install command in a terminal, then enable the plugin in Antigravity and enter the site URL, client id and certificate check setting.",
+    secret: "antigravity-plugin",
+  },
   other: { icon: "icon-brackets", where: "Add it to your MCP client's configuration. It uses the common mcpServers format.", secret: "placeholder" },
 };
 
@@ -77,11 +88,13 @@ export class UmbrellaClientSetupElement extends UmbLitElement {
 
   /** How the client secret gets into the selected AI tool's config. */
   #renderSecret(client, meta) {
-    if (meta.secret === "env") {
-      const cmd = `export ${SECRET_VARIABLE}="<the client secret>"`;
+    if (meta.secret === "env" || meta.secret === "codex-env") {
+      const variable = meta.secret === "codex-env" ? "UMBRACO_CLIENT_SECRET" : SECRET_VARIABLE;
+      const toolName = client.label.replace(/ \((command|plugin)\)$/, "");
+      const cmd = `export ${variable}="<the client secret>"`;
       return html`<p>
-          ${client.label} reads the client secret from the <code>${SECRET_VARIABLE}</code> environment variable. Set it before you
-          start ${client.label}.
+          ${client.label} reads the client secret from the <code>${variable}</code> environment variable. Set it before you
+          start ${toolName}.
         </p>
         <div class="command-row">
           <code class="command">${cmd}</code>
@@ -107,6 +120,16 @@ export class UmbrellaClientSetupElement extends UmbLitElement {
           </uui-button>
         </div>
         <p class="muted small">Run the same command later if you ever need to change the site URL or client id.</p>`;
+    }
+    if (meta.secret === "antigravity-plugin") {
+      return html`<div class="info-callout">
+        <umb-icon name="icon-info"></umb-icon>
+        <span>
+          Open <strong>Customizations → Installed</strong> (or <code>/plugin</code>) in Antigravity and enable <strong>umbrella</strong>.
+          It prompts for <code>UMBRACO_BASE_URL</code>, <code>UMBRACO_CLIENT_ID</code>, <code>UMBRACO_CLIENT_SECRET</code>, and
+          <code>NODE_TLS_REJECT_UNAUTHORIZED</code> (<code>1</code> for HTTPS certificates, <code>0</code> for a local development certificate).
+        </span>
+      </div>`;
     }
     return html`<p>
       Replace the placeholder with the API user's client secret. The ${client.format === "shell" ? "command" : "file"} then contains the

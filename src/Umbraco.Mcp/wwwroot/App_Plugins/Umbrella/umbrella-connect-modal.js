@@ -83,7 +83,7 @@ export class UmbrellaConnectModalElement extends UmbModalBaseElement {
       <div class="content">
         <uui-box>
           <p class="intro">
-            Generate the MCP configuration snippet for Claude Code, Claude Desktop, VS Code, Cursor, or another MCP client
+            Generate the MCP configuration snippet for Claude Code, Claude Desktop, VS Code, Cursor, Codex, Antigravity, or another MCP client
             signed in as an existing API user.
           </p>
           ${this._loading && !this._setup
