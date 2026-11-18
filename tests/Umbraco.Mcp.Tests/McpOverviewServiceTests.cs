@@ -783,6 +783,17 @@ public class McpOverviewServiceTests
     }
 
     [Test]
+    public async Task Warning_says_1_tool_is_switched_off_for_a_single_tool()
+    {
+        List<McpFinding> found = await ToolWarnings(OlderReport(), AutomateWith("publish-automation"));
+
+        Assert.That(found.Select(f => f.Message), Is.EqualTo(new[]
+        {
+            "Umbraco Automate: 1 tool is switched off, but the MCP server of \"Ana\" is older and still offers them. Set umbrella-mcp@17.0.0, the add-on's version, in the AI tool's MCP configuration.",
+        }));
+    }
+
+    [Test]
     public async Task No_warning_when_the_server_reports_tools()
     {
         McpToolCatalogue own = new(Addon, new Dictionary<string, McpModuleCatalogue>
