@@ -1,0 +1,41 @@
+{
+  "name": "umbrella",
+  "version": "18.1.1",
+  "description": "Connects Codex to an Umbraco 18 site through the umbrella-mcp server: the CMS tools, plus Forms, Automate and Engage when the site has them.",
+  "author": {
+    "name": "MarcusK00",
+    "url": "https://github.com/MarcusK00"
+  },
+  "homepage": "https://github.com/MarcusK00/Umbrella#readme",
+  "repository": "https://github.com/MarcusK00/Umbrella",
+  "license": "MIT",
+  "keywords": ["umbraco", "mcp", "cms"],
+  "skills": "./skills/",
+  "mcpServers": {
+    "umbraco": {
+      "command": "npx",
+      "args": ["-y", "umbrella-mcp@18.1.1"],
+      "env_vars": [
+        "UMBRACO_BASE_URL",
+        "UMBRACO_CLIENT_ID",
+        "UMBRACO_CLIENT_SECRET",
+        "NODE_TLS_REJECT_UNAUTHORIZED"
+      ]
+    }
+  },
+  "interface": {
+    "displayName": "Umbrella for Umbraco",
+    "shortDescription": "One MCP server for your Umbraco 18 site",
+    "longDescription": "Connects Codex to an Umbraco 18 site through the umbrella-mcp server: the CMS tools, plus Forms, Automate and Engage when the site has them.",
+    "developerName": "MarcusK00",
+    "category": "Developer Tools",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "websiteURL": "https://github.com/MarcusK00/Umbrella#readme",
+    "logo": "./assets/logo.png",
+    "defaultPrompt": [
+      "Check my Umbraco site connection with get-mcp-health",
+      "List the document types and forms on my Umbraco site",
+      "Review recent Umbraco Automate runs and Engage segments"
+    ]
+  }
+}

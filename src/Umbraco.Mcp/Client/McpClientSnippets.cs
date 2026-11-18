@@ -22,18 +22,22 @@ internal static class McpClientSnippets
     private const string VsCodeInputId = "umbrella-client-secret";
 
     /// <summary>
-    /// The Claude Code plugin marketplace in this repository (<c>.claude-plugin/marketplace.json</c>), on the released
-    /// branch, so it never offers a version the registries don't have yet.
+    /// The Claude Code / Codex plugin marketplace in this repository (<c>.claude-plugin/marketplace.json</c> and
+    /// <c>.agents/plugins/marketplace.json</c>), on the released branch, so it never offers a version the registries
+    /// don't have yet.
     /// </summary>
     internal const string PluginMarketplaceSource = "MarcusK00/Umbrella#v18/main";
 
-    /// <summary>The <c>name</c> in <c>.claude-plugin/marketplace.json</c>.</summary>
+    /// <summary>The Antigravity plugin subfolder URL on the released branch.</summary>
+    internal const string AntigravityPluginSource = "https://github.com/MarcusK00/Umbrella/tree/v18/main/plugins/umbrella";
+
+    /// <summary>The <c>name</c> in <c>.claude-plugin/marketplace.json</c> and <c>.agents/plugins/marketplace.json</c>.</summary>
     internal const string PluginMarketplace = "umbrella";
 
-    /// <summary>The <c>name</c> in <c>plugins/umbrella/.claude-plugin/plugin.json</c>.</summary>
+    /// <summary>The <c>name</c> in <c>plugins/umbrella/</c> plugin manifests.</summary>
     internal const string PluginName = "umbrella";
 
-    /// <summary>Claude Code's id for the installed plugin, as its commands take it.</summary>
+    /// <summary>Claude Code and Codex's id for the installed plugin, as their commands take it.</summary>
     internal const string PluginId = $"{PluginName}@{PluginMarketplace}";
 
     public static IReadOnlyList<McpClientSnippet> Build(string? siteUrl, string clientId, string addonVersion)
@@ -72,6 +76,30 @@ internal static class McpClientSnippets
         string plugin =
             $"claude plugin marketplace add {PluginMarketplaceSource}\nclaude plugin install {PluginId} {string.Join(' ', pluginConfig)}";
 
+        var codexLines = new List<string>
+        {
+            $"codex plugin marketplace add {PluginMarketplaceSource}",
+            $"codex plugin add {PluginId}",
+            $"export UMBRACO_BASE_URL={url}",
+            $"export UMBRACO_CLIENT_ID={clientId}",
+        };
+        if (loopback)
+        {
+            codexLines.Add("export NODE_TLS_REJECT_UNAUTHORIZED=0");
+        }
+
+        var antigravityLines = new List<string>
+        {
+            $"agy plugin install {AntigravityPluginSource}",
+            "# Enable the plugin in Customizations → Installed (or /plugin) and enter:",
+            $"# UMBRACO_BASE_URL={url}",
+            $"# UMBRACO_CLIENT_ID={clientId}",
+        };
+        if (loopback)
+        {
+            antigravityLines.Add("# NODE_TLS_REJECT_UNAUTHORIZED=0");
+        }
+
         return
         [
             new("claude-code", "Claude Code", ".mcp.json", "json",
@@ -84,6 +112,8 @@ internal static class McpClientSnippets
             new("vscode", "VS Code", ".vscode/mcp.json", "json", BuildVsCode(args, Env($"${{input:{VsCodeInputId}}}"))),
             new("cursor", "Cursor", ".cursor/mcp.json", "json",
                 McpClientConfig.Build("npx", args, Env($"${{env:{McpClientConfig.SecretEnvironmentVariable}}}"))),
+            new("codex-plugin", "Codex (plugin)", null, "shell", string.Join('\n', codexLines)),
+            new("antigravity-plugin", "Antigravity (plugin)", null, "shell", string.Join('\n', antigravityLines)),
             new("other", "Other clients", null, "json", McpClientConfig.Build("npx", args, Env(SecretPlaceholder))),
         ];
     }
