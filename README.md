@@ -2,6 +2,8 @@
 
 # Umbrella
 
+[![NuGet downloads](https://img.shields.io/nuget/dt/umbraco.community.umbrella)](https://www.nuget.org/packages/Umbraco.Community.Umbrella)
+
 One MCP server for your Umbraco site. Umbrella detects which Umbraco products the site has installed and gives your AI tool (Claude Code, Codex, Antigravity, VS Code, Cursor, Claude Desktop) the tools for exactly those products.
 
 | Package | Where it runs | What it does |
@@ -11,14 +13,14 @@ One MCP server for your Umbraco site. Umbrella detects which Umbraco products th
 
 The site only needs the NuGet package, but installing it doesn't connect your AI tool. Each person connects their own: on Settings → **Umbrella** → **Overview**, **New connection** creates their API user, its access and its client secret, and hands over the config for their AI tool ([Get started](#get-started)). The AI tool then starts `umbrella-mcp` with `npx`, which downloads it the first time.
 
-**Using Claude Code?** Install the [Umbrella plugin](#claude-code-plugin) instead of editing a config file. Claude Code fetches it from GitHub, so there is nothing to download by hand:
+**Using Claude Code, Codex or Antigravity?** Install the plugin ([Claude Code](#claude-code-plugin), [Codex](#codex-plugin) or [Antigravity](#antigravity-plugin)) instead of editing a config file. For Claude Code, there is nothing to download by hand:
 
 ```bash
 claude plugin marketplace add MarcusK00/Umbrella#v17/main
 claude plugin install umbrella@umbrella --config base_url=https://your-site --config client_id=umbraco-back-office-mcp
 ```
 
-Then run `/plugin configure umbrella@umbrella` in Claude Code to add the client secret, which it keeps in your system's credential store.
+Then run `/plugin configure umbrella@umbrella` in Claude Code to add the client secret, which it keeps in your system's credential store. See [Codex plugin](#codex-plugin) and [Antigravity plugin](#antigravity-plugin) for Codex and Antigravity install commands.
 
 ## Contents
 
@@ -325,6 +327,8 @@ If none of this explains it, [open an issue](https://github.com/MarcusK00/Umbrel
 | The client secret is lost or leaked | Umbraco stores only its hash, so it can't be shown again | **⋯** → **New secret** on the user's row makes a new one; the old one stops working. Put the new one into the AI tool |
 | The server exits with `Error: UMBRACO_BASE_URL is required.` (or another variable) | The MCP client config has no `env` entry for it | Use the config from Settings → Umbrella → Overview |
 | With the Claude Code plugin, `/mcp` doesn't list `plugin:umbrella:umbraco` | A required value, usually the client secret, isn't set yet, so Claude Code doesn't start the server | Run `/plugin configure umbrella@umbrella` in Claude Code, then `/reload-plugins` |
+| With the Codex plugin, `umbraco` doesn't start or exits with a missing variable | `UMBRACO_BASE_URL`, `UMBRACO_CLIENT_ID` or `UMBRACO_CLIENT_SECRET` isn't exported in Codex's launch environment | Export them in your shell profile (`NODE_TLS_REJECT_UNAUTHORIZED=0` for localhost too), then restart Codex |
+| With the Antigravity plugin, `umbrella` stays disabled or doesn't start | Required variables aren't filled in yet, or `NODE_TLS_REJECT_UNAUTHORIZED` isn't set | Enable `umbrella` in **Customizations → Installed** (or `/plugin`) and fill in all four variables (`1`, or `0` for localhost) |
 | The server exits with `its HTTPS certificate was not accepted`, or other TLS errors such as `self-signed certificate` | Node does not trust the site's certificate. The config from the Overview only turns checks off for `localhost` | Trust the certificate with `NODE_EXTRA_CA_CERTS=<path to the .pem>`, or for a local development host only, add `NODE_TLS_REJECT_UNAUTHORIZED=0` to `env` |
 | Only `cms--` tools are listed | The add-on is not installed or not reachable, or a product is not installed, not enabled, or not on major version 17 | `get-mcp-health` gives the reason per product. "MCP products" in the backoffice shows what the site detected |
 | One product's tools are missing although it is installed | It is switched **Off** in Settings → Umbrella → Tool Permissions, in the defaults or for this API user | `get-mcp-health` notes "Switched off in the backoffice". Set its access to another step and reconnect |
