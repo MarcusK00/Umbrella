@@ -11,6 +11,7 @@ import { bindClient } from "./client-context.js";
 import type { LoadedModule, McpProductModule } from "./module-contract.js";
 import { isDestructive } from "./destructive.js";
 import { buildToolNameIndex, describeTool, prefixToolReferences, type ToolNameIndex } from "./routing.js";
+import { applyToolPatches, generalPatches, type ToolHandler } from "./tool-patches.js";
 
 export class DuplicateToolNameError extends Error {
   constructor(public readonly toolName: string, existingModule: string, newModule: string) {
@@ -62,15 +63,22 @@ export function registerModuleTools(
       ctx.registered.set(name, module.id);
       registerToolCollection(name, `${module.id}:${collectionName}`);
 
+      const patches = [...generalPatches(tool.inputSchema), ...(module.toolPatches?.[tool.name] ? [module.toolPatches[tool.name]] : [])];
+      const patched = applyToolPatches(
+        { description: tool.description, inputSchema: tool.inputSchema, handler: tool.handler as ToolHandler },
+        patches,
+        loaded.createApiClient,
+      );
+
       ctx.server.registerTool(
         name,
         {
-          description: describeTool(module, references(tool.description)),
-          inputSchema: tool.inputSchema && prefixInputReferences(tool.inputSchema, references),
+          description: describeTool(module, references(patched.description)),
+          inputSchema: patched.inputSchema && prefixInputReferences(patched.inputSchema, references),
           outputSchema: getRegisteredOutputSchema(tool),
           annotations: createToolAnnotations(tool),
         },
-        bindClient(loaded.createApiClient, tool.handler as (...args: unknown[]) => unknown) as ToolCallback<any>,
+        bindClient(loaded.createApiClient, patched.handler as (...args: unknown[]) => unknown) as ToolCallback<ZodRawShape>,
       );
       count++;
     }

@@ -1,4 +1,5 @@
 import type { ToolCollectionExport, ToolModeDefinition } from "@umbraco-cms/mcp-server-sdk";
+import type { ToolPatch } from "./tool-patches.js";
 
 /** What a product package's `./collections` entry point provides once loaded. */
 export interface LoadedModule {
@@ -29,6 +30,8 @@ export interface McpProductModule {
   useWhen: string[];
   /** Collections that stay off until the site or the env switches them on. Must exist in the package. */
   defaultDisabledCollections?: string[];
+  /** Fixes for this product's tools by unprefixed tool name, applied at registration (`tool-patches.ts`). Every name must exist in the package. */
+  toolPatches?: Readonly<Record<string, ToolPatch>>;
   /** Required modules load even without capabilities (CMS only). */
   required?: boolean;
   /** Dynamic import so absent products are never loaded. */
