@@ -1,12 +1,13 @@
-import { css, html, nothing, repeat } from "@umbraco-cms/backoffice/external/lit";
+import { css, html, nothing } from "@umbraco-cms/backoffice/external/lit";
 import { UmbLitElement } from "@umbraco-cms/backoffice/lit-element";
 import { UMB_AUTH_CONTEXT } from "@umbraco-cms/backoffice/auth";
 import { umbConfirmModal } from "@umbraco-cms/backoffice/modal";
 import { UMB_NOTIFICATION_CONTEXT } from "@umbraco-cms/backoffice/notification";
 import { UmbTextStyles } from "@umbraco-cms/backoffice/style";
+import { LEVEL_LABELS, glyphStyles, levelGlyph } from "./umbrella-access.js";
 import { request } from "./umbrella-api.js";
 import "./umbrella-product-card.js";
-import { pruneDisabledTools } from "./umbrella-tool-logic.js";
+import { groupKeptCount, pruneDisabledTools } from "./umbrella-tool-logic.js";
 import { UmbrellaUnsavedGuard } from "./umbrella-unsaved-guard.js";
 
 /** The product the MCP server signs in through; the add-on refuses to switch it off. */
@@ -14,13 +15,9 @@ const REQUIRED_PRODUCT = "cms";
 const STATE_TAGS = { disabled: "Disabled", lockedOut: "Locked out" };
 
 /**
- * Settings → Umbrella → Tool Permissions. On the left, who is being edited: the defaults (every API user) or one API
- * user. On the right, who that is, then one card per product with its access level (off, read-only, no deletes or full)
- * and its tool groups. An API user can override a product, all-or-nothing, with its own level and groups. Save and
- * discard sit in a footer pinned to the bottom, as in Umbraco's workspaces.
- *
- * Unsaved changes are what differs from the last saved state, so changing something back makes the page clean again.
- * Every way of leaving with unsaved changes asks first (`confirmLeave`).
+ * Settings → Umbrella → Tool Permissions.
+ * Left sidebar: who is being edited (Defaults or an active API user).
+ * Right workspace: compact target header, stretching product boxes, and the active product's permission editor.
  */
 export class UmbrellaToolGroupsElement extends UmbLitElement {
   static properties = {
@@ -31,13 +28,14 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     _selected: { state: true },
     _user: { state: true },
     _edit: { state: true },
+    _activeProduct: { state: true },
+    _userFilter: { state: true },
   };
 
   #auth;
   #notifications;
-  // An API user the Overview asked to open before the settings had loaded.
   #pendingUser = null;
-  // The PUT body of the state as last saved; `dirty` compares the current edits with it.
+  #pendingProduct = null;
   #snapshot = "";
 
   constructor() {
@@ -46,13 +44,11 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     this._error = null;
     this._saving = false;
     this._busy = false;
-    // "" is the defaults view; otherwise the key of the API user being edited.
     this._selected = "";
-    // The user's GET response in the user view.
     this._user = null;
-    // Defaults view: { disabled: { [id]: Set }, levels: { [id]: level }, tools: { [id]: Set } }.
-    // User view: { overrides: { [id]: { disabled: Set, level, tools: Set } } } for the products the user overrides.
     this._edit = { disabled: {}, levels: {}, tools: {} };
+    this._activeProduct = "";
+    this._userFilter = "";
     new UmbrellaUnsavedGuard(this, { isDirty: () => this.dirty, confirm: () => this.confirmLeave() });
     this.consumeContext(UMB_NOTIFICATION_CONTEXT, (ctx) => (this.#notifications = ctx));
     this.consumeContext(UMB_AUTH_CONTEXT, (ctx) => {
@@ -75,10 +71,12 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     } catch (error) {
       this._error = error.message;
     }
-    if (this.#pendingUser) {
+    if (this.#pendingUser !== null) {
       const key = this.#pendingUser;
+      const productId = this.#pendingProduct;
       this.#pendingUser = null;
-      await this.selectUser(key);
+      this.#pendingProduct = null;
+      await this.selectUser(key, productId);
     }
   }
 
@@ -87,45 +85,62 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     const modules = this._data.catalogue?.modules ?? {};
     const saved = this._data.disabledCollections ?? {};
     const disabled = {};
-    // A product without a saved list starts from the groups its module keeps off by default.
     for (const [id, m] of Object.entries(modules)) {
       disabled[id] = new Set(id in saved ? saved[id] : (m.collections ?? []).filter((c) => c.disabledByDefault).map((c) => c.name));
     }
     for (const [id, names] of Object.entries(saved)) disabled[id] ??= new Set(names);
-    // One level per product; off wins, then read-only.
     const levels = {};
     for (const id of this._data.noDestructiveModules ?? []) levels[id] = "noDestructive";
     for (const id of this._data.readOnlyModules ?? []) levels[id] = "readOnly";
     for (const id of this._data.offModules ?? []) levels[id] = "off";
-    // Switched-off tools, per product; a missing list means none.
-    const tools = {};
-    for (const [id, names] of Object.entries(this._data.disabledTools ?? {})) tools[id] = new Set(names);
-    return { disabled, levels, tools };
+    const toolsMap = {};
+    for (const [id, names] of Object.entries(this._data.disabledTools ?? {})) toolsMap[id] = new Set(names);
+    return { disabled, levels, tools: toolsMap };
   }
 
   /** The saved defaults for one product: what a user follows, and what "Customise" starts from. */
   #defaultsFor(id) {
-    const { disabled, levels, tools } = this.#savedDefaults();
-    return { disabled: new Set(disabled[id] ?? []), level: levels[id] ?? "full", tools: new Set(tools[id] ?? []) };
+    const { disabled, levels, tools: toolsMap } = this.#savedDefaults();
+    return { disabled: new Set(disabled[id] ?? []), level: levels[id] ?? "full", tools: new Set(toolsMap[id] ?? []) };
   }
 
-  #showDefaults() {
+  #ensureActiveProduct(preferredId) {
+    const visible = this.#visibleProducts();
+    if (!visible.length) {
+      this._activeProduct = "";
+      return;
+    }
+    if (preferredId && visible.some((p) => p.id === preferredId)) {
+      this._activeProduct = preferredId;
+      return;
+    }
+    if (!visible.some((p) => p.id === this._activeProduct)) {
+      this._activeProduct = visible[0].id;
+    }
+  }
+
+  #showDefaults(preferredProductId) {
     this._selected = "";
     this._user = null;
     this._edit = this.#savedDefaults();
     this.#snapshot = JSON.stringify(this.#body());
+    this.#ensureActiveProduct(preferredProductId);
   }
 
   /** Shows an API user's settings, with nothing unsaved. */
-  #showUser(key, user) {
+  #showUser(key, user, preferredProductId) {
     this._selected = key;
     this._user = user;
     this._edit = {
       overrides: Object.fromEntries(
-        Object.entries(user.overrides ?? {}).map(([id, o]) => [id, { disabled: new Set(o.disabledCollections ?? []), level: o.level ?? "full", tools: new Set(o.disabledTools ?? []) }]),
+        Object.entries(user.overrides ?? {}).map(([id, o]) => [
+          id,
+          { disabled: new Set(o.disabledCollections ?? []), level: o.level ?? "full", tools: new Set(o.disabledTools ?? []) },
+        ]),
       ),
     };
     this.#snapshot = JSON.stringify(this.#body());
+    this.#ensureActiveProduct(preferredProductId);
   }
 
   /** Puts the saved state back. */
@@ -157,38 +172,45 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
   }
 
   /** Opens an API user's settings, or the defaults for "" (the side list, and the Overview's "Edit permissions"). */
-  async selectUser(key) {
+  async selectUser(key, productId) {
     if (!this._data) {
       this.#pendingUser = key;
+      this.#pendingProduct = productId ?? null;
       return;
     }
-    if (key === this._selected) return;
-    // A user asked for while another loads opens after it.
+    if (key === this._selected) {
+      if (productId) this.#ensureActiveProduct(productId);
+      return;
+    }
     if (this._busy) {
       this.#pendingUser = key;
+      this.#pendingProduct = productId ?? null;
       return;
     }
     if (!(await this.confirmLeave())) return;
-    // An API user that connected after this page loaded: load the list again so it shows up.
     if (key && !this._data.apiUsers?.some((u) => u.key === key)) await this.#load();
-    // Disabled API users aren't listed here; asked for one, show the defaults.
     if (key && !this.#listedUsers().some((u) => u.key === key)) key = "";
-    if (key === this._selected) return;
+    if (key === this._selected) {
+      if (productId) this.#ensureActiveProduct(productId);
+      return;
+    }
     if (key === "") {
-      this.#showDefaults();
+      this.#showDefaults(productId);
       return;
     }
     this._busy = true;
     try {
-      this.#showUser(key, await request(this.#auth, "GET", `tool-settings/users/${key}`));
+      this.#showUser(key, await request(this.#auth, "GET", `tool-settings/users/${key}`), productId);
     } catch (error) {
       this.#notifications?.peek("danger", { data: { headline: "Could not load the API user's tool settings", message: error.message } });
     } finally {
       this._busy = false;
     }
     const next = this.#pendingUser;
+    const nextProduct = this.#pendingProduct;
     this.#pendingUser = null;
-    if (next !== null) await this.selectUser(next);
+    this.#pendingProduct = null;
+    if (next !== null) await this.selectUser(next, nextProduct);
   }
 
   /** Moves focus to the heading of who is being edited, after the Overview handed over with "Edit permissions". */
@@ -203,10 +225,6 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     return own ?? this._data.catalogue?.modules?.[id] ?? null;
   }
 
-  /**
-   * Counts belong to the user being shown only when its own MCP server reported them for this product; another user's
-   * report would show that user's permissions. The defaults always show the highest counts any API user reported.
-   */
   #showCounts(id) {
     if (!this._selected) return true;
     return this._user?.catalogueSource?.kind === "user" && !!this._user.catalogue?.modules?.[id];
@@ -215,13 +233,10 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
   /** The PUT body for the current edits. Built the same way for the snapshot, so equal state gives an equal body. */
   #body() {
     const detected = this._data.products.map((p) => p.id);
-    // Only names the MCP reported: a name it no longer reports is dropped.
     const names = (id, disabled) => {
       const module = this.#moduleFor(id);
       return module ? module.collections.map((c) => c.name).filter((n) => disabled.has(n)) : [...disabled].sort();
     };
-    // Names the product no longer has are dropped, judged by the site-wide catalogue (also in the user view: a user's own
-    // report can leave out tools its groups don't allow today, and those names must survive). Sorted for a stable body.
     const toolNames = (id, set) => [...pruneDisabledTools(set ?? new Set(), this._data.catalogue?.modules?.[id])].sort();
     if (this._selected) {
       const overrides = this._edit.overrides ?? {};
@@ -236,12 +251,11 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
         ),
       };
     }
-    const { disabled = {}, levels = {}, tools = {} } = this._edit;
+    const { disabled = {}, levels = {}, tools: toolsMap = {} } = this._edit;
     const reported = this._data.catalogue?.modules ?? {};
-    // A level only removes tools, so it is kept for every product the site detects, reported or not.
     return {
       disabledCollections: Object.fromEntries(detected.filter((id) => reported[id]).map((id) => [id, names(id, disabled[id] ?? new Set())])),
-      disabledTools: Object.fromEntries(detected.map((id) => [id, toolNames(id, tools[id])]).filter(([, list]) => list.length > 0)),
+      disabledTools: Object.fromEntries(detected.map((id) => [id, toolNames(id, toolsMap[id])]).filter(([, list]) => list.length > 0)),
       readOnlyModules: detected.filter((id) => levels[id] === "readOnly"),
       noDestructiveModules: detected.filter((id) => levels[id] === "noDestructive"),
       offModules: detected.filter((id) => levels[id] === "off"),
@@ -259,7 +273,6 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     }
   }
 
-  /** Switches tool groups on or off: one from its toggle, or every shown one from "Switch all on/off". */
   #setGroups(id, names, enabled) {
     if (this._busy || this._saving) return;
     const edit = (current) => {
@@ -279,7 +292,6 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     }
   }
 
-  /** Switches single tools on or off: one from its checkbox, or several from "Switch all … on" and "Switch them on". */
   #setTools(id, names, enabled) {
     if (this._busy || this._saving) return;
     const edit = (current) => {
@@ -299,7 +311,6 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     }
   }
 
-  /** "Customise for …" starts an override from a copy of the saved defaults; "Reset to defaults" drops it. */
   #setOverride(id, customise) {
     if (this._busy || this._saving) return;
     const overrides = { ...this._edit.overrides };
@@ -308,14 +319,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     this._edit = { overrides };
   }
 
-  /** "Use the defaults for everything": drops every override of the user being shown. */
-  #resetAll() {
-    if (this._busy || this._saving) return;
-    this._edit = { overrides: {} };
-  }
-
   async #save() {
-    // While another user loads, the page is about to be replaced: nothing is edited or saved then.
     if (!this.dirty || this._saving || this._busy) return;
     const key = this._selected;
     const name = this._data.apiUsers?.find((u) => u.key === key)?.name ?? "This API user";
@@ -326,9 +330,8 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
         this.#notifications?.peek("positive", {
           data: { headline: "Tool settings saved", message: `${name}'s MCP server picks this up on its next start. Reconnect it in the AI tool.` },
         });
-        // The side list tags the users with their own settings, so refresh that too.
         await this.#load();
-        this.#showUser(key, await request(this.#auth, "GET", `tool-settings/users/${key}`));
+        this.#showUser(key, await request(this.#auth, "GET", `tool-settings/users/${key}`), this._activeProduct);
       } else {
         await request(this.#auth, "PUT", "tool-settings", this.#body());
         this.#notifications?.peek("positive", {
@@ -343,64 +346,93 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     }
   }
 
-  /**
-   * The products to show: those the site detects as installed. A catalogue entry alone is not enough, as the shared
-   * catalogue keeps a product after it is uninstalled. A user view also leaves out the products whose section none of the
-   * user's groups grant: its MCP server doesn't load them, so there is nothing to set.
-   */
   #visibleProducts() {
     const noAccess = this._selected ? (this._user?.noSectionAccess ?? []) : [];
     return (this._data?.products ?? []).filter((p) => p.installed && !noAccess.includes(p.id));
   }
 
-  /** The API users Tool Permissions lists: every one except disabled users, whose AI tools can't sign in anyway. */
   #listedUsers() {
     return (this._data?.apiUsers ?? []).filter((u) => u.state !== "disabled");
   }
 
-  /** In the defaults view: the API users that override a product and so don't follow these defaults. */
-  #overrideNote(product) {
-    const names = this.#listedUsers().filter((u) => u.overriddenProducts?.includes(product.id)).map((u) => u.name);
-    if (names.length === 0) return null;
-    return names.length === 1
-      ? `1 API user has its own ${product.displayName} settings: ${names[0]}.`
-      : `${names.length} API users have their own ${product.displayName} settings: ${names.join(", ")}.`;
+  #productState(product) {
+    const id = product.id;
+    if (this._selected) {
+      const override = this._edit.overrides?.[id];
+      const mode = override ? "custom" : "follows";
+      const state = override ?? this.#defaultsFor(id);
+      return { state, mode };
+    }
+    return {
+      mode: "defaults",
+      state: {
+        disabled: this._edit.disabled[id] ?? new Set(),
+        level: this._edit.levels[id] ?? "full",
+        tools: this._edit.tools?.[id] ?? new Set(),
+      },
+    };
   }
 
-  #notesFor(product, module, level, switchedOff) {
-    const notes = [];
-    if (!this._selected) notes.push(this.#overrideNote(product));
-    if (this._selected && module && !this._user?.catalogue?.modules?.[product.id] && this._user?.catalogueSource?.kind === "user") {
-      notes.push(`Counts appear after this user's MCP server starts with ${product.displayName} on.`);
-    }
-    const olderServer =
-      this.#showCounts(product.id) &&
-      level === "noDestructive" &&
-      module?.collections?.length > 0 &&
-      !module.collections.some((c) => typeof c.nonDestructiveToolCount === "number");
-    if (olderServer) notes.push("The MCP server that last started is older and still includes destructive tools.");
-    const olderTools =
-      switchedOff?.size > 0 &&
-      this.#showCounts(product.id) &&
-      module?.collections?.length > 0 &&
-      !module.collections.some((c) => Array.isArray(c.tools));
-    if (olderTools) notes.push("The MCP server that last started is older and still offers the tools switched off here.");
-    return notes.filter(Boolean);
+  #productToolSummary(product, state) {
+    if (state.level === "off") return null;
+    if (!this.#showCounts(product.id)) return null;
+    const module = this.#moduleFor(product.id);
+    if (!module?.collections?.length) return null;
+    const total = module.collections.reduce((sum, c) => sum + c.toolCount, 0);
+    const kept = module.collections.reduce(
+      (sum, c) =>
+        sum +
+        groupKeptCount(c, {
+          level: state.level,
+          groupOn: !state.disabled.has(c.name),
+          disabledTools: state.tools ?? new Set(),
+        }),
+      0,
+    );
+    return { kept, total };
+  }
+
+  /**
+   * Stretching product boxes inside the header box. When fewer products are available (e.g. due to section access),
+   * the boxes grow to fill the available row width; when more products are added in the future, they wrap and fill cleanly.
+   */
+  #renderProductTabs(products) {
+    return html`<div class="product-tabs-bar">
+      <div class="product-tabs" role="tablist" aria-label="Products">
+        ${products.map((p) => {
+          const active = p.id === this._activeProduct;
+          const { state, mode } = this.#productState(p);
+          const counts = this.#productToolSummary(p, state);
+          const shortName = p.displayName.replace(/^Umbraco /, "");
+          return html`<button
+            type="button"
+            role="tab"
+            class="product-tab ${state.level === "off" ? "is-off" : ""}"
+            aria-selected=${active ? "true" : "false"}
+            @click=${() => (this._activeProduct = p.id)}
+          >
+            <div class="product-tab-top">
+              <span class="product-tab-name">${shortName}</span>
+              ${mode === "custom" ? html`<uui-tag class="compact-tag" look="primary" color="positive">Custom</uui-tag>` : nothing}
+            </div>
+            <div class="product-tab-meta">
+              <span class="product-tab-level">
+                ${levelGlyph(state.level)}
+                <span>${LEVEL_LABELS[state.level] ?? LEVEL_LABELS.full}</span>
+              </span>
+              ${counts ? html`<span class="product-tab-count">${counts.kept}/${counts.total}</span>` : nothing}
+            </div>
+          </button>`;
+        })}
+      </div>
+    </div>`;
   }
 
   #renderCard(product) {
     const id = product.id;
     const module = this.#moduleFor(id);
     const userName = this.#userName();
-    let state;
-    let mode = "defaults";
-    if (this._selected) {
-      const override = this._edit.overrides?.[id];
-      mode = override ? "custom" : "follows";
-      state = override ?? this.#defaultsFor(id);
-    } else {
-      state = { disabled: this._edit.disabled[id] ?? new Set(), level: this._edit.levels[id] ?? "full", tools: this._edit.tools?.[id] ?? new Set() };
-    }
+    const { state, mode } = this.#productState(product);
     return html`<umbrella-product-card
       .product=${product}
       .module=${module}
@@ -411,10 +443,11 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
       .locked=${this._saving || this._busy}
       .showCounts=${this.#showCounts(id)}
       .mode=${mode}
+      .userKey=${this._selected}
       .userName=${userName}
       .defaultLevel=${this._selected ? this.#defaultsFor(id).level : null}
       .isRequired=${id === REQUIRED_PRODUCT}
-      .notes=${this.#notesFor(product, module, state.level, state.tools)}
+      .notes=${[]}
     ></umbrella-product-card>`;
   }
 
@@ -424,8 +457,14 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
 
   #renderList() {
     const users = this.#listedUsers();
+    const needle = this._userFilter.trim().toLowerCase();
+    const filteredUsers = needle
+      ? users.filter((u) => u.name.toLowerCase().includes(needle) || (u.clientIds ?? []).some((id) => id.toLowerCase().includes(needle)))
+      : users;
+
     const entry = (key, name, sub, avatar, tag) => html`<li>
       <button
+        type="button"
         class="entry"
         aria-current=${this._selected === key ? "true" : "false"}
         ?disabled=${this._saving || this._busy}
@@ -439,98 +478,88 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
         ${tag ?? nothing}
       </button>
     </li>`;
+
     return html`<nav class="list" aria-label="Whose tool permissions">
-      <ul>
-        ${entry(
-          "",
-          "Defaults",
-          "All API users",
-          html`<span class="defaults-icon"><umb-icon name="icon-settings"></umb-icon></span>`,
-        )}
-      </ul>
-      ${users.length
-        ? html`<h3 class="list-heading">API users</h3>
-            <ul>
-              ${users.map((u) => {
-                const own = u.overriddenProducts?.length ?? 0;
-                const tag = html`${STATE_TAGS[u.state] ? html`<uui-tag look="secondary" color="warning">${STATE_TAGS[u.state]}</uui-tag>` : nothing}
-                ${own
-                  ? html`<uui-tag look="secondary" title=${`Own settings for ${own} ${own === 1 ? "product" : "products"}`}>${own} own</uui-tag>`
-                  : nothing}`;
-                return entry(u.key, u.name, u.clientIds?.join(", "), html`<uui-avatar name=${u.name}></uui-avatar>`, tag);
-              })}
-            </ul>`
-        : html`<p class="list-empty">API users appear here once one is created with New connection on the Overview. Disabled API users aren't listed.</p>`}
+      <div class="list-section">
+        <span class="list-heading">Site-wide</span>
+        <ul>
+          ${entry(
+            "",
+            "Defaults",
+            "Shared by default",
+            html`<span class="defaults-icon"><umb-icon name="icon-settings"></umb-icon></span>`,
+          )}
+        </ul>
+      </div>
+      <div class="list-section">
+        <div class="list-heading-row">
+          <span class="list-heading">API users</span>
+          ${users.length ? html`<uui-tag class="compact-tag" look="secondary">${users.length}</uui-tag>` : nothing}
+        </div>
+        ${users.length > 3
+          ? html`<uui-input
+              class="user-filter"
+              label="Filter API users"
+              placeholder="Filter users..."
+              .value=${this._userFilter}
+              @input=${(e) => (this._userFilter = e.target.value)}
+            >
+              <umb-icon slot="prepend" name="icon-search"></umb-icon>
+            </uui-input>`
+          : nothing}
+        ${users.length
+          ? filteredUsers.length
+            ? html`<ul>
+                ${filteredUsers.map((u) => {
+                  const own = u.overriddenProducts?.length ?? 0;
+                  const hasTags = !!STATE_TAGS[u.state] || own > 0;
+                  const tag = hasTags
+                    ? html`<span class="entry-tags">
+                        ${STATE_TAGS[u.state] ? html`<uui-tag class="compact-tag" look="secondary" color="warning">${STATE_TAGS[u.state]}</uui-tag>` : nothing}
+                        ${own
+                          ? html`<uui-tag class="compact-tag" look="secondary" title=${`Own settings for ${own} ${own === 1 ? "product" : "products"}`}>${own} own</uui-tag>`
+                          : nothing}
+                      </span>`
+                    : nothing;
+                  return entry(u.key, u.name, u.clientIds?.join(", "), html`<uui-avatar name=${u.name}></uui-avatar>`, tag);
+                })}
+              </ul>`
+            : html`<p class="list-empty">No API user matches "${this._userFilter}".</p>`
+          : html`<p class="list-empty">No API users yet.</p>`}
+      </div>
     </nav>`;
   }
 
-  /** Who is being edited, and what that means; in the user view also the way back to the defaults for everything. */
-  #renderEditorHead() {
+  /** Compact target header + product selector boxes inside one top card. */
+  #renderEditorHead(visibleProducts) {
     if (!this._selected) {
-      const listed = this.#listedUsers();
-      const following = listed.filter((u) => !u.overriddenProducts?.length).length;
-      return html`<div class="editor-head">
-        <span class="defaults-icon large"><umb-icon name="icon-settings"></umb-icon></span>
-        <div class="editor-title">
-          <h2 tabindex="-1">Defaults</h2>
-          <p class="muted">
-            What every API user's MCP server gets, unless the user has its own settings for a product.
-            ${following ? html`${following} of ${listed.length} API users follow these for every product.` : nothing}
-          </p>
+      return html`<uui-box class="target-box">
+        <div class="editor-head">
+          <span class="defaults-icon large"><umb-icon name="icon-settings"></umb-icon></span>
+          <div class="editor-title">
+            <div class="title-row">
+              <h2 tabindex="-1">Defaults</h2>
+              <uui-tag look="secondary">All API users</uui-tag>
+            </div>
+          </div>
         </div>
-      </div>
-      ${this.#renderCatalogueNote()}`;
+        ${visibleProducts.length > 0 ? this.#renderProductTabs(visibleProducts) : nothing}
+      </uui-box>`;
     }
     const user = this._data.apiUsers?.find((u) => u.key === this._selected);
-    const own = Object.keys(this._edit.overrides ?? {}).length;
-    return html`<div class="editor-head">
+    return html`<uui-box class="target-box">
+      <div class="editor-head">
         <uui-avatar class="large" name=${user?.name ?? ""}></uui-avatar>
         <div class="editor-title">
-          <h2 tabindex="-1">
-            ${user?.name ?? "API user"}
+          <div class="title-row">
+            <h2 tabindex="-1">${user?.name ?? "API user"}</h2>
             ${STATE_TAGS[user?.state] ? html`<uui-tag look="secondary" color="warning">${STATE_TAGS[user.state]}</uui-tag>` : nothing}
-          </h2>
-          <p class="muted">
-            ${user?.clientIds?.length ? html`Client id ${user.clientIds.join(", ")}. ` : nothing}
-            ${own
-              ? `Own settings for ${own} ${own === 1 ? "product" : "products"}; the rest follow the defaults.`
-              : "Follows the defaults for every product. Customise a product to give this user its own settings."}
-          </p>
+            ${user?.clientIds?.length ? html`<span class="client-pill">${user.clientIds.join(", ")}</span>` : nothing}
+          </div>
         </div>
-        ${own
-          ? html`<uui-button
-              look="secondary"
-              label="Use the defaults for everything"
-              ?disabled=${this._saving || this._busy}
-              @click=${this.#resetAll}
-            ></uui-button>`
-          : nothing}
       </div>
-      ${this.#renderCatalogueNote()}`;
-  }
-
-  /** Where the counts come from; in the user view also the version that user's server ran. */
-  #renderCatalogueNote() {
-    if (!this._selected) {
-      return html`<p class="note">
-        <umb-icon name="icon-info"></umb-icon>
-        <span>Tool counts are the highest any API user's MCP server reported. Each user's own counts depend on its Umbraco permissions.</span>
-      </p>`;
-    }
-    if (this._user?.catalogueSource?.kind !== "user") {
-      return html`<p class="note"><umb-icon name="icon-info"></umb-icon><span>Counts appear after this user's MCP server has started once.</span></p>`;
-    }
-    const addonVersion = this._data.addonVersion;
-    const umbrellaVersion = this._user.catalogue?.umbrellaVersion;
-    return addonVersion && umbrellaVersion && umbrellaVersion !== addonVersion
-      ? html`<p class="note warning">
-          <umb-icon name="icon-alert"></umb-icon>
-          <span>
-            The add-on is ${addonVersion}, but this user's MCP server ran umbrella-mcp ${umbrellaVersion}. The two are released
-            together: set umbrella-mcp@${addonVersion} in the AI tool's MCP configuration.
-          </span>
-        </p>`
-      : nothing;
+      ${visibleProducts.length > 0 ? this.#renderProductTabs(visibleProducts) : nothing}
+    </uui-box>`;
   }
 
   /** Save and discard, pinned to the bottom like a workspace footer. */
@@ -541,7 +570,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
       <span class="footer-status" role="status">
         ${dirty
           ? html`<span class="unsaved"><span class="dot"></span>Unsaved changes to ${who}</span>`
-          : html`<span class="muted">Saved changes apply the next time the MCP server starts.</span>`}
+          : nothing}
       </span>
       ${dirty
         ? html`<uui-button look="secondary" label="Discard changes" ?disabled=${this._saving || this._busy} @click=${this.#discard}></uui-button>`
@@ -558,20 +587,24 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
   }
 
   render() {
-    if (this._error) return html`<uui-box headline="Umbrella"><p>Could not load the tool permissions: ${this._error}</p></uui-box>`;
-    if (!this._data) return html`<uui-loader></uui-loader>`;
+    if (this._error) return html`<uui-box class="error-box" headline="Umbrella"><p>Could not load the tool permissions: ${this._error}</p></uui-box>`;
+    if (!this._data) return html`<div class="loader-wrap"><uui-loader></uui-loader></div>`;
     if (Object.keys(this._data.catalogue?.modules ?? {}).length === 0) {
-      return html`<uui-box>
+      return html`<uui-box class="empty-box">
         <div class="empty">
-          <umb-icon name="icon-lock"></umb-icon>
+          <span class="empty-icon"><umb-icon name="icon-lock"></umb-icon></span>
           <p><strong>No tool groups reported yet</strong></p>
-          <p class="muted">Start your MCP client once (it runs umbrella-mcp). Its tool groups are reported to this site, and you can set them here after reloading the page.</p>
+          <p class="muted">Start your MCP client once so it reports its tool groups to this site.</p>
         </div>
       </uui-box>`;
     }
+    const visible = this.#visibleProducts();
+    const activeProduct = visible.find((p) => p.id === this._activeProduct) ?? visible[0] ?? null;
+    const activeMode = activeProduct ? this.#productState(activeProduct).mode : null;
+
     return html`
-      <div class="layout">
-        ${this.#renderList()}
+      <div class="layout ${activeMode === "follows" ? "is-follows" : ""}">
+        <div class="sidebar-col">${this.#renderList()}</div>
         <div
           class="editor"
           @level-change=${(e) => this.#setLevel(e.detail.productId, e.detail.level)}
@@ -581,13 +614,8 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
           @reset=${(e) => this.#setOverride(e.detail.productId, false)}
         >
           ${this._busy ? html`<uui-loader-bar></uui-loader-bar>` : nothing}
-          ${this.#renderEditorHead()}
-          ${repeat(
-            this.#visibleProducts(),
-            // A new card per user, so an open group list or a filter does not carry over to the next user.
-            (p) => `${this._selected}:${p.id}`,
-            (p) => this.#renderCard(p),
-          )}
+          ${this.#renderEditorHead(visible)}
+          ${activeProduct ? this.#renderCard(activeProduct) : nothing}
         </div>
       </div>
       ${this.#renderFooter()}
@@ -596,71 +624,400 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
 
   static styles = [
     UmbTextStyles,
+    glyphStyles,
     css`
-      :host { display: flex; flex-direction: column; padding: var(--uui-size-layout-1) var(--uui-size-layout-1) 0; }
-      h2 { margin: 0; }
-      .muted { color: var(--uui-color-text-alt); margin: 0; }
-      .layout {
-        display: grid; grid-template-columns: 17rem minmax(0, 1fr); gap: var(--uui-size-layout-1); align-items: start;
+      :host {
+        display: flex;
+        flex-direction: column;
+        padding: var(--uui-size-layout-1) var(--uui-size-layout-1) 0;
+      }
+      h2 {
+        margin: 0;
+      }
+      .muted {
+        color: var(--uui-color-text-alt);
+        margin: 0;
+      }
+      .loader-wrap {
+        display: flex;
+        justify-content: center;
+        margin-top: var(--umbrella-subnav-offset, 0px);
+        padding: var(--uui-size-layout-2);
+      }
+      .empty-box,
+      .error-box {
+        margin-top: var(--umbrella-subnav-offset, 0px);
         margin-bottom: var(--uui-size-layout-1);
       }
-      @media (max-width: 48rem) { .layout { grid-template-columns: minmax(0, 1fr); } }
+      .layout {
+        display: grid;
+        grid-template-columns: 18rem minmax(0, 1fr);
+        gap: var(--uui-size-layout-1);
+        align-items: stretch;
+        margin-bottom: var(--uui-size-layout-1);
+      }
+      .sidebar-col {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .layout.is-follows .list,
+      .layout.is-follows umbrella-product-card {
+        flex: 1;
+      }
+      @media (max-width: 56rem) {
+        .layout {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .layout.is-follows .list,
+        .layout.is-follows umbrella-product-card {
+          flex: none;
+        }
+        .loader-wrap,
+        .empty-box,
+        .error-box {
+          margin-top: 0;
+        }
+      }
 
       .list {
-        position: sticky; top: var(--uui-size-layout-1);
-        padding: var(--uui-size-space-3); border-radius: var(--uui-border-radius);
-        background: var(--uui-color-surface); box-shadow: var(--uui-shadow-depth-1);
+        position: sticky;
+        top: var(--uui-size-layout-1);
+        margin-top: var(--umbrella-subnav-offset, 0px);
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        gap: var(--uui-size-space-4);
+        padding: var(--uui-size-space-4);
+        border-radius: var(--uui-border-radius);
+        background: var(--uui-color-surface);
+        box-shadow: var(--uui-shadow-depth-1);
       }
-      @media (max-width: 48rem) { .list { position: static; } }
-      .list ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-      .list-heading { margin: var(--uui-size-space-4) 0 var(--uui-size-space-2); padding: 0 var(--uui-size-space-3); font-size: var(--uui-type-small-size); color: var(--uui-color-text-alt); }
-      .list-empty { margin: var(--uui-size-space-4) var(--uui-size-space-3) var(--uui-size-space-2); color: var(--uui-color-text-alt); font-size: var(--uui-type-small-size); }
+      @media (max-width: 56rem) {
+        .list {
+          position: static;
+          margin-top: 0;
+        }
+      }
+      .list-section {
+        display: flex;
+        flex-direction: column;
+        gap: var(--uui-size-space-2);
+      }
+      .list-section + .list-section {
+        padding-top: var(--uui-size-space-3);
+        border-top: 1px solid var(--uui-color-divider);
+      }
+      .list-heading-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 var(--uui-size-space-2);
+      }
+      .list-heading {
+        padding: 0 var(--uui-size-space-2);
+        font-size: var(--uui-type-small-size);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--uui-color-text-alt);
+      }
+      .list-heading-row .list-heading {
+        padding: 0;
+      }
+      .user-filter {
+        width: 100%;
+      }
+      .user-filter umb-icon {
+        margin-left: var(--uui-size-space-3);
+        color: var(--uui-color-text-alt);
+      }
+      .list ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .list-empty {
+        margin: var(--uui-size-space-2);
+        color: var(--uui-color-text-alt);
+        font-size: var(--uui-type-small-size);
+      }
       .entry {
-        display: flex; align-items: center; gap: var(--uui-size-space-3); width: 100%;
-        padding: var(--uui-size-space-2) var(--uui-size-space-3); border: 0; border-radius: var(--uui-border-radius);
-        background: none; font: inherit; color: inherit; text-align: left; cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: var(--uui-size-space-3);
+        width: 100%;
+        padding: var(--uui-size-space-2) var(--uui-size-space-3);
+        border: 1px solid transparent;
+        border-radius: var(--uui-border-radius);
+        background: none;
+        font: inherit;
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+        transition: background-color 120ms ease, border-color 120ms ease;
       }
-      .entry:hover { background: var(--uui-color-surface-emphasis); }
-      .entry:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offset: 1px; }
-      .entry[aria-current="true"] { background: var(--uui-color-current); color: var(--uui-color-current-contrast); }
-      .entry:disabled { cursor: default; }
-      .entry-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
-      .entry-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .entry-sub { font-size: var(--uui-type-small-size); opacity: 0.75; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      uui-avatar { flex: none; width: 2rem; height: 2rem; font-size: 0.75rem; }
-      uui-avatar.large { width: 3rem; height: 3rem; font-size: 1rem; }
+      .entry:hover {
+        background: var(--uui-color-surface-alt);
+        border-color: var(--uui-color-border);
+      }
+      .entry:focus-visible {
+        outline: 2px solid var(--uui-color-focus);
+        outline-offset: 1px;
+      }
+      .entry[aria-current="true"] {
+        background: var(--uui-color-current);
+        color: var(--uui-color-current-contrast);
+      }
+      .entry:disabled {
+        cursor: default;
+      }
+      .entry-text {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        flex: 1;
+      }
+      .entry-name {
+        font-weight: 600;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .entry-sub {
+        font-size: var(--uui-type-small-size);
+        opacity: 0.78;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .entry-tags {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        flex: none;
+      }
+      uui-tag.compact-tag {
+        flex: none;
+        --uui-tag-font-size: 0.6875rem;
+        --uui-tag-padding: 0 6px;
+      }
+      uui-avatar {
+        flex: none;
+        width: 2rem;
+        height: 2rem;
+        font-size: 0.75rem;
+      }
+      uui-avatar.large {
+        width: 2.25rem;
+        height: 2.25rem;
+        font-size: 0.85rem;
+      }
       .defaults-icon {
-        display: inline-grid; place-items: center; flex: none; width: 2rem; height: 2rem; border-radius: 50%;
-        background: var(--uui-color-surface-emphasis); color: var(--uui-color-text-alt);
+        display: inline-grid;
+        place-items: center;
+        flex: none;
+        width: 2rem;
+        height: 2rem;
+        border-radius: 50%;
+        background: var(--uui-color-surface-emphasis);
+        color: var(--uui-color-text-alt);
       }
-      .defaults-icon.large { width: 3rem; height: 3rem; font-size: 1.25rem; }
+      .entry[aria-current="true"] .defaults-icon {
+        background: rgba(255, 255, 255, 0.18);
+        color: var(--uui-color-current-contrast);
+      }
+      .defaults-icon.large {
+        width: 2.25rem;
+        height: 2.25rem;
+        font-size: 1.05rem;
+      }
 
-      .editor { display: flex; flex-direction: column; gap: var(--uui-size-space-5); min-width: 0; }
-      .editor-head { display: flex; align-items: center; gap: var(--uui-size-space-4); flex-wrap: wrap; }
-      .editor-title { flex: 1 1 20rem; min-width: 0; }
-      .editor-title h2:focus { outline: none; }
-      .editor-title h2 { display: flex; align-items: center; gap: var(--uui-size-space-3); font-size: var(--uui-type-h4-size, 1.5rem); }
-      .editor-title p { margin-top: var(--uui-size-space-1); max-width: 75ch; }
-      .note { display: flex; gap: var(--uui-size-space-2); align-items: baseline; margin: calc(var(--uui-size-space-3) * -1) 0 0; color: var(--uui-color-text-alt); max-width: 85ch; }
-      .note umb-icon { flex: none; }
-      .note.warning umb-icon { color: var(--uui-color-warning-standalone); }
-      .note.warning { color: var(--uui-color-text); }
+      .editor {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: var(--uui-size-space-4);
+        min-width: 0;
+      }
+      .editor > uui-loader-bar {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 1;
+        pointer-events: none;
+      }
+      .editor-head {
+        display: flex;
+        align-items: center;
+        gap: var(--uui-size-space-3);
+        flex-wrap: wrap;
+        min-height: 2.25rem;
+      }
+      .editor-title {
+        flex: 1 1 16rem;
+        min-width: 0;
+      }
+      .title-row {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: var(--uui-size-space-3);
+      }
+      .editor-title h2:focus {
+        outline: none;
+      }
+      .editor-title h2 {
+        font-size: var(--uui-type-h5-size, 1.15rem);
+      }
+      .client-pill {
+        display: inline-block;
+        padding: 2px var(--uui-size-space-3);
+        border-radius: 999px;
+        background: var(--uui-color-surface-alt);
+        border: 1px solid var(--uui-color-divider);
+        font-family: var(--uui-font-monospace, ui-monospace, Menlo, Consolas, monospace);
+        font-size: var(--uui-type-small-size);
+        color: var(--uui-color-text-alt);
+      }
+
+      .product-tabs-bar {
+        margin-top: var(--uui-size-space-4);
+        padding-top: var(--uui-size-space-4);
+        border-top: 1px solid var(--uui-color-divider);
+      }
+      .product-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--uui-size-space-3);
+      }
+      .product-tab {
+        flex: 1 1 11rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 6px;
+        padding: var(--uui-size-space-3) var(--uui-size-space-4);
+        border: 1px solid var(--uui-color-border);
+        border-radius: var(--uui-border-radius);
+        background: var(--uui-color-surface-alt);
+        font: inherit;
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+        transition: border-color 120ms ease, background-color 120ms ease, box-shadow 120ms ease;
+      }
+      .product-tab:hover {
+        border-color: var(--uui-color-border-emphasis);
+        background: var(--uui-color-surface);
+      }
+      .product-tab:focus-visible {
+        outline: 2px solid var(--uui-color-focus);
+        outline-offset: 2px;
+      }
+      .product-tab[aria-selected="true"] {
+        border-color: var(--uui-color-selected);
+        background: var(--uui-color-surface);
+        box-shadow: inset 0 0 0 1px var(--uui-color-selected);
+      }
+      .product-tab-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--uui-size-space-2);
+        min-height: 1.35rem;
+      }
+      .product-tab-name {
+        font-weight: 700;
+      }
+      .product-tab[aria-selected="true"] .product-tab-name {
+        color: var(--uui-color-selected);
+      }
+      .product-tab-meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--uui-size-space-2);
+      }
+      .product-tab-level {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: var(--uui-type-small-size);
+        font-weight: 600;
+        color: var(--uui-color-text);
+      }
+      .product-tab.is-off .product-tab-level {
+        color: var(--uui-color-text-alt);
+        font-weight: normal;
+      }
+      .product-tab-count {
+        padding: 1px var(--uui-size-space-2);
+        border-radius: 999px;
+        background: var(--uui-color-surface-emphasis);
+        color: var(--uui-color-text-alt);
+        font-size: var(--uui-type-small-size);
+        font-variant-numeric: tabular-nums;
+      }
 
       .footer {
-        position: sticky; bottom: 0; z-index: 1;
-        display: flex; align-items: center; justify-content: flex-end; gap: var(--uui-size-space-3);
+        position: sticky;
+        bottom: 0;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: var(--uui-size-space-3);
         margin: auto calc(var(--uui-size-layout-1) * -1) 0;
         padding: var(--uui-size-space-3) var(--uui-size-layout-1);
-        background: var(--uui-color-surface); box-shadow: var(--uui-shadow-depth-1);
+        background: var(--uui-color-surface);
+        box-shadow: var(--uui-shadow-depth-2, var(--uui-shadow-depth-1));
+        border-top: 1px solid var(--uui-color-divider);
       }
-      .footer-status { margin-right: auto; }
-      .unsaved { display: inline-flex; align-items: center; gap: var(--uui-size-space-2); font-weight: 600; }
-      .dot { color: var(--uui-color-warning-standalone); }
-      .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+      .footer-status {
+        margin-right: auto;
+      }
+      .unsaved {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--uui-size-space-2);
+        font-weight: 600;
+      }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        color: var(--uui-color-warning-standalone);
+        background: currentColor;
+      }
 
-      .empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--uui-size-space-2); padding: var(--uui-size-layout-2) var(--uui-size-space-5); }
-      .empty > umb-icon { font-size: 2rem; color: var(--uui-color-text-alt); }
-      .empty p { margin: 0; max-width: 55ch; }
+      .empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: var(--uui-size-space-2);
+        padding: var(--uui-size-layout-2) var(--uui-size-space-5);
+      }
+      .empty-icon {
+        display: inline-grid;
+        place-items: center;
+        width: 3.5rem;
+        height: 3.5rem;
+        border-radius: 50%;
+        background: var(--uui-color-surface-alt);
+        color: var(--uui-color-text-alt);
+        font-size: 1.75rem;
+        margin-bottom: var(--uui-size-space-2);
+      }
+      .empty p {
+        margin: 0;
+        max-width: 55ch;
+      }
     `,
   ];
 }

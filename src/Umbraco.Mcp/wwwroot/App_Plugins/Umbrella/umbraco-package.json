@@ -27,6 +27,12 @@
       "alias": "Umbrella.Modal.NewSecret",
       "name": "Umbrella new secret",
       "element": "/App_Plugins/Umbrella/umbrella-new-secret-modal.js"
+    },
+    {
+      "type": "modal",
+      "alias": "Umbrella.Modal.Connect",
+      "name": "Umbrella client setup",
+      "element": "/App_Plugins/Umbrella/umbrella-connect-modal.js"
     }
   ]
 }
