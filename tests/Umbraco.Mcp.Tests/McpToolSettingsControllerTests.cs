@@ -270,10 +270,10 @@ public class McpToolSettingsControllerTests
         var store = new FakeToolSettingsStore();
         var tools = new List<McpToolInfo>
         {
-            new(" a ", new string('x', 250), true, false),
-            new("a", "second", false, true),
-            new("", "empty", false, false),
-            new("b", null, false, true),
+            new(" a ", new string('x', 250), true, false, 1200),
+            new("a", "second", false, true, 999),
+            new("", "empty", false, false, 500),
+            new("b", null, false, true, 800),
         };
         var report = new McpCatalogueReport("17.0.0", [new McpModuleReport("forms", [new McpCollectionInfo("form", 99, 7, false, 7, tools)])]);
 
@@ -287,6 +287,9 @@ public class McpToolSettingsControllerTests
         Assert.That(stored.ToolCount, Is.EqualTo(2));
         Assert.That(stored.ReadOnlyToolCount, Is.EqualTo(1));
         Assert.That(stored.NonDestructiveToolCount, Is.EqualTo(1));
+        Assert.That(stored.SizeBytes, Is.EqualTo(2000));
+        Assert.That(stored.ReadOnlySizeBytes, Is.EqualTo(1200));
+        Assert.That(stored.NonDestructiveSizeBytes, Is.EqualTo(1200));
     }
 
     [Test]

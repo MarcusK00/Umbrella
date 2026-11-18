@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { buildCatalogue, reportCatalogue, shortDescription, type CataloguePayload } from "../catalogue.js";
 import type { LoadedModule, McpProductModule } from "../module-contract.js";
 
@@ -6,7 +7,15 @@ const mod = (id: string): McpProductModule => ({
   load: async () => { throw new Error("unused"); },
 });
 
-type FakeTool = { name: string; description?: string; enabled?: (user: unknown) => boolean; annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean }; isReadOnly?: boolean };
+type FakeTool = {
+  name: string;
+  description?: string;
+  inputSchema?: Record<string, z.ZodType>;
+  outputSchema?: Record<string, z.ZodType>;
+  enabled?: (user: unknown) => boolean;
+  annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean };
+  isReadOnly?: boolean;
+};
 
 const collection = (name: string, tools: FakeTool[]) => ({
   metadata: { name, displayName: name, description: "" },
@@ -48,10 +57,13 @@ describe("buildCatalogue", () => {
     ]);
     const [c] = buildCatalogue("1", [{ module: mod("forms"), loaded: forms }], {}).modules[0].collections;
     expect(c.tools).toEqual([
-      { name: "list-forms", description: "Lists forms.", readOnly: true, destructive: false },
-      { name: "delete-form", description: "", readOnly: false, destructive: true },
+      { name: "list-forms", description: "Lists forms.", readOnly: true, destructive: false, sizeBytes: expect.any(Number) },
+      { name: "delete-form", description: "", readOnly: false, destructive: true, sizeBytes: expect.any(Number) },
     ]);
     expect(c.toolCount).toBe(2);
+    expect(c.sizeBytes).toBe(c.tools[0].sizeBytes! + c.tools[1].sizeBytes!);
+    expect(c.readOnlySizeBytes).toBe(c.tools[0].sizeBytes!);
+    expect(c.nonDestructiveSizeBytes).toBe(c.tools[0].sizeBytes!);
   });
 
   it("lists every collection with the tools the user can use, before filters", () => {
@@ -65,8 +77,26 @@ describe("buildCatalogue", () => {
       modules: [{
         id: "forms",
         collections: [
-          { name: "form", toolCount: 1, readOnlyToolCount: 0, nonDestructiveToolCount: 1, tools: [{ name: "list-forms", description: "", readOnly: false, destructive: false }] },
-          { name: "prevalue-source", toolCount: 1, readOnlyToolCount: 0, nonDestructiveToolCount: 1, tools: [{ name: "get-prevalue-source", description: "", readOnly: false, destructive: false }] },
+          {
+            name: "form",
+            toolCount: 1,
+            readOnlyToolCount: 0,
+            nonDestructiveToolCount: 1,
+            sizeBytes: expect.any(Number),
+            readOnlySizeBytes: 0,
+            nonDestructiveSizeBytes: expect.any(Number),
+            tools: [{ name: "list-forms", description: "", readOnly: false, destructive: false, sizeBytes: expect.any(Number) }],
+          },
+          {
+            name: "prevalue-source",
+            toolCount: 1,
+            readOnlyToolCount: 0,
+            nonDestructiveToolCount: 1,
+            sizeBytes: expect.any(Number),
+            readOnlySizeBytes: 0,
+            nonDestructiveSizeBytes: expect.any(Number),
+            tools: [{ name: "get-prevalue-source", description: "", readOnly: false, destructive: false, sizeBytes: expect.any(Number) }],
+          },
         ],
       }],
     });
@@ -92,7 +122,16 @@ describe("buildCatalogue", () => {
 
     const [module] = buildCatalogue("1", [{ module: mod("forms"), loaded: forms }], {}).modules;
 
-    expect(module.collections).toEqual([{ name: "form", toolCount: 3, readOnlyToolCount: 2, nonDestructiveToolCount: 3, tools: expect.any(Array) }]);
+    expect(module.collections).toEqual([{
+      name: "form",
+      toolCount: 3,
+      readOnlyToolCount: 2,
+      nonDestructiveToolCount: 3,
+      sizeBytes: expect.any(Number),
+      readOnlySizeBytes: expect.any(Number),
+      nonDestructiveSizeBytes: expect.any(Number),
+      tools: expect.any(Array),
+    }]);
   });
 
   it("reports nonDestructiveToolCount per collection", () => {
@@ -108,6 +147,33 @@ describe("buildCatalogue", () => {
     const [module] = buildCatalogue("1", [{ module: mod("forms"), loaded: forms }], {}).modules;
 
     expect(module.collections[0]).toMatchObject({ toolCount: 3, nonDestructiveToolCount: 2 });
+  });
+
+  it("measures tools/list byte size including input and output schemas for each filter variant", () => {
+    const forms = loaded([
+      collection("form", [
+        {
+          name: "get-form",
+          description: "Gets one form.",
+          inputSchema: { id: z.string() },
+          outputSchema: { id: z.string(), fields: z.array(z.string()).describe("A".repeat(200)) },
+          annotations: { readOnlyHint: true },
+        },
+        {
+          name: "delete-form",
+          description: "Deletes a form.",
+          inputSchema: { id: z.string() },
+          annotations: { destructiveHint: true },
+        },
+      ]),
+    ]);
+
+    const [c] = buildCatalogue("1", [{ module: mod("forms"), loaded: forms }], {}).modules[0].collections;
+    const [getForm, deleteForm] = c.tools;
+    expect(getForm.sizeBytes!).toBeGreaterThan(deleteForm.sizeBytes! + 200);
+    expect(c.sizeBytes).toBe(getForm.sizeBytes! + deleteForm.sizeBytes!);
+    expect(c.readOnlySizeBytes).toBe(getForm.sizeBytes!);
+    expect(c.nonDestructiveSizeBytes).toBe(getForm.sizeBytes!);
   });
 
   it("leaves out a module whose tools cannot be listed", () => {

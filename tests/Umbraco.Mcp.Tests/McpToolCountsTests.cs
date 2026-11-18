@@ -108,4 +108,38 @@ public class McpToolCountsTests
         Assert.That(Names(McpToolCounts.KeptTools(ToolModule(), product)), Is.EqualTo(new[] { "list-forms", "update-form", "delete-form" }));
         Assert.That(McpToolCounts.Effective(ToolModule(), product), Is.EqualTo(13));
     }
+
+    [Test]
+    public void EffectiveSizeBytes_uses_per_tool_sizes_and_level_variants()
+    {
+        var module = new McpModuleCatalogue(At,
+        [
+            new McpCollectionInfo("form", 3, Tools:
+            [
+                new McpToolInfo("list-forms", null, ReadOnly: true, Destructive: false, SizeBytes: 1000),
+                new McpToolInfo("update-form", null, ReadOnly: false, Destructive: false, SizeBytes: 2000),
+                new McpToolInfo("delete-form", null, ReadOnly: false, Destructive: true, SizeBytes: 500),
+            ], SizeBytes: 3500, ReadOnlySizeBytes: 1000, NonDestructiveSizeBytes: 3000),
+            new McpCollectionInfo("record", 10, ReadOnlyToolCount: 6, NonDestructiveToolCount: 8, SizeBytes: 8000, ReadOnlySizeBytes: 4000, NonDestructiveSizeBytes: 6000),
+        ]);
+
+        Assert.That(McpToolCounts.EffectiveSizeBytes(module, Forms(disabled: [])), Is.EqualTo(11500));
+        Assert.That(McpToolCounts.EffectiveSizeBytes(module, Forms(disabled: []) with { DisabledTools = ["update-form"] }), Is.EqualTo(9500));
+        Assert.That(McpToolCounts.EffectiveSizeBytes(module, Forms(disabled: [], readOnly: true)), Is.EqualTo(5000));
+        Assert.That(McpToolCounts.EffectiveSizeBytes(module, Forms(disabled: [], noDestructive: true) with { DisabledTools = ["update-form"] }), Is.EqualTo(7000));
+        Assert.That(McpToolCounts.EffectiveSizeBytes(module, Forms() with { Off = true }), Is.EqualTo(0));
+    }
+
+    [Test]
+    public void EffectiveSizeBytes_is_null_when_any_active_group_lacks_sizes()
+    {
+        var module = new McpModuleCatalogue(At,
+        [
+            new McpCollectionInfo("form", 3, SizeBytes: 3000),
+            new McpCollectionInfo("record", 10),
+        ]);
+
+        Assert.That(McpToolCounts.EffectiveSizeBytes(module, Forms(disabled: [])), Is.Null);
+        Assert.That(McpToolCounts.EffectiveSizeBytes(module, Forms(disabled: ["record"])), Is.EqualTo(3000));
+    }
 }

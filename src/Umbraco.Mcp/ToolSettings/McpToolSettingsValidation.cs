@@ -256,8 +256,20 @@ internal static class McpToolSettingsValidation
                 description = description[..MaxDescriptionLength];
             }
 
-            tools.Add(new McpToolInfo(toolName, description, tool.ReadOnly, tool.Destructive));
+            tools.Add(new McpToolInfo(toolName, description, tool.ReadOnly, tool.Destructive, tool.SizeBytes is int sb ? Math.Max(0, sb) : null));
         }
+
+        bool hasAllToolSizes = (tools.Count > 0 && tools.All(t => t.SizeBytes is not null))
+            || (tools.Count == 0 && info.SizeBytes is not null);
+        int? totalSize = hasAllToolSizes
+            ? tools.Sum(t => t.SizeBytes ?? 0)
+            : info.SizeBytes is int fallbackSize ? Math.Max(0, fallbackSize) : null;
+        int? readOnlySize = hasAllToolSizes
+            ? tools.Where(t => t.ReadOnly).Sum(t => t.SizeBytes ?? 0)
+            : ClampOptional(info.ReadOnlySizeBytes, totalSize);
+        int? nonDestructiveSize = hasAllToolSizes
+            ? tools.Where(t => !t.Destructive).Sum(t => t.SizeBytes ?? 0)
+            : ClampOptional(info.NonDestructiveSizeBytes, totalSize);
 
         result = new McpCollectionInfo(
             name,
@@ -265,20 +277,30 @@ internal static class McpToolSettingsValidation
             tools.Count(t => t.ReadOnly),
             info.DisabledByDefault,
             tools.Count(t => !t.Destructive),
-            tools);
+            tools,
+            totalSize,
+            readOnlySize,
+            nonDestructiveSize);
         return null;
     }
 
     private static McpCollectionInfo NormalizeCounts(string name, McpCollectionInfo info)
     {
         int toolCount = Math.Max(0, info.ToolCount);
+        int? sizeBytes = info.SizeBytes is int s ? Math.Max(0, s) : null;
         return new McpCollectionInfo(
             name,
             toolCount,
-            info.ReadOnlyToolCount is int readOnly ? Math.Clamp(readOnly, 0, toolCount) : null,
+            ClampOptional(info.ReadOnlyToolCount, toolCount),
             info.DisabledByDefault,
-            info.NonDestructiveToolCount is int nonDestructive ? Math.Clamp(nonDestructive, 0, toolCount) : null);
+            ClampOptional(info.NonDestructiveToolCount, toolCount),
+            SizeBytes: sizeBytes,
+            ReadOnlySizeBytes: ClampOptional(info.ReadOnlySizeBytes, sizeBytes),
+            NonDestructiveSizeBytes: ClampOptional(info.NonDestructiveSizeBytes, sizeBytes));
     }
+
+    private static int? ClampOptional(int? value, int? max) =>
+        value is int v && max is int m ? Math.Clamp(v, 0, m) : null;
 
     private static string? TryNormalizeToolList(IReadOnlyList<string?>? names, out List<string> clean)
     {

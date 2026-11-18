@@ -105,6 +105,9 @@ internal static class McpCatalogueFallback
                 NonDestructiveToolCount = Max(mine.NonDestructiveToolCount, other.NonDestructiveToolCount),
                 DisabledByDefault = mine.DisabledByDefault || other.DisabledByDefault,
                 Tools = MergeTools(mine.Tools, other.Tools),
+                SizeBytes = Max(mine.SizeBytes, other.SizeBytes),
+                ReadOnlySizeBytes = Max(mine.ReadOnlySizeBytes, other.ReadOnlySizeBytes),
+                NonDestructiveSizeBytes = Max(mine.NonDestructiveSizeBytes, other.NonDestructiveSizeBytes),
             };
         }
 
@@ -113,7 +116,7 @@ internal static class McpCatalogueFallback
             collections);
     }
 
-    /// <summary>Tools by name, in the order first seen with that tool's first flags; a report without a list adds nothing.</summary>
+    /// <summary>Tools by name, in the order first seen with that tool's first flags; fills missing <c>SizeBytes</c> from later reports.</summary>
     private static IReadOnlyList<McpToolInfo>? MergeTools(IReadOnlyList<McpToolInfo>? a, IReadOnlyList<McpToolInfo>? b)
     {
         if (a is null || b is null)
@@ -121,7 +124,8 @@ internal static class McpCatalogueFallback
             return a ?? b;
         }
 
-        var merged = a.ToList();
+        var otherSizes = b.Where(t => t.SizeBytes is not null).ToDictionary(t => t.Name, t => t.SizeBytes, StringComparer.Ordinal);
+        var merged = a.Select(t => t.SizeBytes is null && otherSizes.TryGetValue(t.Name, out int? sb) ? t with { SizeBytes = sb } : t).ToList();
         var seen = a.Select(t => t.Name).ToHashSet(StringComparer.Ordinal);
         merged.AddRange(b.Where(t => seen.Add(t.Name)));
         return merged;
