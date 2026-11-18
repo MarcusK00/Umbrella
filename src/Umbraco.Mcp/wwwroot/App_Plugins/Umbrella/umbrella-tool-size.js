@@ -1,5 +1,5 @@
 /**
- * Pure helpers for `tools/list` context size estimates on Tool Permissions and the API user Info modal.
+ * Pure helpers for `tools/list` context size visualizations on Tool Permissions and the API user Info modal.
  * Kept in its own module with zero backoffice imports so browsers never hit missing exports on cached older files,
  * and plain `node` can test it directly.
  */
@@ -16,10 +16,7 @@ export function estimateTokens(bytes) {
   return Math.ceil(Math.max(0, bytes) / 4);
 }
 
-/**
- * Compact approximate token figure (`~` signals an estimate without repeating "est." on every row).
- * Examples: `~45k` (compact) or `~45k tokens` (`unit: true`).
- */
+/** Compact approximate token figure: `~45k` or `~45k tokens` (`unit: true`). */
 export function formatApproxTokens(bytes, { unit = false } = {}) {
   const suffix = unit ? " tokens" : "";
   if (bytes <= 0) return `0${suffix}`;
@@ -59,34 +56,69 @@ export function groupKeptSizeBytes(collection, state) {
   return collection.toolCount === 0 ? 0 : null;
 }
 
-/** What a group would cost at `level` if switched on (used for sorting and showing size on Off groups). */
+/** What a group would cost at `level` if switched on. */
 export function groupPotentialSizeBytes(collection, level) {
   return groupKeptSizeBytes(collection, { level: level === "off" ? "full" : level, groupOn: true, disabledTools: new Set() });
 }
 
 /**
- * Total and kept bytes across a product's collections; returns `null` when any non-empty group lacks size data.
+ * Builds proportional footprint segments for the meter bar and per-group row hairlines.
+ * Returns `null` when any non-empty group lacks size data or the product has 0 total bytes.
  */
-export function moduleSizeSummary(collections, stateFor) {
+export function buildSizeSegments(collections, stateFor, maxNamed = 4) {
   if (!Array.isArray(collections) || collections.length === 0) return null;
+
   let totalBytes = 0;
   let keptBytes = 0;
+  const rows = [];
   for (const c of collections) {
-    const groupTotal = typeof c.sizeBytes === "number" ? c.sizeBytes : c.toolCount === 0 ? 0 : null;
-    const groupKept = groupKeptSizeBytes(c, stateFor(c));
-    if (groupTotal === null || groupKept === null) return null;
-    totalBytes += groupTotal;
-    keptBytes += groupKept;
+    const state = stateFor(c);
+    const fullBytes = typeof c.sizeBytes === "number" ? c.sizeBytes : c.toolCount === 0 ? 0 : null;
+    const kept = groupKeptSizeBytes(c, state);
+    const potential = groupPotentialSizeBytes(c, state.level);
+    if (fullBytes === null || kept === null || potential === null) return null;
+    totalBytes += fullBytes;
+    keptBytes += kept;
+    rows.push({ name: c.name, active: state.groupOn && state.level !== "off", kept, potential });
   }
-  return { keptBytes, totalBytes };
-}
+  if (totalBytes <= 0) return null;
 
-/** Sorts `{ collection, tools, matchedGroup }` entries by `"name"` (original order) or `"size"` (largest first). */
-export function sortGroupEntries(entries, sortBy, level) {
-  if (sortBy !== "size") return entries;
-  return [...entries].sort((a, b) => {
-    const sa = groupPotentialSizeBytes(a.collection, level) ?? -1;
-    const sb = groupPotentialSizeBytes(b.collection, level) ?? -1;
-    return sb - sa;
-  });
+  const activeSorted = rows
+    .filter((r) => r.active && r.kept > 0)
+    .sort((a, b) => b.kept - a.kept || a.name.localeCompare(b.name));
+
+  const top = activeSorted.slice(0, maxNamed);
+  const rest = activeSorted.slice(maxNamed);
+  const colorByName = new Map(top.map((r, i) => [r.name, i]));
+
+  const segments = top.map((r, i) => ({
+    kind: "group",
+    name: r.name,
+    bytes: r.kept,
+    pctOfTotal: (r.kept / totalBytes) * 100,
+    colorIndex: i,
+  }));
+  if (rest.length > 0) {
+    const restBytes = rest.reduce((sum, r) => sum + r.kept, 0);
+    segments.push({
+      kind: "other",
+      count: rest.length,
+      bytes: restBytes,
+      pctOfTotal: (restBytes / totalBytes) * 100,
+      colorIndex: -1,
+    });
+  }
+
+  const byGroup = new Map();
+  for (const r of rows) {
+    const bytes = r.active ? r.kept : r.potential;
+    byGroup.set(r.name, {
+      active: r.active,
+      bytes,
+      pctOfTotal: (bytes / totalBytes) * 100,
+      colorIndex: r.active ? (colorByName.get(r.name) ?? -1) : -1,
+    });
+  }
+
+  return { totalBytes, keptBytes, segments, byGroup };
 }
