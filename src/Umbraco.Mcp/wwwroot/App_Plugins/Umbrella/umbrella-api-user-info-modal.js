@@ -52,6 +52,9 @@ export class UmbrellaApiUserInfoModalElement extends UmbModalBaseElement {
   #renderAccess(user, products) {
     const names = Object.fromEntries((products ?? []).map((p) => [p.id, p.displayName]));
     if (!user.access?.length) return html`<p class="muted">No products reported for this API user yet.</p>`;
+    const hasSizes =
+      (user.sizeBytes !== null && user.sizeBytes !== undefined) ||
+      user.access.some((a) => a.sizeBytes !== null && a.sizeBytes !== undefined && a.level !== "off" && a.sectionAccess !== false);
     return html`<ul class="access">
       ${user.access.map((a) => {
         const level = a.sectionAccess === false ? "off" : a.level;
@@ -78,7 +81,10 @@ export class UmbrellaApiUserInfoModalElement extends UmbModalBaseElement {
           <strong>${tools(user.toolCount)}</strong>${user.sizeBytes !== null && user.sizeBytes !== undefined
             ? html` (<span title=${formatSizeTooltip(user.sizeBytes)}>${formatApproxTokens(user.sizeBytes, { unit: true })}</span>)`
             : nothing} in total at its last start.
-        </p>`}`;
+        </p>`}
+    ${hasSizes
+      ? html`<p class="size-note muted small">Token figures are rough estimates (~4 characters per token) and vary by model.</p>`
+      : nothing}`;
   }
 
   render() {
@@ -229,6 +235,9 @@ export class UmbrellaApiUserInfoModalElement extends UmbModalBaseElement {
       }
       .total-line {
         margin: var(--uui-size-space-3) 0 0;
+      }
+      .size-note {
+        margin: 4px 0 0;
       }
       uui-tag.compact-tag {
         flex: none;
