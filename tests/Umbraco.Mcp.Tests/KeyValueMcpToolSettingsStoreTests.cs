@@ -268,4 +268,25 @@ public class KeyValueMcpToolSettingsStoreTests
         Assert.That(store.GetDisabledCollections(), Is.Empty);
         Assert.That(store.GetAllUserOverrides().Keys, Is.EqualTo(new[] { UserA }));
     }
+
+    [Test]
+    public void Disabled_tools_round_trip_in_their_own_row()
+    {
+        var values = new FakeKeyValueService();
+
+        Store(values).SetDisabledTools(new Dictionary<string, IReadOnlyList<string>> { ["automate"] = ["publish-automation"] });
+
+        Assert.That(Store(values).GetDisabledTools()["automate"], Is.EqualTo(new[] { "publish-automation" }));
+        Assert.That(KeyValueMcpToolSettingsStore.DisabledToolsKey, Is.EqualTo("Umbraco.Mcp.DisabledTools"));
+        Assert.That(Store(new FakeKeyValueService()).GetDisabledTools(), Is.Empty);
+    }
+
+    [Test]
+    public void An_override_row_without_disabledTools_reads_as_none()
+    {
+        var values = new FakeKeyValueService();
+        values.SetValue(KeyValueMcpToolSettingsStore.UserOverridesKeyPrefix + UserA.ToString("D"), "{\"cms\":{\"disabledCollections\":[],\"level\":\"full\"}}");
+
+        Assert.That(Store(values).GetUserOverrides(UserA)["cms"].DisabledTools, Is.Empty);
+    }
 }

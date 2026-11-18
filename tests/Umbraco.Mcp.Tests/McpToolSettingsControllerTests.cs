@@ -715,4 +715,76 @@ public class McpToolSettingsControllerTests
         Assert.That(own.Modules["forms"].Collections.Single(), Is.EqualTo(new McpCollectionInfo("prevalue-source", 10)));
         Assert.That(own.Modules["forms"].ReportedAt, Is.InRange(before, DateTimeOffset.UtcNow));
     }
+
+    private static McpToolSettingsRequest ToolsRequest(IReadOnlyDictionary<string, IReadOnlyList<string>?>? tools) =>
+        new(new Dictionary<string, IReadOnlyList<string>?>(), null, null, null, tools);
+
+    [Test]
+    public void PutToolSettings_saves_disabledTools()
+    {
+        var store = new FakeToolSettingsStore();
+
+        IActionResult result = Controller(store).PutToolSettings(ToolsRequest(
+            new Dictionary<string, IReadOnlyList<string>?> { ["forms"] = [" a ", "a", "", "b"] }));
+
+        Assert.That(result, Is.InstanceOf<OkObjectResult>());
+        Assert.That(store.DisabledTools["forms"], Is.EqualTo(new[] { "a", "b" }));
+        Assert.That(((McpToolSettings)((OkObjectResult)result).Value!).DisabledTools["forms"], Is.EqualTo(new[] { "a", "b" }));
+    }
+
+    [Test]
+    public void PutToolSettings_without_disabledTools_clears_them()
+    {
+        var store = new FakeToolSettingsStore { DisabledTools = new() { ["forms"] = ["a"] } };
+
+        Controller(store).PutToolSettings(ToolsRequest(null));
+
+        Assert.That(store.DisabledTools, Is.Empty);
+    }
+
+    [Test]
+    public void PutToolSettings_rejects_an_unknown_product_in_disabledTools()
+    {
+        var store = new FakeToolSettingsStore();
+
+        IActionResult result = Controller(store).PutToolSettings(ToolsRequest(
+            new Dictionary<string, IReadOnlyList<string>?> { ["nope"] = ["a"] }));
+
+        Assert.That(result, Is.InstanceOf<BadRequestObjectResult>());
+        Assert.That(store.DisabledTools, Is.Empty);
+    }
+
+    [Test]
+    public void PutToolSettings_rejects_more_than_500_names()
+    {
+        var store = new FakeToolSettingsStore();
+
+        IActionResult result = Controller(store).PutToolSettings(ToolsRequest(
+            new Dictionary<string, IReadOnlyList<string>?> { ["forms"] = Enumerable.Range(0, 501).Select(i => "t" + i).ToList() }));
+
+        Assert.That(result, Is.InstanceOf<BadRequestObjectResult>());
+    }
+
+    [Test]
+    public async Task PutUserToolSettings_saves_override_disabledTools()
+    {
+        McpApiUserInfo ann = ApiUser("ann");
+        var store = new FakeToolSettingsStore();
+
+        IActionResult result = await Controller(store, directory: new FakeApiUserDirectory(ann)).PutUserToolSettings(ann.Key,
+            new McpUserToolSettingsRequest(new Dictionary<string, McpProductOverrideRequest?> { ["forms"] = new([], McpToolLevel.Full, [" a ", "a"]) }));
+
+        Assert.That(result, Is.InstanceOf<OkObjectResult>());
+        Assert.That(store.UserOverrides[ann.Key]["forms"].DisabledTools, Is.EqualTo(new[] { "a" }));
+    }
+
+    [Test]
+    public async Task GetToolSettings_returns_disabledTools()
+    {
+        var store = new FakeToolSettingsStore { DisabledTools = new() { ["forms"] = ["a"] } };
+
+        var body = (McpToolSettingsResponse)((OkObjectResult)await Controller(store).GetToolSettings()).Value!;
+
+        Assert.That(body.DisabledTools["forms"], Is.EqualTo(new[] { "a" }));
+    }
 }

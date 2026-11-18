@@ -11,6 +11,7 @@ internal static class McpToolSettingsValidation
     public const int MaxNameLength = 100;
     public const int MaxToolsPerCollection = 300;
     public const int MaxDescriptionLength = 200;
+    public const int MaxDisabledToolsPerProduct = 500;
 
     /// <returns>An error message, or null when <paramref name="result"/> holds the normalised lists.</returns>
     public static string? TryNormalizeSettings(
@@ -40,6 +41,42 @@ internal static class McpToolSettingsValidation
             if (error is not null)
             {
                 return $"{id}: {error}";
+            }
+
+            result[id] = clean;
+        }
+
+        return null;
+    }
+
+    /// <returns>An error message, or null when <paramref name="result"/> holds the normalised switched-off tool names. A missing input means none.</returns>
+    public static string? TryNormalizeToolNames(
+        IReadOnlyDictionary<string, IReadOnlyList<string>?>? input,
+        ISet<string> knownModuleIds,
+        out Dictionary<string, IReadOnlyList<string>> result)
+    {
+        result = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+        if (input is null)
+        {
+            return null;
+        }
+
+        if (input.Count > MaxModules)
+        {
+            return $"At most {MaxModules} modules are allowed.";
+        }
+
+        foreach ((string id, IReadOnlyList<string>? names) in input)
+        {
+            if (!knownModuleIds.Contains(id))
+            {
+                return $"disabledTools: \"{id}\" is not a product this site detects.";
+            }
+
+            string? error = TryNormalizeToolList(names, out List<string> clean);
+            if (error is not null)
+            {
+                return $"disabledTools: {id}: {error}";
             }
 
             result[id] = clean;
@@ -93,7 +130,13 @@ internal static class McpToolSettingsValidation
                 return $"{id}: {error}";
             }
 
-            result[id] = new McpProductOverride(clean, entry.Level!);
+            string? toolsError = TryNormalizeToolList(entry.DisabledTools, out List<string> tools);
+            if (toolsError is not null)
+            {
+                return $"{id}: {toolsError}";
+            }
+
+            result[id] = new McpProductOverride(clean, entry.Level!, tools);
         }
 
         return null;
@@ -235,6 +278,17 @@ internal static class McpToolSettingsValidation
             info.ReadOnlyToolCount is int readOnly ? Math.Clamp(readOnly, 0, toolCount) : null,
             info.DisabledByDefault,
             info.NonDestructiveToolCount is int nonDestructive ? Math.Clamp(nonDestructive, 0, toolCount) : null);
+    }
+
+    private static string? TryNormalizeToolList(IReadOnlyList<string?>? names, out List<string> clean)
+    {
+        clean = (names ?? []).Where(n => n is not null).Select(n => n!.Trim()).Where(n => n.Length > 0).Distinct(StringComparer.Ordinal).ToList();
+        if (clean.Count > MaxDisabledToolsPerProduct)
+        {
+            return $"At most {MaxDisabledToolsPerProduct} switched-off tools are allowed per product.";
+        }
+
+        return clean.Any(n => n.Length > MaxNameLength) ? $"Tool names must be at most {MaxNameLength} characters." : null;
     }
 
     private static string? TryNormalizeNames(IReadOnlyList<string?>? names, out List<string> clean)

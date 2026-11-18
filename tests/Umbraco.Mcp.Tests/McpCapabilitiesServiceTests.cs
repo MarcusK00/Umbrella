@@ -379,4 +379,19 @@ public class McpCapabilitiesServiceTests
 
         Assert.That(json, Does.Contain("\"settingsScope\":\"site\""));
     }
+
+    [Test]
+    public void Capabilities_use_the_overrides_disabledTools_all_or_nothing()
+    {
+        var store = new FakeToolSettingsStore
+        {
+            DisabledTools = new() { ["forms"] = ["a"] },
+            UserOverrides = new() { [ApiUser] = new Dictionary<string, McpProductOverride> { ["forms"] = new([], McpToolLevel.Full, ["b"]) } },
+        };
+        McpCapabilitiesService service = TwoProducts(store);
+
+        Assert.That(service.GetCapabilities(ApiUser).Products.Single(p => p.Id == "forms").DisabledTools, Is.EqualTo(new[] { "b" }));
+        Assert.That(service.GetCapabilities().Products.Single(p => p.Id == "forms").DisabledTools, Is.EqualTo(new[] { "a" }));
+        Assert.That(JsonSerializer.Serialize(service.GetCapabilities(), new JsonSerializerOptions(JsonSerializerDefaults.Web)), Does.Contain("\"disabledTools\":[\"a\"]"));
+    }
 }

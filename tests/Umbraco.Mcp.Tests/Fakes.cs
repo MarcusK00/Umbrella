@@ -118,6 +118,8 @@ internal sealed class FakeToolSettingsStore : IMcpToolSettingsStore
 {
     public Dictionary<string, IReadOnlyList<string>> Disabled { get; set; } = new();
 
+    public Dictionary<string, IReadOnlyList<string>> DisabledTools { get; set; } = new();
+
     public List<string> ReadOnly { get; set; } = [];
 
     public List<string> NoDestructive { get; set; } = [];
@@ -143,6 +145,11 @@ internal sealed class FakeToolSettingsStore : IMcpToolSettingsStore
 
     public void SetDisabledCollections(IReadOnlyDictionary<string, IReadOnlyList<string>> disabled) =>
         Disabled = new Dictionary<string, IReadOnlyList<string>>(disabled);
+
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> GetDisabledTools() => Throws is null ? DisabledTools : throw Throws;
+
+    public void SetDisabledTools(IReadOnlyDictionary<string, IReadOnlyList<string>> disabled) =>
+        DisabledTools = new Dictionary<string, IReadOnlyList<string>>(disabled);
 
     public IReadOnlyList<string> GetReadOnlyModules() => Throws is null ? ReadOnly : throw Throws;
 
