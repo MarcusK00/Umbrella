@@ -19,7 +19,7 @@ import { HEALTH_TOOL_NAME, registerHealthTool, type HealthState, type ModuleRunt
 import type { LoadedModule, McpProductModule } from "./module-contract.js";
 import { parseForcedModules, selectModules } from "./module-selection.js";
 import { buildRoutingInstructions, buildToolNameIndex } from "./routing.js";
-import { checkPackageInstalled, checkSingleSdk } from "./sdk-instance.js";
+import { checkPackageInstalled, checkPackageMajor, checkSingleSdk } from "./sdk-instance.js";
 import { describeStartupError } from "./startup-error.js";
 import { DuplicateToolNameError, listToolNames, registerModuleTools, type RegistrationContext } from "./tool-registrar.js";
 
@@ -96,6 +96,9 @@ export async function startServer(options: {
     states.push(state);
     if (!decision.load) continue;
     if (decision.module.required) {
+      // CMS has to load, so a package for another major only gets an issue.
+      const majorIssue = checkPackageMajor(decision.module.packageName, decision.module.displayName, decision.module.expectedMajor);
+      if (majorIssue) state.issues.push(majorIssue);
       ready.push({ state, loaded: cmsLoaded });
       continue;
     }
@@ -108,6 +111,11 @@ export async function startServer(options: {
       const sdkIssue = checkSingleSdk(decision.module.packageName);
       if (sdkIssue) {
         state.issues.push(sdkIssue);
+        continue;
+      }
+      const majorIssue = checkPackageMajor(decision.module.packageName, decision.module.displayName, decision.module.expectedMajor);
+      if (majorIssue) {
+        state.issues.push(`${majorIssue} Module skipped.`);
         continue;
       }
       ready.push({ state, loaded: await decision.module.load() });

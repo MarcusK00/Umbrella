@@ -33,6 +33,39 @@ export function checkSingleSdk(packageName: string): string | null {
   return null;
 }
 
+/** The installed version of a product package, read from its package.json; null when it can't be read. */
+export function installedPackageVersion(
+  packageName: string,
+  resolve: (specifier: string) => string = (specifier) => import.meta.resolve(specifier),
+): string | null {
+  try {
+    const dir = findPackageDir(fileURLToPath(resolve(`${packageName}/collections`)), packageName);
+    if (!dir) return null;
+    const version = (JSON.parse(readFileSync(join(dir, "package.json"), "utf8")) as { version?: unknown }).version;
+    return typeof version === "string" ? version : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Returns an issue message when the installed product package is for another Umbraco major than this server
+ * (for example a checkout whose node_modules still holds the v18 packages), else null. Such a package's tools
+ * describe another API version, so calls fail in ways that look like product bugs. An unreadable version passes.
+ */
+export function checkPackageMajor(
+  packageName: string,
+  displayName: string,
+  expectedMajor: string,
+  readVersion: (packageName: string) => string | null = installedPackageVersion,
+): string | null {
+  const version = readVersion(packageName);
+  if (!version) return null;
+  const major = version.split(".")[0];
+  if (major === expectedMajor) return null;
+  return `${packageName} ${version} is installed, but this umbrella-mcp is for Umbraco ${expectedMajor}, so ${displayName} tools may not match the site. Reinstall umbrella-mcp's dependencies (npm ci).`;
+}
+
 /**
  * Returns an issue message when a product package is not installed with the server (for example a product that
  * is a local-tarball devDependency until a release exporting `createApiClient` is published), else null.

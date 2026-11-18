@@ -508,6 +508,7 @@ footer { margin-block-start: 72px; padding-block-start: 20px; border-top: 1px so
       <li><code>overrides</code> only apply in the root project, so under <code>npx</code> one copy relies on every product package depending on a compatible version. Today they all resolve to the same one.</li>
       <li><code>scripts/pack-check.sh</code> installs the packed package the way users do and fails if a product's tools are missing.</li>
       <li>At runtime, <code>checkSingleSdk</code> skips a product with its own nested copy and reports it in <code>get-mcp-health</code>, so it can't break the others.</li>
+      <li><code>checkPackageMajor</code> skips a product whose installed package is for another Umbraco major (a stale <code>node_modules</code> after switching branches) and reports it in <code>get-mcp-health</code>; for CMS it only reports it.</li>
     </ul>
 
     <h3 class="sub">Why declare it at all?</h3>
@@ -760,7 +761,7 @@ footer { margin-block-start: 72px; padding-block-start: 20px; border-top: 1px so
           <text class="s" x="598" y="320">One level per product. Off never gets here: the module isn't loaded.</text>
         </svg>
       </div>
-      <figcaption>After these gates, <code>registerModuleTools</code> also skips every tool switched off by name (<code>disabledTools</code> in capabilities); the catalogue lists each tool so the dashboard can show them. The collection variables UMBRACO_INCLUDE/EXCLUDE_TOOL_COLLECTIONS are no longer read; get-mcp-health says so when one is set. The catalogue sent back to the site is built before any of these gates, so the dashboard can show switched-off groups too.</figcaption>
+      <figcaption>After these gates, <code>registerModuleTools</code> also skips every tool switched off by name (<code>disabledTools</code> in capabilities); the catalogue lists each tool so the dashboard can show them. The collection variables UMBRACO_INCLUDE/EXCLUDE_TOOL_COLLECTIONS are no longer read; get-mcp-health says so when one is set. The catalogue sent back to the site is built before any of these gates, so the dashboard can show switched-off groups too. Each registered tool can carry Umbrella's tool patches (<code>tool-patches.ts</code>), which work around product package bugs by rewriting its description or input schema and wrapping its handler.</figcaption>
     </figure>
   </section>
 
