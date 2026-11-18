@@ -278,6 +278,15 @@ public sealed class McpOverviewService(
                     productFindings.Add(new(McpFinding.Warning, McpFindingArea.Products,
                         $"{name}: installed, but not loaded when {JoinNames(missed)} last started umbrella-mcp. Its get-mcp-health tool says why."));
                 }
+
+                if (p.Issues.Count == 0 && p.Enabled
+                    && IgnoringDisabledTools(p, users ?? [], userCatalogues, userCapabilities) is { Count: > 0 } ignoring)
+                {
+                    int count = (userCapabilities?.GetValueOrDefault(users!.First(u => ignoring[0] == $"\"{u.Name}\"").Key)?.Products
+                        .FirstOrDefault(x => x.Id == p.Id) ?? p).DisabledTools.Count;
+                    productFindings.Add(new(McpFinding.Warning, McpFindingArea.Products,
+                        $"{p.DisplayName}: {count} tools are switched off, but the MCP server of {JoinNames(ignoring)} is older and still offers them. {UseAddonVersion(addonVersion)}"));
+                }
             }
         }
 
@@ -355,6 +364,37 @@ public sealed class McpOverviewService(
         }
 
         return missed;
+    }
+
+    /// <summary>
+    /// The connected users whose resolved settings switch tools off in the product while their last start reported the
+    /// module without per-tool lists: an older server that ignores the switches. Users without a report of their own are
+    /// not judged.
+    /// </summary>
+    private static List<string> IgnoringDisabledTools(
+        McpProductStatus product,
+        IReadOnlyList<McpApiUser> users,
+        IReadOnlyDictionary<Guid, McpToolCatalogue>? userCatalogues,
+        IReadOnlyDictionary<Guid, McpCapabilities>? userCapabilities)
+    {
+        var names = new List<string>();
+        foreach (McpApiUser user in users)
+        {
+            if (userCatalogues?.GetValueOrDefault(user.Key) is not { } own
+                || !own.Modules.TryGetValue(product.Id, out McpModuleCatalogue? module)
+                || module.Collections.Any(c => c.Tools is not null))
+            {
+                continue;
+            }
+
+            McpProductStatus resolved = userCapabilities?.GetValueOrDefault(user.Key)?.Products.FirstOrDefault(p => p.Id == product.Id) ?? product;
+            if (resolved.DisabledTools.Count > 0 && !resolved.Off)
+            {
+                names.Add($"\"{user.Name}\"");
+            }
+        }
+
+        return names;
     }
 
     private static string JoinNames(IReadOnlyList<string> names) =>

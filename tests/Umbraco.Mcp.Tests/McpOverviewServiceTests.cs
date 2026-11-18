@@ -749,4 +749,67 @@ public class McpOverviewServiceTests
         Assert.That(row.Connected, Is.True);
         Assert.That(row.Sections, Is.EqualTo(new[] { "Umb.Section.Forms", "Ua.Section.Automate" }));
     }
+
+    private static async Task<List<McpFinding>> ToolWarnings(
+        McpToolCatalogue? own, McpProductStatus automate)
+    {
+        McpApiUser ana = NamedUser("Ana");
+        McpProductStatus[] products = [AllProducts[0], AllProducts[1], automate];
+        var service = Service(
+            settings: new FakeToolSettingsStore { UserCatalogues = own is not null ? new() { [ana.Key] = own } : new() },
+            users: new FakeApiUserProvider(ana),
+            caps: new StubCapabilities(
+                new McpCapabilities(Addon, AllProducts),
+                new Dictionary<Guid, McpCapabilities> { [ana.Key] = new McpCapabilities(Addon, products) }));
+
+        McpOverview overview = await service.GetOverviewAsync();
+        return overview.Findings.Where(f => f.Area == McpFindingArea.Products && f.Message.Contains("switched off")).ToList();
+    }
+
+    private static McpProductStatus AutomateWith(params string[] disabledTools) =>
+        Product("automate", "Umbraco Automate") with { DisabledTools = disabledTools };
+
+    private static McpToolCatalogue OlderReport() => OwnCatalogue(Addon, Reported, ("cms", 1), ("forms", 1), ("automate", 3));
+
+    [Test]
+    public async Task Warns_when_an_older_server_ignores_switched_off_tools()
+    {
+        List<McpFinding> found = await ToolWarnings(OlderReport(), AutomateWith("publish-automation", "trigger-automation"));
+
+        Assert.That(found.Select(f => (f.Severity, f.Message)), Is.EqualTo(new[]
+        {
+            (McpFinding.Warning, "Umbraco Automate: 2 tools are switched off, but the MCP server of \"Ana\" is older and still offers them. Set umbrella-mcp@17.0.0, the add-on's version, in the AI tool's MCP configuration."),
+        }));
+    }
+
+    [Test]
+    public async Task No_warning_when_the_server_reports_tools()
+    {
+        McpToolCatalogue own = new(Addon, new Dictionary<string, McpModuleCatalogue>
+        {
+            ["cms"] = new(Reported, [new McpCollectionInfo("a", 1)]),
+            ["forms"] = new(Reported, [new McpCollectionInfo("a", 1)]),
+            ["automate"] = new(Reported, [new McpCollectionInfo("a", 1, Tools: [new McpToolInfo("publish-automation", null, false, false)])]),
+        });
+
+        Assert.That(await ToolWarnings(own, AutomateWith("publish-automation")), Is.Empty);
+    }
+
+    [Test]
+    public async Task No_warning_when_nothing_is_switched_off()
+    {
+        Assert.That(await ToolWarnings(OlderReport(), AutomateWith()), Is.Empty);
+    }
+
+    [Test]
+    public async Task No_warning_when_the_product_is_off_for_the_user()
+    {
+        Assert.That(await ToolWarnings(OlderReport(), AutomateWith("publish-automation") with { Off = true }), Is.Empty);
+    }
+
+    [Test]
+    public async Task No_warning_for_a_user_without_its_own_report()
+    {
+        Assert.That(await ToolWarnings(null, AutomateWith("publish-automation")), Is.Empty);
+    }
 }
