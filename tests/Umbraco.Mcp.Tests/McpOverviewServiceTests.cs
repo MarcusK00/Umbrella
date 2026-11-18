@@ -58,12 +58,12 @@ public class McpOverviewServiceTests
         new(Guid.NewGuid(), name, UserState.Active, ["Umb.Section.Forms", "Ua.Section.Automate"], ["umbraco-back-office-mcp"], Reported);
 
     private static McpToolCatalogue OwnCatalogue(string version, DateTimeOffset at, params (string Id, int Tools)[] modules) =>
-        new(version, modules.ToDictionary(m => m.Id, m => new McpModuleCatalogue(at, false, [new McpCollectionInfo("a", m.Tools)])));
+        new(version, modules.ToDictionary(m => m.Id, m => new McpModuleCatalogue(at, [new McpCollectionInfo("a", m.Tools)])));
 
     private static McpToolCatalogue Catalogue(string? version = Addon, params (string Id, int Tools)[] modules) =>
         new(version, modules.ToDictionary(
             m => m.Id,
-            m => new McpModuleCatalogue(Reported, false, [new McpCollectionInfo("a", m.Tools)])));
+            m => new McpModuleCatalogue(Reported, [new McpCollectionInfo("a", m.Tools)])));
 
     private static IReadOnlyList<McpFinding> Findings(
         McpCapabilities? caps = null,
@@ -239,8 +239,8 @@ public class McpOverviewServiceTests
         McpProductStatus[] own = AllProducts.Select(p => p.Id == "forms" ? p with { Off = true, ReadOnly = false, SettingsScope = McpSettingsScope.User } : p).ToArray();
         var catalogue = new McpToolCatalogue(Addon, new Dictionary<string, McpModuleCatalogue>
         {
-            ["cms"] = new(Reported, false, [new McpCollectionInfo("a", 3)]),
-            ["forms"] = new(Reported, false, [new McpCollectionInfo("a", 4)]),
+            ["cms"] = new(Reported, [new McpCollectionInfo("a", 3)]),
+            ["forms"] = new(Reported, [new McpCollectionInfo("a", 4)]),
         });
         var service = Service(
             settings: new FakeToolSettingsStore { UserCatalogues = { [user.Key] = catalogue } },
@@ -337,8 +337,8 @@ public class McpOverviewServiceTests
     {
         var catalogue = new McpToolCatalogue(Addon, new Dictionary<string, McpModuleCatalogue>
         {
-            ["cms"] = new(Reported.AddHours(-2), false, []),
-            ["forms"] = new(Reported, false, []),
+            ["cms"] = new(Reported.AddHours(-2), []),
+            ["forms"] = new(Reported, []),
         });
         var service = Service(settings: new FakeToolSettingsStore { Catalogue = catalogue });
 
@@ -401,8 +401,8 @@ public class McpOverviewServiceTests
         ];
         var catalogue = new McpToolCatalogue(Addon, new Dictionary<string, McpModuleCatalogue>
         {
-            ["cms"] = new(Reported, false, [new McpCollectionInfo("a", 3)]),
-            ["forms"] = new(Reported, false, [new McpCollectionInfo("a", 4, 1), new McpCollectionInfo("b", 6, 2)]),
+            ["cms"] = new(Reported, [new McpCollectionInfo("a", 3)]),
+            ["forms"] = new(Reported, [new McpCollectionInfo("a", 4, 1), new McpCollectionInfo("b", 6, 2)]),
         });
         var service = Service(
             settings: new FakeToolSettingsStore { UserCatalogues = { [user.Key] = catalogue } },
@@ -430,9 +430,9 @@ public class McpOverviewServiceTests
         // An older umbrella-mcp still loaded Automate; its API refuses the tools all the same.
         var catalogue = new McpToolCatalogue(Addon, new Dictionary<string, McpModuleCatalogue>
         {
-            ["cms"] = new(Reported, false, [new McpCollectionInfo("a", 3)]),
-            ["forms"] = new(Reported, false, [new McpCollectionInfo("a", 4)]),
-            ["automate"] = new(Reported, false, [new McpCollectionInfo("a", 9)]),
+            ["cms"] = new(Reported, [new McpCollectionInfo("a", 3)]),
+            ["forms"] = new(Reported, [new McpCollectionInfo("a", 4)]),
+            ["automate"] = new(Reported, [new McpCollectionInfo("a", 9)]),
         });
         var service = Service(
             settings: new FakeToolSettingsStore { UserCatalogues = { [user.Key] = catalogue } },
@@ -463,8 +463,8 @@ public class McpOverviewServiceTests
         ];
         var catalogue = new McpToolCatalogue(Addon, new Dictionary<string, McpModuleCatalogue>
         {
-            ["cms"] = new(Reported, false, [new McpCollectionInfo("a", 3), new McpCollectionInfo("b", 5)]),
-            ["forms"] = new(Reported, false, [new McpCollectionInfo("a", 4)]),
+            ["cms"] = new(Reported, [new McpCollectionInfo("a", 3), new McpCollectionInfo("b", 5)]),
+            ["forms"] = new(Reported, [new McpCollectionInfo("a", 4)]),
         });
         var service = Service(
             settings: new FakeToolSettingsStore { UserCatalogues = { [user.Key] = catalogue } },
@@ -477,26 +477,6 @@ public class McpOverviewServiceTests
 
         Assert.That(row.Access.Select(a => a.ToolCount), Is.EqualTo(new int?[] { 3, 4, 0 }));
         Assert.That(row.ToolCount, Is.EqualTo(7));
-    }
-
-    [Test]
-    public async Task User_tool_counts_are_unknown_where_the_server_environment_sets_its_own_filters()
-    {
-        McpApiUser user = NamedUser("Anna");
-        var catalogue = new McpToolCatalogue(Addon, new Dictionary<string, McpModuleCatalogue>
-        {
-            ["cms"] = new(Reported, false, [new McpCollectionInfo("a", 3)]),
-            ["forms"] = new(Reported, true, [new McpCollectionInfo("a", 4)]),
-        });
-        var service = Service(
-            settings: new FakeToolSettingsStore { UserCatalogues = { [user.Key] = catalogue } },
-            users: new FakeApiUserProvider(user));
-
-        McpOverviewApiUser row = (await service.GetOverviewAsync()).ApiUsers.Single();
-
-        Assert.That(row.Access.Single(a => a.ProductId == "forms").ToolCount, Is.Null);
-        Assert.That(row.Access.Single(a => a.ProductId == "cms").ToolCount, Is.EqualTo(3));
-        Assert.That(row.ToolCount, Is.Null);
     }
 
     [Test]

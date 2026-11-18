@@ -9,6 +9,8 @@ internal static class McpToolSettingsValidation
     public const int MaxModules = 50;
     public const int MaxCollections = 200;
     public const int MaxNameLength = 100;
+    public const int MaxToolsPerCollection = 300;
+    public const int MaxDescriptionLength = 200;
 
     /// <returns>An error message, or null when <paramref name="result"/> holds the normalised lists.</returns>
     public static string? TryNormalizeSettings(
@@ -127,8 +129,19 @@ internal static class McpToolSettingsValidation
                 return $"{id}: {error}";
             }
 
-            var byName = collections.Where(c => c?.Name is not null).GroupBy(c => c.Name.Trim()).ToDictionary(g => g.Key, g => NormalizeCounts(g.Key, g.First()));
-            modules.Add(new McpModuleReport(id, module.SiteSettingsIgnored, names.Select(n => byName[n]).ToList()));
+            var byName = new Dictionary<string, McpCollectionInfo>(StringComparer.Ordinal);
+            foreach (IGrouping<string, McpCollectionInfo> group in collections.Where(c => c?.Name is not null).GroupBy(c => c.Name.Trim()))
+            {
+                string? collectionError = TryNormalizeCollection(group.Key, group.First(), out McpCollectionInfo normalised);
+                if (collectionError is not null)
+                {
+                    return $"{id}: {collectionError}";
+                }
+
+                byName[group.Key] = normalised;
+            }
+
+            modules.Add(new McpModuleReport(id, names.Select(n => byName[n]).ToList()));
         }
 
         string version = report.UmbrellaVersion?.Trim() ?? string.Empty;
@@ -163,6 +176,55 @@ internal static class McpToolSettingsValidation
         offIds.Contains(McpProducts.RequiredId, StringComparer.Ordinal)
             ? "CMS cannot be switched off: the MCP server signs in through it."
             : null;
+
+    private static string? TryNormalizeCollection(string name, McpCollectionInfo info, out McpCollectionInfo result)
+    {
+        result = info;
+        if (info.Tools is null)
+        {
+            result = NormalizeCounts(name, info);
+            return null;
+        }
+
+        if (info.Tools.Count > MaxToolsPerCollection)
+        {
+            return $"{name}: at most {MaxToolsPerCollection} tools are allowed in a collection.";
+        }
+
+        // Names are trimmed and unique (the first one wins); counts come from the list, not from what the client sent.
+        var tools = new List<McpToolInfo>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (McpToolInfo? tool in info.Tools)
+        {
+            string toolName = tool?.Name?.Trim() ?? string.Empty;
+            if (toolName.Length == 0 || !seen.Add(toolName))
+            {
+                continue;
+            }
+
+            if (toolName.Length > MaxNameLength)
+            {
+                return $"{name}: tool names must be at most {MaxNameLength} characters.";
+            }
+
+            string? description = tool!.Description;
+            if (description is not null && description.Length > MaxDescriptionLength)
+            {
+                description = description[..MaxDescriptionLength];
+            }
+
+            tools.Add(new McpToolInfo(toolName, description, tool.ReadOnly, tool.Destructive));
+        }
+
+        result = new McpCollectionInfo(
+            name,
+            tools.Count,
+            tools.Count(t => t.ReadOnly),
+            info.DisabledByDefault,
+            tools.Count(t => !t.Destructive),
+            tools);
+        return null;
+    }
 
     private static McpCollectionInfo NormalizeCounts(string name, McpCollectionInfo info)
     {
