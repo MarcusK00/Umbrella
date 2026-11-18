@@ -11,15 +11,15 @@ import {
   useDraft202012ToolSchemas,
   type HttpResponse,
 } from "@umbraco-cms/mcp-server-sdk";
-import { fetchCapabilities, siteDisabledCollections, siteNoDestructive, siteReadOnly, siteSettingsScope } from "./capabilities.js";
+import { fetchCapabilities, siteDisabledCollections, siteDisabledTools, siteNoDestructive, siteReadOnly, siteSettingsScope } from "./capabilities.js";
 import { buildCatalogue, reportCatalogue, type CatalogueReportResult } from "./catalogue.js";
 import { installClientContext } from "./client-context.js";
-import { buildEffectiveFilterInput, envNoDestructive, envReadOnly } from "./filter-config.js";
+import { buildEffectiveFilterInput, envNoDestructive, envReadOnly, removedCollectionEnvVars } from "./filter-config.js";
 import { HEALTH_TOOL_NAME, registerHealthTool, type HealthState, type ModuleRuntimeState } from "./health.js";
 import type { LoadedModule, McpProductModule } from "./module-contract.js";
 import { parseForcedModules, selectModules } from "./module-selection.js";
 import { buildRoutingInstructions, buildToolNameIndex } from "./routing.js";
-import { checkPackageInstalled, checkSingleSdk } from "./sdk-instance.js";
+import { checkPackageInstalled, checkPackageMajor, checkSingleSdk } from "./sdk-instance.js";
 import { describeStartupError } from "./startup-error.js";
 import { DuplicateToolNameError, listToolNames, registerModuleTools, type RegistrationContext } from "./tool-registrar.js";
 
@@ -96,6 +96,9 @@ export async function startServer(options: {
     states.push(state);
     if (!decision.load) continue;
     if (decision.module.required) {
+      // CMS has to load, so a package for another major only gets an issue.
+      const majorIssue = checkPackageMajor(decision.module.packageName, decision.module.displayName, decision.module.expectedMajor);
+      if (majorIssue) state.issues.push(majorIssue);
       ready.push({ state, loaded: cmsLoaded });
       continue;
     }
@@ -108,6 +111,11 @@ export async function startServer(options: {
       const sdkIssue = checkSingleSdk(decision.module.packageName);
       if (sdkIssue) {
         state.issues.push(sdkIssue);
+        continue;
+      }
+      const majorIssue = checkPackageMajor(decision.module.packageName, decision.module.displayName, decision.module.expectedMajor);
+      if (majorIssue) {
+        state.issues.push(`${majorIssue} Module skipped.`);
         continue;
       }
       ready.push({ state, loaded: await decision.module.load() });
@@ -143,19 +151,19 @@ export async function startServer(options: {
       state.siteReadOnly = siteReadOnly(capabilities, module.id);
       state.siteNoDestructive = siteNoDestructive(capabilities, module.id);
       state.siteSettingsScope = siteSettingsScope(capabilities, module.id);
-      const { config, siteSettingsIgnored, defaultsApplied, excludeDestructive } = buildEffectiveFilterInput(
+      const { config, defaultsApplied, excludeDestructive } = buildEffectiveFilterInput(
         env, module.id, module.required === true, siteDisabled, state.siteReadOnly, module.defaultDisabledCollections, state.siteNoDestructive,
       );
-      state.siteSettingsIgnored = siteSettingsIgnored;
       state.defaultDisabledCollections = defaultsApplied;
       const filter = createCollectionConfigLoader({
         modeRegistry: loaded.allModes,
         allModeNames: loaded.allModeNames,
         allSliceNames: loaded.allSliceNames,
       }).loadFromConfig(config);
-      const result = registerModuleTools(ctx, module, loaded, filter, { excludeDestructive });
+      const result = registerModuleTools(ctx, module, loaded, filter, { excludeDestructive, disabledTools: new Set(siteDisabledTools(capabilities, module.id)) });
       state.toolCount = result.registered;
       state.destructiveRemoved = result.destructiveRemoved;
+      state.disabledToolsRemoved = result.disabledRemoved;
       state.loaded = true;
     } catch (error) {
       if (error instanceof DuplicateToolNameError || module.required) throw error;
@@ -168,7 +176,7 @@ export async function startServer(options: {
   if (capabilities.kind === "ok") {
     catalogueReport = await reportCatalogue(buildCatalogue(
       version,
-      ready.map(({ state, loaded }) => ({ module: state.decision.module, loaded, siteSettingsIgnored: state.siteSettingsIgnored ?? false })),
+      ready.map(({ state, loaded }) => ({ module: state.decision.module, loaded })),
       user,
     ));
   }
@@ -178,6 +186,7 @@ export async function startServer(options: {
     capabilities, serverVersion: version, umbracoVersion, versionCheckMessage, forcedModules, modules: states, catalogueReport,
     noDestructiveFromEnv: envNoDestructive(env),
     readOnlyFromEnv: envReadOnly(env),
+    removedEnvVars: removedCollectionEnvVars(env),
     apiUserName: typeof apiUserName === "string" && apiUserName.length > 0 ? apiUserName : null,
   };
   registerHealthTool(server, () => healthState);

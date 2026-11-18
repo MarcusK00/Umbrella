@@ -11,6 +11,7 @@ import { bindClient } from "./client-context.js";
 import type { LoadedModule, McpProductModule } from "./module-contract.js";
 import { isDestructive } from "./destructive.js";
 import { buildToolNameIndex, describeTool, prefixToolReferences, type ToolNameIndex } from "./routing.js";
+import { applyToolPatches, generalPatches, type ToolHandler } from "./tool-patches.js";
 
 export class DuplicateToolNameError extends Error {
   constructor(public readonly toolName: string, existingModule: string, newModule: string) {
@@ -33,10 +34,11 @@ export function registerModuleTools(
   module: McpProductModule,
   loaded: LoadedModule,
   filter: CollectionConfiguration,
-  options: { excludeDestructive?: boolean } = {},
-): { registered: number; destructiveRemoved: number } {
+  options: { excludeDestructive?: boolean; disabledTools?: ReadonlySet<string> } = {},
+): { registered: number; destructiveRemoved: number; disabledRemoved: string[] } {
   let count = 0;
   let destructiveRemoved = 0;
+  const disabledRemoved: string[] = [];
   const ownIndex = buildToolNameIndex([{ module, toolNames: listToolNames(loaded, ctx.user) }]);
   const index = new Map([...(ctx.toolNames ?? []), ...ownIndex]);
   const references = (text: string) => prefixToolReferences(text, module, index);
@@ -49,6 +51,11 @@ export function registerModuleTools(
         destructiveRemoved++;
         continue;
       }
+      // After the group filter and the level, so only a tool that would have been offered is counted, and an include list can't bring it back.
+      if (options.disabledTools?.has(tool.name)) {
+        disabledRemoved.push(tool.name);
+        continue;
+      }
 
       const name = `${module.toolPrefix}${tool.name}`;
       const owner = ctx.registered.get(name);
@@ -56,20 +63,27 @@ export function registerModuleTools(
       ctx.registered.set(name, module.id);
       registerToolCollection(name, `${module.id}:${collectionName}`);
 
+      const patches = [...generalPatches(tool.inputSchema), ...(module.toolPatches?.[tool.name] ? [module.toolPatches[tool.name]] : [])];
+      const patched = applyToolPatches(
+        { description: tool.description, inputSchema: tool.inputSchema, handler: tool.handler as ToolHandler },
+        patches,
+        loaded.createApiClient,
+      );
+
       ctx.server.registerTool(
         name,
         {
-          description: describeTool(module, references(tool.description)),
-          inputSchema: tool.inputSchema && prefixInputReferences(tool.inputSchema, references),
+          description: describeTool(module, references(patched.description)),
+          inputSchema: patched.inputSchema && prefixInputReferences(patched.inputSchema, references),
           outputSchema: getRegisteredOutputSchema(tool),
           annotations: createToolAnnotations(tool),
         },
-        bindClient(loaded.createApiClient, tool.handler as (...args: unknown[]) => unknown) as ToolCallback<any>,
+        bindClient(loaded.createApiClient, patched.handler as (...args: unknown[]) => unknown) as ToolCallback<ZodRawShape>,
       );
       count++;
     }
   }
-  return { registered: count, destructiveRemoved };
+  return { registered: count, destructiveRemoved, disabledRemoved };
 }
 
 /** The unprefixed names of every tool a module provides, before filters. */

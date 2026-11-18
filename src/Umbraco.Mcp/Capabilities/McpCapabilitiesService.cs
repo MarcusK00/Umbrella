@@ -12,6 +12,7 @@ public sealed class McpCapabilitiesService(
     public McpCapabilities GetCapabilities(Guid? apiUserKey = null, IReadOnlyCollection<string>? allowedSections = null)
     {
         IReadOnlyDictionary<string, IReadOnlyList<string>> disabled = SafeDisabledCollections();
+        IReadOnlyDictionary<string, IReadOnlyList<string>> disabledTools = SafeDisabledTools();
         IReadOnlyList<string> readOnly = SafeReadOnlyModules();
         IReadOnlyList<string> noDestructive = SafeNoDestructiveModules();
         IReadOnlyList<string> off = SafeOffModules();
@@ -27,6 +28,7 @@ public sealed class McpCapabilitiesService(
                     return status with
                     {
                         DisabledCollections = own.DisabledCollections,
+                        DisabledTools = own.DisabledTools ?? [],
                         ReadOnly = own.Level == McpToolLevel.ReadOnly,
                         NoDestructive = own.Level == McpToolLevel.NoDestructive,
                         Off = own.Level == McpToolLevel.Off,
@@ -37,6 +39,7 @@ public sealed class McpCapabilitiesService(
                 return status with
                 {
                     DisabledCollections = disabled.GetValueOrDefault(d.Id),
+                    DisabledTools = disabledTools.GetValueOrDefault(d.Id) ?? [],
                     ReadOnly = readOnly.Contains(d.Id, StringComparer.Ordinal),
                     NoDestructive = noDestructive.Contains(d.Id, StringComparer.Ordinal),
                     Off = off.Contains(d.Id, StringComparer.Ordinal),
@@ -65,6 +68,19 @@ public sealed class McpCapabilitiesService(
         {
             logger.LogWarning(ex, "Could not read the MCP tool settings for API user {Key}. The defaults apply.", key);
             return new Dictionary<string, McpProductOverride>();
+        }
+    }
+
+    private IReadOnlyDictionary<string, IReadOnlyList<string>> SafeDisabledTools()
+    {
+        try
+        {
+            return toolSettings.GetDisabledTools();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not read the MCP switched-off tools. No tool is switched off in the capabilities.");
+            return new Dictionary<string, IReadOnlyList<string>>();
         }
     }
 

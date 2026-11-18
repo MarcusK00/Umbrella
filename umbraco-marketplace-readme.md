@@ -44,7 +44,17 @@ Each person, or each AI agent, connects as its own API user and gets its own acc
 
 ![New connection: one panel creates the API user, its access per product and its secret, then hands over the config for their AI tool. Pick what it may use, with the user groups preselected; copy the secret once and the config for their AI tool](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-new-connection.png)
 
-1. **Install the package** and restart the site: `dotnet add package Umbraco.Community.Umbrella`. Umbrella's major version follows Umbraco's, and without `--version` this installs the newest version, which needs the newest Umbraco. On an older Umbraco, add `--version` with the newest matching version from [the NuGet version list](https://www.nuget.org/packages/Umbraco.Community.Umbrella#versions-body-tab), for example the newest 17.x on Umbraco 17.
+1. **Install the package** and restart the site. Umbrella's major version follows Umbraco's, so pick the command for your Umbraco version:
+
+   ```bash
+   # Umbraco 18
+   dotnet add package Umbraco.Community.Umbrella
+
+   # Umbraco 17
+   dotnet add package Umbraco.Community.Umbrella --version "17.*"
+   ```
+
+   Without `--version`, NuGet installs the newest version, which needs the newest Umbraco (18), so on Umbraco 17 the `--version "17.*"` is needed.
 2. **Create the connection.** In **Settings → Umbrella → Overview**, click **New connection**: name the person or agent, pick what it may use per product and its user groups, and create it. Copy the client secret it shows once (Umbraco only keeps a hash), then the config for their AI tool, and follow the steps it shows. Using Claude Code? Pick the plugin there: see *Claude Code plugin* below.
 3. **Say hello.** Ask the AI to *"call get-mcp-health"*. It lists each product and how many tools it loaded.
 
