@@ -197,7 +197,8 @@ public sealed class McpOverviewService(
             {
                 bool sectionAccess = !unreachable.Contains(p.DisplayName);
                 return new McpOverviewAccess(
-                    p.Id, p.DisplayName, AccessLevel(p), p.SettingsScope, sectionAccess ? ToolCount(ownCatalogue, p) : 0, sectionAccess);
+                    p.Id, p.DisplayName, AccessLevel(p), p.SettingsScope, sectionAccess ? ToolCount(ownCatalogue, p) : 0, sectionAccess,
+                    sectionAccess && AccessLevel(p) != McpToolLevel.Off ? p.DisabledTools.Count : 0);
             })
             .ToList();
         return new McpOverviewApiUser(

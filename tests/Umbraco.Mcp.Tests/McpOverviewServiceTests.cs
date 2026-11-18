@@ -794,6 +794,24 @@ public class McpOverviewServiceTests
     }
 
     [Test]
+    public async Task Access_counts_switched_off_tools()
+    {
+        McpApiUser ana = NamedUser("Ana");
+        McpProductStatus[] products = [AllProducts[0], AllProducts[1], AutomateWith("publish-automation", "trigger-automation")];
+        var service = Service(
+            settings: new FakeToolSettingsStore { UserCatalogues = new() { [ana.Key] = OlderReport() } },
+            users: new FakeApiUserProvider(ana),
+            caps: new StubCapabilities(
+                new McpCapabilities(Addon, AllProducts),
+                new Dictionary<Guid, McpCapabilities> { [ana.Key] = new McpCapabilities(Addon, products) }));
+
+        McpOverviewApiUser row = (await service.GetOverviewAsync()).ApiUsers.Single();
+
+        Assert.That(row.Access.Single(a => a.ProductId == "automate").DisabledToolCount, Is.EqualTo(2));
+        Assert.That(row.Access.Single(a => a.ProductId == "forms").DisabledToolCount, Is.EqualTo(0));
+    }
+
+    [Test]
     public async Task No_warning_when_the_server_reports_tools()
     {
         McpToolCatalogue own = new(Addon, new Dictionary<string, McpModuleCatalogue>
