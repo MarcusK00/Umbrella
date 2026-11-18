@@ -190,16 +190,17 @@ Tool settings are guardrails, not access control: see [Known limitations](#known
 |---|---|
 | `UMBRACO_BASE_URL`, `UMBRACO_CLIENT_ID`, `UMBRACO_CLIENT_SECRET` | The site (`https://`) and the API user to sign in as. Required: the server exits without them |
 | `UMBRACO_MCP_MODULES` | Force modules on without detection, for example `forms,automate` |
-| `UMBRACO_TOOL_MODES`, `UMBRACO_INCLUDE_/EXCLUDE_TOOL_COLLECTIONS`, `UMBRACO_INCLUDE_/EXCLUDE_TOOLS` | Toolkit filters. Unprefixed entries apply to CMS; `forms:<value>` targets a module; `forms:*` means no restriction for that module. In the two `*_TOOLS` lists you can also use the visible name, for example `cms--delete-document` or `forms--list-forms`. Collection filters set here for a product override the [Umbrella dashboard's tool groups](#tool-permissions) for that product |
+| `UMBRACO_TOOL_MODES`, `UMBRACO_INCLUDE_/EXCLUDE_TOOLS` | Toolkit filters. Unprefixed entries apply to CMS; `forms:<value>` targets a module; `forms:*` means no restriction for that module. In the two `*_TOOLS` lists you can also use the visible name, for example `cms--delete-document` or `forms--list-forms`. |
 | `UMBRACO_READONLY` | `true` registers only read-only tools, for every module. To do this for one product, use the Umbrella dashboard |
 | `UMBRACO_NO_DESTRUCTIVE` | `true` leaves out the destructive tools, for every module. To do this for one product, use the Umbrella dashboard |
 | `UMBRACO_INCLUDE_SLICES`, `UMBRACO_EXCLUDE_SLICES` | Apply to every module |
 
-Filters match the products' own tool names, before the prefix is added. For example, to keep only the CMS `document` and `media` tool groups, and the Forms tools (as set on the dashboard) except deleting forms:
+`UMBRACO_INCLUDE_TOOL_COLLECTIONS` and `UMBRACO_EXCLUDE_TOOL_COLLECTIONS` were removed in 17.1.0: choose tool groups in [Tool Permissions](#tool-permissions).
+
+Filters match the products' own tool names, before the prefix is added. For example, to leave out the Forms tool that deletes forms (the tool groups are chosen on the dashboard):
 
 ```json
 "env": {
-  "UMBRACO_INCLUDE_TOOL_COLLECTIONS": "document,media",
   "UMBRACO_EXCLUDE_TOOLS": "forms--delete-form"
 }
 ```
@@ -221,8 +222,7 @@ Under the access setting, a bar shows how many of the product's tools the AI too
 - **On by default:** every group starts ticked. Untick the ones you don't want; once you save a product, the saved list is used from then on.
 - **When it applies:** the next time the MCP server starts. Reconnect it in your AI tool after saving.
 - **Before the first start:** Tool Permissions has no tool groups until an MCP server has started once, because the server reports its tool groups when it starts.
-- **Environment wins for groups:** if the MCP server's environment sets `UMBRACO_INCLUDE_TOOL_COLLECTIONS` or `UMBRACO_EXCLUDE_TOOL_COLLECTIONS` for a product (including `forms:*`, or an unprefixed entry for CMS), the group settings are ignored for that product and the card says so. So `forms:*` brings back every Forms group switched off in the dashboard, and an exclude filter such as `UMBRACO_EXCLUDE_TOOL_COLLECTIONS=forms:folder` leaves out only the groups it names. An include filter such as `forms:folder` keeps only the groups it names. `UMBRACO_INCLUDE_TOOLS` also still includes a tool from a switched-off group.
-- **The access setting always applies:** it only removes tools, so the environment can't undo it, and it applies even when environment collection filters make the group settings ignored. A product switched off stays off even when `UMBRACO_MCP_MODULES` forces it on. `UMBRACO_READONLY=true` makes every product read-only and `UMBRACO_NO_DESTRUCTIVE=true` removes destructive tools from every product, whatever the dashboard says.
+- **The access setting always applies:** it only removes tools, so the environment can't undo it. A product switched off stays off even when `UMBRACO_MCP_MODULES` forces it on. `UMBRACO_READONLY=true` makes every product read-only and `UMBRACO_NO_DESTRUCTIVE=true` removes destructive tools from every product, whatever the dashboard says.
 - **If the site can't be read:** when the MCP server can't read the site's settings it can't apply the dashboard's access settings, so set `UMBRACO_NO_DESTRUCTIVE=true` (or `UMBRACO_READONLY=true`) in the AI tool's config to enforce it regardless.
 - **Older servers:** an MCP server from before the No deletes step ignores it, and one from before Off loads the product anyway. The version notes on the Overview and in `get-mcp-health` flag a server that isn't the add-on's version. When the last report has no counts for No deletes, the card warns that the MCP server still includes destructive tools.
 - **Not a security control:** anyone with the API user's credentials can call the Management API directly. Use the API user's groups and sections to limit what it can do.
@@ -277,7 +277,7 @@ If none of this explains it, [open an issue](https://github.com/MarcusK00/Umbrel
 | A product's tools are missing, and `get-mcp-health` says the user groups don't grant its section | The API user's groups don't grant that product's section, so the MCP server leaves it out | If the user should have it, grant the section to one of its groups and reconnect. The "MCP API user" check names the section |
 | "MCP client setup", the dashboard or `get-mcp-health` says the versions differ | Your AI tool's config still pins the `umbrella-mcp` of an earlier add-on | Set `umbrella-mcp@<add-on version>` in the config |
 | Tool Permissions shows "No tool groups reported yet" | No MCP server has started against this site yet | Start it once from your AI tool, then reload the dashboard. If it stays empty, `get-mcp-health` notes why the tool groups could not be reported |
-| Dashboard changes have no effect | The server reads the settings when it starts, or the environment sets collection filters for that product | Reconnect the MCP server. The dashboard warns when the environment overrides it |
+| Dashboard changes have no effect | The server reads the settings when it starts | Reconnect the MCP server |
 
 ## Compatibility
 
