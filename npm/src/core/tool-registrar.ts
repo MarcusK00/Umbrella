@@ -33,10 +33,11 @@ export function registerModuleTools(
   module: McpProductModule,
   loaded: LoadedModule,
   filter: CollectionConfiguration,
-  options: { excludeDestructive?: boolean } = {},
-): { registered: number; destructiveRemoved: number } {
+  options: { excludeDestructive?: boolean; disabledTools?: ReadonlySet<string> } = {},
+): { registered: number; destructiveRemoved: number; disabledRemoved: string[] } {
   let count = 0;
   let destructiveRemoved = 0;
+  const disabledRemoved: string[] = [];
   const ownIndex = buildToolNameIndex([{ module, toolNames: listToolNames(loaded, ctx.user) }]);
   const index = new Map([...(ctx.toolNames ?? []), ...ownIndex]);
   const references = (text: string) => prefixToolReferences(text, module, index);
@@ -47,6 +48,11 @@ export function registerModuleTools(
       if (!shouldIncludeTool(tool, { collectionName, config: filter })) continue;
       if (options.excludeDestructive && isDestructive(tool)) {
         destructiveRemoved++;
+        continue;
+      }
+      // After the group filter and the level, so only a tool that would have been offered is counted, and an include list can't bring it back.
+      if (options.disabledTools?.has(tool.name)) {
+        disabledRemoved.push(tool.name);
         continue;
       }
 
@@ -69,7 +75,7 @@ export function registerModuleTools(
       count++;
     }
   }
-  return { registered: count, destructiveRemoved };
+  return { registered: count, destructiveRemoved, disabledRemoved };
 }
 
 /** The unprefixed names of every tool a module provides, before filters. */

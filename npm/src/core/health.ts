@@ -25,6 +25,8 @@ export interface ModuleRuntimeState {
   siteSettingsScope?: "site" | "user";
   /** How many destructive tools were removed from this module at registration. */
   destructiveRemoved?: number;
+  /** Names of the tools left out because they are switched off in the backoffice. */
+  disabledToolsRemoved?: string[];
 }
 
 export interface HealthState {
@@ -66,6 +68,8 @@ export interface HealthProduct {
   access: HealthAccess;
   /** Destructive tools removed by the no-destructive level; 0 when the level is off or the module did not load. */
   destructiveRemoved: number;
+  /** How many tools were left out because they are switched off in the backoffice. */
+  disabledToolsRemoved: number;
   issues: string[];
 }
 
@@ -124,7 +128,7 @@ export function buildHealthReport(state: HealthState): HealthReport {
     {
       decision, loaded, toolCount, issues,
       siteDisabledCollections = [], defaultDisabledCollections = [], siteReadOnly = false,
-      siteNoDestructive = false, siteSettingsScope = "site", destructiveRemoved = 0,
+      siteNoDestructive = false, siteSettingsScope = "site", destructiveRemoved = 0, disabledToolsRemoved = [],
     },
   ) => {
     const name = decision.module.displayName;
@@ -143,6 +147,10 @@ export function buildHealthReport(state: HealthState): HealthReport {
     }
     if (hasDashboard && loaded && siteNoDestructive) {
       notes.push(`${name}: no destructive tools (${destructiveRemoved} removed), as set ${inBackoffice}.`);
+    }
+    if (hasDashboard && loaded && disabledToolsRemoved.length > 0) {
+      const k = disabledToolsRemoved.length;
+      notes.push(`${name}: ${k} ${k === 1 ? "tool" : "tools"} switched off ${inBackoffice}: ${disabledToolsRemoved.join(", ")}.`);
     }
     // Switched off on purpose, or no section on purpose more often than not: a note, not an issue.
     if (decision.switchedOff || decision.noSectionAccess) {
@@ -164,6 +172,7 @@ export function buildHealthReport(state: HealthState): HealthReport {
       toolCount,
       access: accessOf(decision, loaded, siteReadOnly || state.readOnlyFromEnv, siteNoDestructive || state.noDestructiveFromEnv),
       destructiveRemoved: loaded ? destructiveRemoved : 0,
+      disabledToolsRemoved: loaded ? disabledToolsRemoved.length : 0,
       issues: [
         ...(p?.issues ?? []),
         ...issues,
@@ -174,7 +183,7 @@ export function buildHealthReport(state: HealthState): HealthReport {
 
   for (const p of detected) {
     if (products.some((x) => x.id === p.id)) continue;
-    products.push({ ...p, description: null, hasModule: false, loaded: false, toolCount: 0, access: "notLoaded", destructiveRemoved: 0 });
+    products.push({ ...p, description: null, hasModule: false, loaded: false, toolCount: 0, access: "notLoaded", destructiveRemoved: 0, disabledToolsRemoved: 0 });
     if (p.installed) notes.push(`${p.displayName} is installed, but this MCP has no ${p.displayName} module yet.`);
   }
 
