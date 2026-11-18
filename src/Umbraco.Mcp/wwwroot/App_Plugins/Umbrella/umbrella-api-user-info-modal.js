@@ -15,14 +15,9 @@ export const userEditPath = (key) => `/umbraco/section/user-management/workspace
 /**
  * Info for one API user in the Overview's access table: how it signs in, its connection, and what it can use.
  * Data: `{ user, products, addonVersion }` (an Overview API user row, the Overview's products and the add-on version).
- * Submits `{ action: "edit-permissions" }` or `{ action: "show-config", clientId }`; the Overview acts on it.
+ * Read-only; it only closes.
  */
 export class UmbrellaApiUserInfoModalElement extends UmbModalBaseElement {
-  #submit(value) {
-    this.value = value;
-    this._submitModal();
-  }
-
   #renderState(user) {
     if (!user.connected) return html`<uui-tag look="secondary">Not connected yet</uui-tag>`;
     const color = user.state === "active" ? "positive" : "warning";
@@ -61,9 +56,9 @@ export class UmbrellaApiUserInfoModalElement extends UmbModalBaseElement {
         const level = a.sectionAccess === false ? "off" : a.level;
         return html`<li>
           <span class="product">${names[a.productId] ?? a.displayName}</span>
-          <span class="level">${levelGlyph(level)}${a.sectionAccess === false ? "No access" : LEVEL_LABELS[a.level] ?? a.level}</span>
+          <span class="level">${a.sectionAccess === false ? nothing : html`${levelGlyph(level)}${LEVEL_LABELS[a.level] ?? a.level}`}</span>
           <span class="muted small">
-            ${a.sectionAccess === false ? "No user group grants its section" : a.scope === "user" ? "Own settings" : "Defaults"}
+            ${a.sectionAccess === false ? "No access: no user group grants its section" : a.scope === "user" ? "Own settings" : "Defaults"}
             ${a.disabledToolCount > 0 && a.level !== "off" && a.sectionAccess !== false ? ` · ${a.disabledToolCount} ${a.disabledToolCount === 1 ? "tool" : "tools"} switched off` : nothing}
             ${a.toolCount === null || a.toolCount === undefined || a.level === "off" || a.sectionAccess === false ? nothing : html` · ${tools(a.toolCount)}`}
           </span>
@@ -76,7 +71,6 @@ export class UmbrellaApiUserInfoModalElement extends UmbModalBaseElement {
   render() {
     const { user, products, addonVersion } = this.data ?? {};
     if (!user) return nothing;
-    const clientId = user.clientIds?.[0];
     return html`<umb-body-layout headline=${user.name}>
       <div class="content">
         <div class="state">${this.#renderState(user)}</div>
@@ -97,15 +91,6 @@ export class UmbrellaApiUserInfoModalElement extends UmbModalBaseElement {
           <h4>Tools per product</h4>
           ${this.#renderAccess(user, products)}
         </uui-box>
-        <div class="links">
-          ${user.state === "disabled"
-            ? nothing
-            : html`<uui-button look="secondary" label="Edit permissions" @click=${() => this.#submit({ action: "edit-permissions" })}></uui-button>`}
-          ${clientId
-            ? html`<uui-button look="secondary" label="Show config" @click=${() => this.#submit({ action: "show-config", clientId })}></uui-button>`
-            : nothing}
-          <uui-button look="secondary" label="Open in Users" href=${userEditPath(user.key)}></uui-button>
-        </div>
       </div>
       <div slot="actions">
         <uui-button look="primary" label="Close" @click=${() => this._rejectModal()}></uui-button>
@@ -131,7 +116,6 @@ export class UmbrellaApiUserInfoModalElement extends UmbModalBaseElement {
       .access .level { display: inline-flex; align-items: center; gap: var(--uui-size-space-2); justify-self: end; }
       .access .muted { grid-column: 1 / -1; }
       .access p { margin: 0; }
-      .links { display: flex; flex-wrap: wrap; gap: var(--uui-size-space-2); }
     `,
   ];
 }

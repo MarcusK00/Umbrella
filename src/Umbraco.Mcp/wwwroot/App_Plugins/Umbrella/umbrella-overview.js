@@ -124,18 +124,12 @@ export class UmbrellaOverviewElement extends UmbLitElement {
   async #showInfo(key) {
     const user = this.#user(key);
     if (!user) return;
-    let result;
     try {
-      result = await umbOpenModal(this, UMBRELLA_API_USER_INFO_MODAL, {
+      await umbOpenModal(this, UMBRELLA_API_USER_INFO_MODAL, {
         data: { user, products: this._data.products, addonVersion: this._data.addonVersion },
       });
     } catch {
-      return; // Closed.
-    }
-    if (result?.action === "edit-permissions") this.#editPermissions(key);
-    if (result?.action === "show-config") {
-      await this.#loadSetup(result.clientId);
-      this.#openConnect();
+      // Closed.
     }
   }
 
