@@ -61,8 +61,7 @@ export class UmbrellaAccessTableElement extends UmbLitElement {
     if (a.sectionAccess === false) {
       return html`<uui-table-cell>
         <div class="cell" title="None of this API user's user groups grant the ${product.displayName} section, so it gets no ${product.displayName} tools.">
-          <span class="level off">${levelGlyph("off")}<span>No access</span></span>
-          <span class="count">No section access</span>
+          <span class="count">No access</span>
         </div>
       </uui-table-cell>`;
     }
