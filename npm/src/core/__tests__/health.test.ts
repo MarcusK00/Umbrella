@@ -53,7 +53,7 @@ describe("buildHealthReport", () => {
     expect(r.addon).toEqual({ installed: true, version: "17.0.0", status: "ok" });
     expect(r.products.find((p) => p.id === "forms")).toEqual({
       id: "forms", displayName: "Umbraco Forms", description: "forms description", installed: true, enabled: true, version: "17.6.1",
-      hasModule: true, loaded: true, toolCount: 118, access: "full", destructiveRemoved: 0, disabledToolsRemoved: 0, issues: [],
+      hasModule: true, loaded: true, toolCount: 118, sizeBytes: 0, access: "full", destructiveRemoved: 0, disabledToolsRemoved: 0, issues: [],
     });
   });
 
@@ -318,5 +318,23 @@ describe("buildHealthReport", () => {
   it("notes a failed catalogue report", () => {
     const r = buildHealthReport({ ...state({ kind: "no-addon" }, [cmsLoaded]), catalogueReport: { ok: false, reason: "HTTP 403" } });
     expect(r.notes).toContain("Could not report the tool groups to the site, so the backoffice Umbrella dashboard may be out of date: HTTP 403");
+  });
+
+  it("reports sizeBytes per product and names the largest tool groups", () => {
+    const r = buildHealthReport(state({ kind: "no-addon" }, [
+      { ...cmsLoaded, sizeBytes: 120_000, groupSizes: [{ name: "document", sizeBytes: 64_000 }, { name: "user", sizeBytes: 12_000 }] },
+      {
+        decision: { module: mod("engage", "Umbraco Engage"), product: null, load: true, reason: "ok" },
+        loaded: true,
+        toolCount: 12,
+        sizeBytes: 267_000,
+        groupSizes: [{ name: "ab-test", sizeBytes: 267_000 }],
+        issues: [],
+      },
+    ]));
+    expect(r.products.find((p) => p.id === "cms")?.sizeBytes).toBe(120_000);
+    expect(r.products.find((p) => p.id === "engage")?.sizeBytes).toBe(267_000);
+    const note = r.notes.find((n) => n.startsWith("Largest tool groups: "));
+    expect(note).toBe("Largest tool groups: engage/ab-test (261 KB, ~67k est. tokens), cms/document (63 KB, ~16k est. tokens), cms/user (12 KB, ~3k est. tokens).");
   });
 });

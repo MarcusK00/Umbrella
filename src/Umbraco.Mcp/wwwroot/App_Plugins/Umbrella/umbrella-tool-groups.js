@@ -404,11 +404,14 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
           const { state, mode } = this.#productState(p);
           const counts = this.#productToolSummary(p, state);
           const shortName = p.displayName.replace(/^Umbraco /, "");
+          const levelLabel = LEVEL_LABELS[state.level] ?? LEVEL_LABELS.full;
+          const follows = mode === "follows";
           return html`<button
             type="button"
             role="tab"
-            class="product-tab ${state.level === "off" ? "is-off" : ""}"
+            class="product-tab ${state.level === "off" ? "is-off" : ""} ${follows ? "is-follows" : ""}"
             aria-selected=${active ? "true" : "false"}
+            title=${follows ? `Follows site default (${levelLabel})` : nothing}
             @click=${() => (this._activeProduct = p.id)}
           >
             <div class="product-tab-top">
@@ -416,10 +419,15 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
               ${mode === "custom" ? html`<uui-tag class="compact-tag" look="primary" color="positive">Custom</uui-tag>` : nothing}
             </div>
             <div class="product-tab-meta">
-              <span class="product-tab-level">
-                ${levelGlyph(state.level)}
-                <span>${LEVEL_LABELS[state.level] ?? LEVEL_LABELS.full}</span>
-              </span>
+              ${follows
+                ? html`<span class="product-tab-level is-follows">
+                    <umb-icon class="glyph" aria-hidden="true" name="icon-settings"></umb-icon>
+                    <span>Follows default</span>
+                  </span>`
+                : html`<span class="product-tab-level">
+                    ${levelGlyph(state.level)}
+                    <span>${levelLabel}</span>
+                  </span>`}
               ${counts ? html`<span class="product-tab-count">${counts.kept}/${counts.total}</span>` : nothing}
             </div>
           </button>`;
@@ -919,7 +927,11 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
         outline: 2px solid var(--uui-color-focus);
         outline-offset: 2px;
       }
+      .product-tab.is-follows {
+        border-style: dashed;
+      }
       .product-tab[aria-selected="true"] {
+        border-style: solid;
         border-color: var(--uui-color-selected);
         background: var(--uui-color-surface);
         box-shadow: inset 0 0 0 1px var(--uui-color-selected);
@@ -951,9 +963,10 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
         font-weight: 600;
         color: var(--uui-color-text);
       }
-      .product-tab.is-off .product-tab-level {
+      .product-tab.is-off .product-tab-level,
+      .product-tab-level.is-follows {
         color: var(--uui-color-text-alt);
-        font-weight: normal;
+        font-weight: 500;
       }
       .product-tab-count {
         padding: 1px var(--uui-size-space-2);

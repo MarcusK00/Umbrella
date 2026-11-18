@@ -13,6 +13,10 @@ export interface ModuleRuntimeState {
   loaded: boolean;
   toolCount: number;
   issues: string[];
+  /** UTF-8 bytes of the module's registered tools as `tools/list` sends them. */
+  sizeBytes?: number;
+  /** Registered `tools/list` UTF-8 bytes per tool group for this module. */
+  groupSizes?: ReadonlyArray<{ name: string; sizeBytes: number }>;
   /** Collections the site disabled for this module (from capabilities). */
   siteDisabledCollections?: string[];
   /** The module's default-off collections that were applied, because the site has no saved list. */
@@ -65,6 +69,8 @@ export interface HealthProduct {
   hasModule: boolean;
   loaded: boolean;
   toolCount: number;
+  /** UTF-8 bytes of the module's registered tools as `tools/list` sends them (0 when not loaded). */
+  sizeBytes: number;
   access: HealthAccess;
   /** Destructive tools removed by the no-destructive level; 0 when the level is off or the module did not load. */
   destructiveRemoved: number;
@@ -126,7 +132,7 @@ export function buildHealthReport(state: HealthState): HealthReport {
 
   const products: HealthProduct[] = state.modules.map((
     {
-      decision, loaded, toolCount, issues,
+      decision, loaded, toolCount, issues, sizeBytes = 0,
       siteDisabledCollections = [], defaultDisabledCollections = [], siteReadOnly = false,
       siteNoDestructive = false, siteSettingsScope = "site", destructiveRemoved = 0, disabledToolsRemoved = [],
     },
@@ -170,6 +176,7 @@ export function buildHealthReport(state: HealthState): HealthReport {
       hasModule: true,
       loaded,
       toolCount,
+      sizeBytes: loaded ? sizeBytes : 0,
       access: accessOf(decision, loaded, siteReadOnly || state.readOnlyFromEnv, siteNoDestructive || state.noDestructiveFromEnv),
       destructiveRemoved: loaded ? destructiveRemoved : 0,
       disabledToolsRemoved: loaded ? disabledToolsRemoved.length : 0,
@@ -183,8 +190,17 @@ export function buildHealthReport(state: HealthState): HealthReport {
 
   for (const p of detected) {
     if (products.some((x) => x.id === p.id)) continue;
-    products.push({ ...p, description: null, hasModule: false, loaded: false, toolCount: 0, access: "notLoaded", destructiveRemoved: 0, disabledToolsRemoved: 0 });
+    products.push({ ...p, description: null, hasModule: false, loaded: false, toolCount: 0, sizeBytes: 0, access: "notLoaded", destructiveRemoved: 0, disabledToolsRemoved: 0 });
     if (p.installed) notes.push(`${p.displayName} is installed, but this MCP has no ${p.displayName} module yet.`);
+  }
+
+  const largestGroups = state.modules
+    .filter((m) => m.loaded && m.groupSizes?.length)
+    .flatMap((m) => m.groupSizes!.filter((g) => g.sizeBytes > 0).map((g) => ({ label: `${m.decision.module.id}/${g.name}`, sizeBytes: g.sizeBytes })))
+    .sort((a, b) => b.sizeBytes - a.sizeBytes || a.label.localeCompare(b.label))
+    .slice(0, 5);
+  if (largestGroups.length > 0) {
+    notes.push(`Largest tool groups: ${largestGroups.map((g) => `${g.label} (${formatSizeNote(g.sizeBytes)})`).join(", ")}.`);
   }
 
   for (const id of state.forcedModules) {
@@ -206,6 +222,13 @@ export function buildHealthReport(state: HealthState): HealthReport {
     products,
     notes,
   };
+}
+
+function formatSizeNote(bytes: number): string {
+  const kb = Math.round(bytes / 1024);
+  const tokens = Math.ceil(bytes / 4);
+  const tokenText = tokens >= 1000 ? `~${Math.round(tokens / 1000)}k` : `~${tokens}`;
+  return `${kb} KB, ${tokenText} est. tokens`;
 }
 
 function accessOf(decision: ModuleDecision, loaded: boolean, readOnly: boolean, noDestructive: boolean): HealthAccess {
