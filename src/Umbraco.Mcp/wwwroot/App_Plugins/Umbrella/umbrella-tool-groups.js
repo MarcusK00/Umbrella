@@ -6,6 +6,7 @@ import { UMB_NOTIFICATION_CONTEXT } from "@umbraco-cms/backoffice/notification";
 import { UmbTextStyles } from "@umbraco-cms/backoffice/style";
 import { request } from "./umbrella-api.js";
 import "./umbrella-product-card.js";
+import { pruneDisabledTools } from "./umbrella-tool-logic.js";
 import { UmbrellaUnsavedGuard } from "./umbrella-unsaved-guard.js";
 
 /** The product the MCP server signs in through; the add-on refuses to switch it off. */
@@ -49,9 +50,9 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     this._selected = "";
     // The user's GET response in the user view.
     this._user = null;
-    // Defaults view: { disabled: { [id]: Set }, levels: { [id]: level } }.
-    // User view: { overrides: { [id]: { disabled: Set, level } } } for the products the user overrides.
-    this._edit = { disabled: {}, levels: {} };
+    // Defaults view: { disabled: { [id]: Set }, levels: { [id]: level }, tools: { [id]: Set } }.
+    // User view: { overrides: { [id]: { disabled: Set, level, tools: Set } } } for the products the user overrides.
+    this._edit = { disabled: {}, levels: {}, tools: {} };
     new UmbrellaUnsavedGuard(this, { isDirty: () => this.dirty, confirm: () => this.confirmLeave() });
     this.consumeContext(UMB_NOTIFICATION_CONTEXT, (ctx) => (this.#notifications = ctx));
     this.consumeContext(UMB_AUTH_CONTEXT, (ctx) => {
@@ -96,13 +97,16 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     for (const id of this._data.noDestructiveModules ?? []) levels[id] = "noDestructive";
     for (const id of this._data.readOnlyModules ?? []) levels[id] = "readOnly";
     for (const id of this._data.offModules ?? []) levels[id] = "off";
-    return { disabled, levels };
+    // Switched-off tools, per product; a missing list means none.
+    const tools = {};
+    for (const [id, names] of Object.entries(this._data.disabledTools ?? {})) tools[id] = new Set(names);
+    return { disabled, levels, tools };
   }
 
   /** The saved defaults for one product: what a user follows, and what "Customise" starts from. */
   #defaultsFor(id) {
-    const { disabled, levels } = this.#savedDefaults();
-    return { disabled: disabled[id] ?? new Set(), level: levels[id] ?? "full" };
+    const { disabled, levels, tools } = this.#savedDefaults();
+    return { disabled: new Set(disabled[id] ?? []), level: levels[id] ?? "full", tools: new Set(tools[id] ?? []) };
   }
 
   #showDefaults() {
@@ -118,7 +122,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     this._user = user;
     this._edit = {
       overrides: Object.fromEntries(
-        Object.entries(user.overrides ?? {}).map(([id, o]) => [id, { disabled: new Set(o.disabledCollections ?? []), level: o.level ?? "full" }]),
+        Object.entries(user.overrides ?? {}).map(([id, o]) => [id, { disabled: new Set(o.disabledCollections ?? []), level: o.level ?? "full", tools: new Set(o.disabledTools ?? []) }]),
       ),
     };
     this.#snapshot = JSON.stringify(this.#body());
@@ -216,19 +220,28 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
       const module = this.#moduleFor(id);
       return module ? module.collections.map((c) => c.name).filter((n) => disabled.has(n)) : [...disabled].sort();
     };
+    // Names the product no longer has are dropped, judged by the site-wide catalogue (also in the user view: a user's own
+    // report can leave out tools its groups don't allow today, and those names must survive). Sorted for a stable body.
+    const toolNames = (id, set) => [...pruneDisabledTools(set ?? new Set(), this._data.catalogue?.modules?.[id])].sort();
     if (this._selected) {
       const overrides = this._edit.overrides ?? {};
       return {
         overrides: Object.fromEntries(
-          detected.filter((id) => overrides[id]).map((id) => [id, { disabledCollections: names(id, overrides[id].disabled), level: overrides[id].level }]),
+          detected
+            .filter((id) => overrides[id])
+            .map((id) => [
+              id,
+              { disabledCollections: names(id, overrides[id].disabled), disabledTools: toolNames(id, overrides[id].tools), level: overrides[id].level },
+            ]),
         ),
       };
     }
-    const { disabled = {}, levels = {} } = this._edit;
+    const { disabled = {}, levels = {}, tools = {} } = this._edit;
     const reported = this._data.catalogue?.modules ?? {};
     // A level only removes tools, so it is kept for every product the site detects, reported or not.
     return {
       disabledCollections: Object.fromEntries(detected.filter((id) => reported[id]).map((id) => [id, names(id, disabled[id] ?? new Set())])),
+      disabledTools: Object.fromEntries(detected.map((id) => [id, toolNames(id, tools[id])]).filter(([, list]) => list.length > 0)),
       readOnlyModules: detected.filter((id) => levels[id] === "readOnly"),
       noDestructiveModules: detected.filter((id) => levels[id] === "noDestructive"),
       offModules: detected.filter((id) => levels[id] === "off"),
@@ -263,6 +276,26 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
       this._edit = { overrides: { ...this._edit.overrides, [id]: { ...override, disabled: edit(override.disabled) } } };
     } else {
       this._edit = { ...this._edit, disabled: { ...this._edit.disabled, [id]: edit(this._edit.disabled[id]) } };
+    }
+  }
+
+  /** Switches single tools on or off: one from its checkbox, or several from "Switch all … on" and "Switch them on". */
+  #setTools(id, names, enabled) {
+    if (this._busy || this._saving) return;
+    const edit = (current) => {
+      const set = new Set(current ?? []);
+      for (const name of names) {
+        if (enabled) set.delete(name);
+        else set.add(name);
+      }
+      return set;
+    };
+    if (this._selected) {
+      const override = this._edit.overrides[id];
+      if (!override) return;
+      this._edit = { overrides: { ...this._edit.overrides, [id]: { ...override, tools: edit(override.tools) } } };
+    } else {
+      this._edit = { ...this._edit, tools: { ...this._edit.tools, [id]: edit(this._edit.tools?.[id]) } };
     }
   }
 
@@ -334,16 +367,11 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
       : `${names.length} API users have their own ${product.displayName} settings: ${names.join(", ")}.`;
   }
 
-  #notesFor(product, module, level) {
+  #notesFor(product, module, level, switchedOff) {
     const notes = [];
     if (!this._selected) notes.push(this.#overrideNote(product));
     if (this._selected && module && !this._user?.catalogue?.modules?.[product.id] && this._user?.catalogueSource?.kind === "user") {
       notes.push(`Counts appear after this user's MCP server starts with ${product.displayName} on.`);
-    }
-    if (module?.siteSettingsIgnored) {
-      notes.push(
-        `Your MCP server's environment sets collection filters for ${product.displayName}, so the groups are ignored there. The access level still applies.`,
-      );
     }
     const olderServer =
       this.#showCounts(product.id) &&
@@ -351,6 +379,12 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
       module?.collections?.length > 0 &&
       !module.collections.some((c) => typeof c.nonDestructiveToolCount === "number");
     if (olderServer) notes.push("The MCP server that last started is older and still includes destructive tools.");
+    const olderTools =
+      switchedOff?.size > 0 &&
+      this.#showCounts(product.id) &&
+      module?.collections?.length > 0 &&
+      !module.collections.some((c) => Array.isArray(c.tools));
+    if (olderTools) notes.push("The MCP server that last started is older and still offers the tools switched off here.");
     return notes.filter(Boolean);
   }
 
@@ -365,13 +399,14 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
       mode = override ? "custom" : "follows";
       state = override ?? this.#defaultsFor(id);
     } else {
-      state = { disabled: this._edit.disabled[id] ?? new Set(), level: this._edit.levels[id] ?? "full" };
+      state = { disabled: this._edit.disabled[id] ?? new Set(), level: this._edit.levels[id] ?? "full", tools: this._edit.tools?.[id] ?? new Set() };
     }
     return html`<umbrella-product-card
       .product=${product}
       .module=${module}
       .level=${state.level}
       .disabled=${state.disabled}
+      .disabledTools=${state.tools ?? new Set()}
       .editable=${mode !== "follows" && !this._saving && !this._busy}
       .locked=${this._saving || this._busy}
       .showCounts=${this.#showCounts(id)}
@@ -379,7 +414,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
       .userName=${userName}
       .defaultLevel=${this._selected ? this.#defaultsFor(id).level : null}
       .isRequired=${id === REQUIRED_PRODUCT}
-      .notes=${this.#notesFor(product, module, state.level)}
+      .notes=${this.#notesFor(product, module, state.level, state.tools)}
     ></umbrella-product-card>`;
   }
 
@@ -541,6 +576,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
           class="editor"
           @level-change=${(e) => this.#setLevel(e.detail.productId, e.detail.level)}
           @groups-change=${(e) => this.#setGroups(e.detail.productId, e.detail.names, e.detail.enabled)}
+          @tools-change=${(e) => this.#setTools(e.detail.productId, e.detail.names, e.detail.enabled)}
           @customise=${(e) => this.#setOverride(e.detail.productId, true)}
           @reset=${(e) => this.#setOverride(e.detail.productId, false)}
         >
