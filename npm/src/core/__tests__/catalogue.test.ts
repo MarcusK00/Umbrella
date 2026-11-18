@@ -1,4 +1,4 @@
-import { buildCatalogue, reportCatalogue, type CataloguePayload } from "../catalogue.js";
+import { buildCatalogue, reportCatalogue, shortDescription, type CataloguePayload } from "../catalogue.js";
 import type { LoadedModule, McpProductModule } from "../module-contract.js";
 
 const mod = (id: string): McpProductModule => ({
@@ -6,7 +6,7 @@ const mod = (id: string): McpProductModule => ({
   load: async () => { throw new Error("unused"); },
 });
 
-type FakeTool = { name: string; enabled?: (user: unknown) => boolean; annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean }; isReadOnly?: boolean };
+type FakeTool = { name: string; description?: string; enabled?: (user: unknown) => boolean; annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean }; isReadOnly?: boolean };
 
 const collection = (name: string, tools: FakeTool[]) => ({
   metadata: { name, displayName: name, description: "" },
@@ -17,7 +17,43 @@ const loaded = (collections: LoadedModule["collections"]): LoadedModule => ({
   collections, allModes: [], allModeNames: [], allSliceNames: [], createApiClient: () => "client",
 });
 
+describe("shortDescription", () => {
+  it("keeps the first sentence", () => {
+    expect(shortDescription("Lists forms.  Use list-folders first.")).toBe("Lists forms.");
+  });
+  it("does not end a sentence at e.g", () => {
+    expect(shortDescription("Lists step types (e.g. email). Then add one.")).toBe("Lists step types (e.g. email).");
+  });
+  it("returns an empty string for undefined", () => {
+    expect(shortDescription(undefined)).toBe("");
+  });
+  it("cuts a long sentence to 160 characters ending in an ellipsis", () => {
+    const out = shortDescription("a".repeat(200));
+    expect(out).toHaveLength(160);
+    expect(out.endsWith("…")).toBe(true);
+  });
+  it("collapses whitespace", () => {
+    expect(shortDescription("Line one\n  continues here.")).toBe("Line one continues here.");
+  });
+});
+
 describe("buildCatalogue", () => {
+  it("lists each collection's usable tools with flags", () => {
+    const forms = loaded([
+      collection("form", [
+        { name: "list-forms", description: "Lists forms. More.", annotations: { readOnlyHint: true } },
+        { name: "delete-form", annotations: { destructiveHint: true } },
+        { name: "admin-only", enabled: () => false },
+      ]),
+    ]);
+    const [c] = buildCatalogue("1", [{ module: mod("forms"), loaded: forms }], {}).modules[0].collections;
+    expect(c.tools).toEqual([
+      { name: "list-forms", description: "Lists forms.", readOnly: true, destructive: false },
+      { name: "delete-form", description: "", readOnly: false, destructive: true },
+    ]);
+    expect(c.toolCount).toBe(2);
+  });
+
   it("lists every collection with the tools the user can use, before filters", () => {
     const forms = loaded([
       collection("form", [{ name: "list-forms" }, { name: "admin-only", enabled: () => false }]),
@@ -28,7 +64,10 @@ describe("buildCatalogue", () => {
       umbrellaVersion: "17.0.0",
       modules: [{
         id: "forms",
-        collections: [{ name: "form", toolCount: 1, readOnlyToolCount: 0, nonDestructiveToolCount: 1 }, { name: "prevalue-source", toolCount: 1, readOnlyToolCount: 0, nonDestructiveToolCount: 1 }],
+        collections: [
+          { name: "form", toolCount: 1, readOnlyToolCount: 0, nonDestructiveToolCount: 1, tools: [{ name: "list-forms", description: "", readOnly: false, destructive: false }] },
+          { name: "prevalue-source", toolCount: 1, readOnlyToolCount: 0, nonDestructiveToolCount: 1, tools: [{ name: "get-prevalue-source", description: "", readOnly: false, destructive: false }] },
+        ],
       }],
     });
   });
@@ -53,7 +92,7 @@ describe("buildCatalogue", () => {
 
     const [module] = buildCatalogue("1", [{ module: mod("forms"), loaded: forms }], {}).modules;
 
-    expect(module.collections).toEqual([{ name: "form", toolCount: 3, readOnlyToolCount: 2, nonDestructiveToolCount: 3 }]);
+    expect(module.collections).toEqual([{ name: "form", toolCount: 3, readOnlyToolCount: 2, nonDestructiveToolCount: 3, tools: expect.any(Array) }]);
   });
 
   it("reports nonDestructiveToolCount per collection", () => {
