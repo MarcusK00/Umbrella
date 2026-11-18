@@ -71,13 +71,13 @@ export function missingSections(products, choices, groups, selectedIds) {
 
 /**
  * The user's own settings, for `PUT tool-settings/users/{key}`: only the products not on "defaults", each with the
- * defaults' disabled tool groups for that product.
+ * defaults' disabled tool groups and switched-off tools for that product.
  */
-export function buildOverrides(choices, defaultsDisabled) {
+export function buildOverrides(choices, defaultsDisabled, defaultsTools) {
   const overrides = {};
   for (const [id, choice] of Object.entries(choices)) {
     if (choice === "defaults") continue;
-    overrides[id] = { disabledCollections: [...((defaultsDisabled ?? {})[id] ?? [])], level: choice };
+    overrides[id] = { disabledCollections: [...((defaultsDisabled ?? {})[id] ?? [])], disabledTools: [...((defaultsTools ?? {})[id] ?? [])], level: choice };
   }
   return overrides;
 }

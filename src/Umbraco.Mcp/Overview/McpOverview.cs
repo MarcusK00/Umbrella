@@ -41,7 +41,7 @@ public sealed record McpServerReport(string Version, DateTimeOffset ReportedAt, 
 /// <paramref name="SectionAccess"/> is false when none of the user's groups grant the product's
 /// backoffice section (a product switched off for the user counts as reachable).
 /// </summary>
-public sealed record McpOverviewAccess(string ProductId, string DisplayName, string Level, string Scope, int? ToolCount, bool SectionAccess);
+public sealed record McpOverviewAccess(string ProductId, string DisplayName, string Level, string Scope, int? ToolCount, bool SectionAccess, int DisabledToolCount = 0);
 
 /// <summary>
 /// An API user the MCP server has connected as, or that the dashboard's New connection flow created and that has not
