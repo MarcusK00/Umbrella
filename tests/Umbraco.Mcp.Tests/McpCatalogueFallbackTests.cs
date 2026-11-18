@@ -204,4 +204,32 @@ public class McpCatalogueFallbackTests
 
         Assert.That(highest, Is.SameAs(shared));
     }
+
+    [Test]
+    public void Highest_takes_maximum_sizes_and_fills_missing_tool_sizes()
+    {
+        Guid a = Guid.NewGuid(), b = Guid.NewGuid();
+        var catalogues = new Dictionary<Guid, McpToolCatalogue>
+        {
+            [a] = new("17.0.0", new Dictionary<string, McpModuleCatalogue>
+            {
+                ["cms"] = Module(T1, new McpCollectionInfo("document", 1, 1, false, 1,
+                    [new McpToolInfo("get-doc", null, true, false)], SizeBytes: 2000, ReadOnlySizeBytes: 2000, NonDestructiveSizeBytes: 2000)),
+            }),
+            [b] = new("17.0.0", new Dictionary<string, McpModuleCatalogue>
+            {
+                ["cms"] = Module(T2, new McpCollectionInfo("document", 2, 1, false, 2,
+                    [new McpToolInfo("get-doc", null, true, false, 2500), new McpToolInfo("save-doc", null, false, false, 3000)],
+                    SizeBytes: 5500, ReadOnlySizeBytes: 2500, NonDestructiveSizeBytes: 5500)),
+            }),
+        };
+
+        McpCollectionInfo document = McpCatalogueFallback.Highest(catalogues, McpToolCatalogue.Empty, new HashSet<Guid> { a, b })
+            .Modules["cms"].Collections.Single();
+
+        Assert.That(document.SizeBytes, Is.EqualTo(5500));
+        Assert.That(document.ReadOnlySizeBytes, Is.EqualTo(2500));
+        Assert.That(document.NonDestructiveSizeBytes, Is.EqualTo(5500));
+        Assert.That(document.Tools!.Select(t => t.SizeBytes), Is.EqualTo(new int?[] { 2500, 3000 }));
+    }
 }

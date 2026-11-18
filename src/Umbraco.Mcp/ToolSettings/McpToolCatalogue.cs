@@ -6,7 +6,9 @@ namespace Umbraco.Mcp.ToolSettings;
 /// module keeps off until the site saves a list for it; false in reports from MCP servers that predate it.
 /// <paramref name="NonDestructiveToolCount"/> is the tools without a destructive hint; null in reports from MCP servers
 /// that predate it. <paramref name="Tools"/> lists the group's tools; null in reports from MCP servers that predate it
-/// (not "no tools"). When present, the counts are derived from it.
+/// (not "no tools"). When present, the counts and sizes are derived from it. <paramref name="SizeBytes"/>,
+/// <paramref name="ReadOnlySizeBytes"/> and <paramref name="NonDestructiveSizeBytes"/> are the UTF-8 byte lengths of
+/// the group's tools as <c>tools/list</c> sends them; null in reports from MCP servers that predate them.
 /// </summary>
 public sealed record McpCollectionInfo(
     string Name,
@@ -14,10 +16,13 @@ public sealed record McpCollectionInfo(
     int? ReadOnlyToolCount = null,
     bool DisabledByDefault = false,
     int? NonDestructiveToolCount = null,
-    IReadOnlyList<McpToolInfo>? Tools = null);
+    IReadOnlyList<McpToolInfo>? Tools = null,
+    int? SizeBytes = null,
+    int? ReadOnlySizeBytes = null,
+    int? NonDestructiveSizeBytes = null);
 
-/// <summary>One tool of a group, as the MCP server reported it: the unprefixed name, its short description and its hints.</summary>
-public sealed record McpToolInfo(string Name, string? Description, bool ReadOnly, bool Destructive);
+/// <summary>One tool of a group, as the MCP server reported it: the unprefixed name, its short description, its hints and its <c>tools/list</c> byte length.</summary>
+public sealed record McpToolInfo(string Name, string? Description, bool ReadOnly, bool Destructive, int? SizeBytes = null);
 
 /// <summary>What the MCP server last reported for one module.</summary>
 public sealed record McpModuleCatalogue(DateTimeOffset ReportedAt, IReadOnlyList<McpCollectionInfo> Collections);

@@ -8,6 +8,7 @@ import { LEVEL_LABELS, glyphStyles, levelGlyph } from "./umbrella-access.js";
 import { request } from "./umbrella-api.js";
 import "./umbrella-product-card.js";
 import { groupKeptCount, pruneDisabledTools } from "./umbrella-tool-logic.js";
+import { formatApproxTokens, formatSizeTooltip, moduleSizeSummary } from "./umbrella-tool-size.js";
 import { UmbrellaUnsavedGuard } from "./umbrella-unsaved-guard.js";
 
 /** The product the MCP server signs in through; the add-on refuses to switch it off. */
@@ -379,17 +380,14 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     const module = this.#moduleFor(product.id);
     if (!module?.collections?.length) return null;
     const total = module.collections.reduce((sum, c) => sum + c.toolCount, 0);
-    const kept = module.collections.reduce(
-      (sum, c) =>
-        sum +
-        groupKeptCount(c, {
-          level: state.level,
-          groupOn: !state.disabled.has(c.name),
-          disabledTools: state.tools ?? new Set(),
-        }),
-      0,
-    );
-    return { kept, total };
+    const stateFor = (c) => ({
+      level: state.level,
+      groupOn: !state.disabled.has(c.name),
+      disabledTools: state.tools ?? new Set(),
+    });
+    const kept = module.collections.reduce((sum, c) => sum + groupKeptCount(c, stateFor(c)), 0);
+    const size = moduleSizeSummary(module.collections, stateFor);
+    return { kept, total, keptBytes: size?.keptBytes ?? null };
   }
 
   /**
@@ -404,6 +402,8 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
           const { state, mode } = this.#productState(p);
           const counts = this.#productToolSummary(p, state);
           const shortName = p.displayName.replace(/^Umbraco /, "");
+          const sizeText = counts && counts.keptBytes !== null ? ` · ${formatApproxTokens(counts.keptBytes)}` : "";
+          const sizeTitle = counts && counts.keptBytes !== null ? formatSizeTooltip(counts.keptBytes) : "";
           return html`<button
             type="button"
             role="tab"
@@ -420,7 +420,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
                 ${levelGlyph(state.level)}
                 <span>${LEVEL_LABELS[state.level] ?? LEVEL_LABELS.full}</span>
               </span>
-              ${counts ? html`<span class="product-tab-count">${counts.kept}/${counts.total}</span>` : nothing}
+              ${counts ? html`<span class="product-tab-count" title=${sizeTitle || nothing}>${counts.kept}/${counts.total}${sizeText}</span>` : nothing}
             </div>
           </button>`;
         })}
