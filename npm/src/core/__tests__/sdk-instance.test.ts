@@ -1,7 +1,8 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { checkPackageInstalled, findPackageDir, hasNestedSdkCopy } from "../sdk-instance.js";
+import { pathToFileURL } from "node:url";
+import { checkPackageInstalled, checkPackageMajor, findPackageDir, hasNestedSdkCopy, installedPackageVersion } from "../sdk-instance.js";
 
 function fakePackage(nested: boolean): { dir: string; entry: string } {
   const root = mkdtempSync(join(tmpdir(), "umb-mcp-"));
@@ -47,5 +48,30 @@ describe("sdk instance check", () => {
       throw new Error("boom");
     };
     expect(() => checkPackageInstalled("@x/product", "X Product", broken)).toThrow("boom");
+  });
+});
+
+describe("package major check", () => {
+  it("reads the installed version from the package's package.json", () => {
+    const { dir, entry } = fakePackage(false);
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "@x/product", version: "18.1.11" }));
+    expect(installedPackageVersion("@x/product", () => pathToFileURL(entry).href)).toBe("18.1.11");
+  });
+
+  it("returns null when the version can't be read", () => {
+    const { entry } = fakePackage(false);
+    expect(installedPackageVersion("@x/product", () => pathToFileURL(entry).href)).toBeNull();
+    expect(installedPackageVersion("@x/product", () => { throw new Error("missing"); })).toBeNull();
+  });
+
+  it("accepts a package for the expected major, or one whose version can't be read", () => {
+    expect(checkPackageMajor("@x/product", "X Product", "17", () => "17.6.13")).toBeNull();
+    expect(checkPackageMajor("@x/product", "X Product", "17", () => null)).toBeNull();
+  });
+
+  it("reports a package for another major", () => {
+    expect(checkPackageMajor("@x/product", "X Product", "17", () => "18.1.11")).toBe(
+      "@x/product 18.1.11 is installed, but this umbrella-mcp is for Umbraco 17, so X Product tools may not match the site. Reinstall umbrella-mcp's dependencies (npm ci).",
+    );
   });
 });
