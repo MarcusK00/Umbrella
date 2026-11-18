@@ -29,11 +29,13 @@ Your AI tool starts `umbrella-mcp`. The server signs in as an Umbraco API user, 
 
 Each person, or each AI agent, connects as its own API user, and in **Settings → Umbrella → Tool Permissions** each API user can get its own access per product: **Off**, **Read-only**, **No deletes** or **Full**. A content agent can list forms but never gets a tool to delete pages; an ops agent can run automations while Forms stays off for it. `get-mcp-health` tells each agent what it can use.
 
-![Made for teams: everyone signs in as their own API user, so access follows the person, not the project. The Overview shows one row per person with who connected, when and with which version; Tool Permissions fine-tunes access down to groups of tools and can switch a product off for one person](https://raw.githubusercontent.com/MarcusK00/Umbrella/v18/main/docs/images/umbrella-teams.png)
+![Overview dashboard: connection status, default permissions per product, and one row per API user with Client setup and New connection](https://raw.githubusercontent.com/MarcusK00/Umbrella/v18/main/docs/images/umbrella-dashboard-overview.png)
 
 ## 🚀 Get started in 4 steps
 
-![Connect in minutes: no config files to write by hand. The Umbrella dashboard is ready to connect as soon as the add-on is installed: pick a user, pick your AI tool, and copy the ready-made setup](https://raw.githubusercontent.com/MarcusK00/Umbrella/v18/main/docs/images/umbrella-connect.png)
+![Per-user tool permissions: set site-wide defaults or customise Off, Read-only, No deletes or Full per product for each API user](https://raw.githubusercontent.com/MarcusK00/Umbrella/v18/main/docs/images/umbrella-tool-permissions.png)
+
+![Tool groups and individual tools: toggle entire groups or single tools on and off, with Read-only and Destructive badges](https://raw.githubusercontent.com/MarcusK00/Umbrella/v18/main/docs/images/umbrella-tool-groups.jpg)
 
 You need Umbraco 18, and Node.js 22.23.4 or later (24.22.1 or later on Node 24, 26.12.1 or later on Node 26) on the machine running your AI tool.
 
@@ -54,7 +56,7 @@ The panel then shows the client secret once (copy it: Umbraco only keeps a hash)
   "mcpServers": {
     "umbraco": {
       "command": "npx",
-      "args": ["-y", "umbrella-mcp@18.1.0"],
+      "args": ["-y", "umbrella-mcp@18.1.1"],
       "env": {
         "UMBRACO_BASE_URL": "https://your-site",
         "UMBRACO_CLIENT_ID": "umbraco-back-office-mcp",
