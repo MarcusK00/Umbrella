@@ -122,3 +122,26 @@ export function buildSizeSegments(collections, stateFor, maxNamed = 4) {
 
   return { totalBytes, keptBytes, segments, byGroup };
 }
+
+/**
+ * Builds proportional footprint segments across an API user's active products (for the Info modal).
+ * Returns `null` when no active product has positive byte size data.
+ */
+export function buildAccessSizeSegments(access, maxNamed = 4) {
+  if (!Array.isArray(access) || access.length === 0) return null;
+  const active = access
+    .filter((a) => a.sectionAccess !== false && a.level !== "off" && typeof a.sizeBytes === "number" && a.sizeBytes > 0)
+    .sort((a, b) => b.sizeBytes - a.sizeBytes || a.productId.localeCompare(b.productId));
+  const totalBytes = active.reduce((sum, a) => sum + a.sizeBytes, 0);
+  if (totalBytes <= 0) return null;
+
+  const segments = active.map((a, i) => ({
+    productId: a.productId,
+    displayName: a.displayName,
+    bytes: a.sizeBytes,
+    pctOfTotal: (a.sizeBytes / totalBytes) * 100,
+    colorIndex: i < maxNamed ? i : -1,
+  }));
+  const byProduct = new Map(segments.map((s) => [s.productId, s]));
+  return { totalBytes, segments, byProduct };
+}

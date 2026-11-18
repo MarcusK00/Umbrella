@@ -3,7 +3,7 @@ import { UmbModalBaseElement } from "@umbraco-cms/backoffice/modal";
 import { UmbTextStyles } from "@umbraco-cms/backoffice/style";
 import { formatDate } from "./umbrella-api.js";
 import { LEVEL_LABELS, formatRelative, glyphStyles, levelGlyph, tools } from "./umbrella-access.js";
-import { formatApproxTokens, formatSizeTooltip } from "./umbrella-tool-size.js";
+import { buildAccessSizeSegments, formatApproxTokens, formatSizeTooltip } from "./umbrella-tool-size.js";
 
 const STATES = { active: "Active", disabled: "Disabled", lockedOut: "Locked out" };
 
@@ -52,33 +52,77 @@ export class UmbrellaApiUserInfoModalElement extends UmbModalBaseElement {
   #renderAccess(user, products) {
     const names = Object.fromEntries((products ?? []).map((p) => [p.id, p.displayName]));
     if (!user.access?.length) return html`<p class="muted">No products reported for this API user yet.</p>`;
-    return html`<ul class="access">
-      ${user.access.map((a) => {
-        const level = a.sectionAccess === false ? "off" : a.level;
-        return html`<li class="access-card">
-          <div class="access-top">
-            <span class="product">${names[a.productId] ?? a.displayName}</span>
-            <span class="level">${a.sectionAccess === false ? nothing : html`${levelGlyph(level)}${LEVEL_LABELS[a.level] ?? a.level}`}</span>
-          </div>
-          <span class="muted small">
-            ${a.sectionAccess === false ? "No access: no user group grants its section" : a.scope === "user" ? "Own settings" : "Defaults"}
-            ${a.disabledToolCount > 0 && a.level !== "off" && a.sectionAccess !== false ? ` · ${a.disabledToolCount} ${a.disabledToolCount === 1 ? "tool" : "tools"} switched off` : nothing}
-            ${a.toolCount === null || a.toolCount === undefined || a.level === "off" || a.sectionAccess === false
-              ? nothing
-              : html` · <strong>${tools(a.toolCount)}</strong>${a.sizeBytes !== null && a.sizeBytes !== undefined
-                  ? html` <span title=${formatSizeTooltip(a.sizeBytes)}>· ${formatApproxTokens(a.sizeBytes, { unit: true })}</span>`
-                  : nothing}`}
-          </span>
-        </li>`;
-      })}
-    </ul>
-    ${user.toolCount === null || user.toolCount === undefined
-      ? nothing
-      : html`<p class="total-line muted small">
-          <strong>${tools(user.toolCount)}</strong>${user.sizeBytes !== null && user.sizeBytes !== undefined
-            ? html` (<span title=${formatSizeTooltip(user.sizeBytes)}>${formatApproxTokens(user.sizeBytes, { unit: true })}</span>)`
-            : nothing} in total at its last start.
-        </p>`}`;
+
+    const footprint = buildAccessSizeSegments(user.access);
+    const totalTitle = user.sizeBytes !== null && user.sizeBytes !== undefined ? formatSizeTooltip(user.sizeBytes) : "";
+
+    return html`<div class="access-head">
+        <h4>Tools per product</h4>
+        ${user.toolCount !== null && user.toolCount !== undefined
+          ? html`<span class="access-total muted small" title=${totalTitle || nothing}>
+              <strong>${tools(user.toolCount)}</strong> total
+            </span>`
+          : nothing}
+      </div>
+      ${footprint
+        ? html`<div class="footprint-bar" role="img" aria-label="Context size breakdown across products">
+            ${footprint.segments.map((seg) => {
+              const name = names[seg.productId] ?? seg.displayName;
+              const pct = Math.max(1, Math.round(seg.pctOfTotal));
+              return html`<span
+                class="footprint-seg ${seg.colorIndex >= 0 ? `seg-${seg.colorIndex}` : "seg-other"}"
+                style="width: ${seg.pctOfTotal.toFixed(2)}%"
+                title="${name} · ${pct}% (${formatApproxTokens(seg.bytes, { unit: true })})"
+              ></span>`;
+            })}
+          </div>`
+        : nothing}
+      <ul class="access">
+        ${user.access.map((a) => {
+          const isNoAccess = a.sectionAccess === false;
+          const isOff = !isNoAccess && a.level === "off";
+          const inactive = isNoAccess || isOff;
+          const level = isNoAccess ? "off" : a.level;
+          const seg = footprint?.byProduct.get(a.productId) ?? null;
+          const segClass = seg ? (seg.colorIndex >= 0 ? `seg-${seg.colorIndex}` : "seg-other") : "";
+          const name = names[a.productId] ?? a.displayName;
+          const cardTitle = seg
+            ? `${name} · ${Math.max(1, Math.round(seg.pctOfTotal))}% (${formatSizeTooltip(seg.bytes)})`
+            : "";
+
+          return html`<li class="access-card ${inactive ? "is-inactive" : ""}" title=${cardTitle || nothing}>
+            <div class="access-top">
+              <span class="product">
+                ${seg ? html`<span class="product-dot ${segClass}" aria-hidden="true"></span>` : nothing}
+                <span>${name}</span>
+                ${!isNoAccess && a.scope === "user" ? html`<uui-tag class="compact-tag" look="secondary">Own</uui-tag>` : nothing}
+              </span>
+              <span class="level ${inactive ? "is-muted" : ""}">
+                ${isNoAccess ? html`<span>No access</span>` : html`${levelGlyph(level)}<span>${LEVEL_LABELS[a.level] ?? a.level}</span>`}
+              </span>
+            </div>
+            <div class="access-bottom muted small">
+              <span>
+                ${isNoAccess
+                  ? "No user group grants its section"
+                  : isOff
+                    ? "Not loaded"
+                    : a.scope === "user"
+                      ? "Own settings"
+                      : "Follows defaults"}${a.disabledToolCount > 0 && !inactive
+                  ? ` · ${a.disabledToolCount} switched off`
+                  : ""}
+              </span>
+              ${!inactive && a.toolCount !== null && a.toolCount !== undefined
+                ? html`<span class="access-count">${tools(a.toolCount)}</span>`
+                : nothing}
+            </div>
+            ${seg
+              ? html`<span class="access-weight ${segClass}" style="width: ${Math.max(seg.pctOfTotal, 1.5).toFixed(2)}%" aria-hidden="true"></span>`
+              : nothing}
+          </li>`;
+        })}
+      </ul>`;
   }
 
   render() {
@@ -116,7 +160,6 @@ export class UmbrellaApiUserInfoModalElement extends UmbModalBaseElement {
               <dd>${user.sections?.length ? user.sections.map((s) => html`<uui-tag class="compact-tag" look="secondary">${sectionLabel(s)}</uui-tag>`) : "None"}</dd>
             </div>
           </dl>
-          <h4>Tools per product</h4>
           ${this.#renderAccess(user, products)}
         </uui-box>
       </div>
@@ -130,6 +173,13 @@ export class UmbrellaApiUserInfoModalElement extends UmbModalBaseElement {
     UmbTextStyles,
     glyphStyles,
     css`
+      :host {
+        --umbrella-seg-0: var(--uui-color-interactive-emphasis, #2152a3);
+        --umbrella-seg-1: #2a9d8f;
+        --umbrella-seg-2: #e09f3e;
+        --umbrella-seg-3: #8b6cc1;
+        --umbrella-seg-other: var(--uui-color-border-emphasis, #a1a1aa);
+      }
       .content {
         display: flex;
         flex-direction: column;
@@ -189,11 +239,53 @@ export class UmbrellaApiUserInfoModalElement extends UmbModalBaseElement {
         gap: var(--uui-size-space-2);
         font-weight: 500;
       }
-      h4 {
+      .access-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: var(--uui-size-space-3);
         margin: var(--uui-size-space-5) 0 var(--uui-size-space-3);
         padding-top: var(--uui-size-space-4);
         border-top: 1px solid var(--uui-color-divider);
+      }
+      .access-head h4 {
+        margin: 0;
         font-size: var(--uui-type-default-size);
+      }
+      .access-total {
+        font-variant-numeric: tabular-nums;
+      }
+      .access-total strong {
+        color: var(--uui-color-text);
+      }
+      .footprint-bar {
+        display: flex;
+        gap: 2px;
+        height: 8px;
+        margin-bottom: var(--uui-size-space-3);
+        border-radius: 4px;
+        background: var(--uui-color-surface-emphasis);
+        overflow: hidden;
+      }
+      .footprint-seg {
+        display: block;
+        height: 100%;
+        min-width: 3px;
+      }
+      .seg-0 {
+        background: var(--umbrella-seg-0);
+      }
+      .seg-1 {
+        background: var(--umbrella-seg-1);
+      }
+      .seg-2 {
+        background: var(--umbrella-seg-2);
+      }
+      .seg-3 {
+        background: var(--umbrella-seg-3);
+      }
+      .seg-other {
+        background: var(--umbrella-seg-other);
       }
       .access {
         list-style: none;
@@ -204,6 +296,8 @@ export class UmbrellaApiUserInfoModalElement extends UmbModalBaseElement {
         gap: var(--uui-size-space-2);
       }
       .access-card {
+        position: relative;
+        overflow: hidden;
         display: flex;
         flex-direction: column;
         gap: 4px;
@@ -212,14 +306,27 @@ export class UmbrellaApiUserInfoModalElement extends UmbModalBaseElement {
         background: var(--uui-color-surface-alt);
         border: 1px solid var(--uui-color-divider);
       }
-      .access-top {
+      .access-card.is-inactive {
+        opacity: 0.72;
+      }
+      .access-top,
+      .access-bottom {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: var(--uui-size-space-3);
       }
       .access .product {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--uui-size-space-2);
         font-weight: 600;
+      }
+      .product-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex: none;
       }
       .access .level {
         display: inline-flex;
@@ -227,8 +334,23 @@ export class UmbrellaApiUserInfoModalElement extends UmbModalBaseElement {
         gap: var(--uui-size-space-2);
         font-weight: 600;
       }
-      .total-line {
-        margin: var(--uui-size-space-3) 0 0;
+      .access .level.is-muted {
+        color: var(--uui-color-text-alt);
+        font-weight: normal;
+      }
+      .access-count {
+        flex: none;
+        font-weight: 600;
+        color: var(--uui-color-text);
+        font-variant-numeric: tabular-nums;
+      }
+      .access-weight {
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        height: 2px;
+        opacity: 0.75;
+        pointer-events: none;
       }
       uui-tag.compact-tag {
         flex: none;
