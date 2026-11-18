@@ -285,7 +285,7 @@ public sealed class McpOverviewService(
                     int count = (userCapabilities?.GetValueOrDefault(users!.First(u => ignoring[0] == $"\"{u.Name}\"").Key)?.Products
                         .FirstOrDefault(x => x.Id == p.Id) ?? p).DisabledTools.Count;
                     productFindings.Add(new(McpFinding.Warning, McpFindingArea.Products,
-                        $"{p.DisplayName}: {count} tools are switched off, but the MCP server of {JoinNames(ignoring)} is older and still offers them. {UseAddonVersion(addonVersion)}"));
+                        $"{p.DisplayName}: {(count == 1 ? "1 tool is" : $"{count} tools are")} switched off, but the MCP server of {JoinNames(ignoring)} is older and still offers them. {UseAddonVersion(addonVersion)}"));
                 }
             }
         }
