@@ -57,4 +57,55 @@ public class McpToolCountsTests
 
         Assert.That(McpToolCounts.Effective(module, Forms(readOnly: true)), Is.EqualTo(30));
     }
+
+    private static McpModuleCatalogue ToolModule() =>
+        new(At,
+        [
+            new McpCollectionInfo("form", 3, Tools:
+            [
+                new McpToolInfo("list-forms", null, ReadOnly: true, Destructive: false),
+                new McpToolInfo("update-form", null, ReadOnly: false, Destructive: false),
+                new McpToolInfo("delete-form", null, ReadOnly: false, Destructive: true),
+            ]),
+            new McpCollectionInfo("record", 10, ReadOnlyToolCount: 6, NonDestructiveToolCount: 8),
+        ]);
+
+    private static string[] Names(IReadOnlyList<McpToolInfo> tools) => tools.Select(t => t.Name).ToArray();
+
+    [Test]
+    public void Switched_off_tools_are_left_out()
+    {
+        var product = Forms(disabled: []) with { DisabledTools = ["update-form"] };
+
+        Assert.That(Names(McpToolCounts.KeptTools(ToolModule(), product)), Is.EqualTo(new[] { "list-forms", "delete-form" }));
+        Assert.That(McpToolCounts.Effective(ToolModule(), product), Is.EqualTo(12));
+    }
+
+    [Test]
+    public void A_level_removes_tools_whatever_the_list_says()
+    {
+        var product = Forms(disabled: [], noDestructive: true) with { DisabledTools = ["update-form"] };
+
+        Assert.That(Names(McpToolCounts.KeptTools(ToolModule(), product)), Is.EqualTo(new[] { "list-forms" }));
+        Assert.That(McpToolCounts.Effective(ToolModule(), product), Is.EqualTo(9));
+    }
+
+    [Test]
+    public void A_switched_off_group_hides_its_tools_and_keeps_the_list()
+    {
+        var product = Forms(disabled: ["form"]) with { DisabledTools = ["update-form"] };
+
+        Assert.That(McpToolCounts.KeptTools(ToolModule(), product), Is.Empty);
+        Assert.That(McpToolCounts.Effective(ToolModule(), product), Is.EqualTo(10));
+        Assert.That(product.DisabledTools, Is.EqualTo(new[] { "update-form" }));
+    }
+
+    [Test]
+    public void Unknown_names_are_ignored()
+    {
+        var product = Forms(disabled: []) with { DisabledTools = ["nope"] };
+
+        Assert.That(Names(McpToolCounts.KeptTools(ToolModule(), product)), Is.EqualTo(new[] { "list-forms", "update-form", "delete-form" }));
+        Assert.That(McpToolCounts.Effective(ToolModule(), product), Is.EqualTo(13));
+    }
 }

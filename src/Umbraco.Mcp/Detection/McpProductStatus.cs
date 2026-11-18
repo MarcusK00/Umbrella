@@ -14,6 +14,9 @@ public sealed record McpProductStatus(
     /// </summary>
     public IReadOnlyList<string>? DisabledCollections { get; init; }
 
+    /// <summary>Unprefixed names of tools switched off in the backoffice. Names a product doesn't have are ignored.</summary>
+    public IReadOnlyList<string> DisabledTools { get; init; } = [];
+
     /// <summary>Set in the backoffice: the npm server registers only this product's read-only tools.</summary>
     public bool ReadOnly { get; init; }
 
