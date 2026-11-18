@@ -23,7 +23,6 @@ export class UmbrellaNewSecretModalElement extends UmbModalBaseElement {
 
   #auth;
   #notifications;
-  // Set once the old credential is deleted, so Try again only adds the new one.
   #deleted = false;
 
   constructor() {
@@ -95,47 +94,65 @@ export class UmbrellaNewSecretModalElement extends UmbModalBaseElement {
 
   #renderChoose(user) {
     const ids = user.clientIds ?? [];
-    return html`
-      ${this.#replacing
-        ? html`<p>Its AI tool stops working until the new secret is put in.</p>
-            ${ids.length > 1
-              ? html`<uui-label for="client">Client id</uui-label>
-                  <uui-select
-                    id="client"
-                    label="Client id"
-                    ?disabled=${this.#deleted}
-                    .options=${ids.map((id) => ({ name: id, value: id, selected: id === this._clientId }))}
-                    @change=${(e) => (this._clientId = e.target.value)}
-                  ></uui-select>`
-              : html`<p class="muted">Client id <span class="mono">${ids[0]}</span></p>`}`
-        : html`<p>${user.name} has no client credentials yet. Its AI tool signs in with this client id and the secret made here.</p>
-            <uui-label for="suffix" required>Client id</uui-label>
-            <uui-input id="suffix" label="Client id" .value=${this._suffix} @input=${(e) => (this._suffix = e.target.value)}>
-              <span slot="prepend" class="prefix">${CLIENT_ID_PREFIX}</span>
-            </uui-input>`}
-      ${this._error ? html`<p class="error"><umb-icon name="icon-alert"></umb-icon>${this._error}</p>` : nothing}
-    `;
+    return html`<uui-box>
+      <div class="stack">
+        ${this.#replacing
+          ? html`<p>Generating a new secret immediately invalidates the previous one. Their AI tool will stop connecting until the new secret is configured.</p>
+              ${ids.length > 1
+                ? html`<div class="field">
+                    <uui-label for="client">Client id</uui-label>
+                    <uui-select
+                      id="client"
+                      label="Client id"
+                      ?disabled=${this.#deleted}
+                      .options=${ids.map((id) => ({ name: id, value: id, selected: id === this._clientId }))}
+                      @change=${(e) => (this._clientId = e.target.value)}
+                    ></uui-select>
+                  </div>`
+                : html`<div class="client-box">
+                    <span class="muted small">Client id</span>
+                    <code class="mono">${ids[0]}</code>
+                  </div>`}`
+          : html`<p>${user.name} has no client credentials yet. Their AI tool will sign in with this client id and the generated secret.</p>
+              <div class="field">
+                <uui-label for="suffix" required>Client id</uui-label>
+                <uui-input id="suffix" label="Client id" .value=${this._suffix} @input=${(e) => (this._suffix = e.target.value)}>
+                  <span slot="prepend" class="prefix">${CLIENT_ID_PREFIX}</span>
+                </uui-input>
+              </div>`}
+        ${this._error ? html`<p class="error"><umb-icon name="icon-alert"></umb-icon>${this._error}</p>` : nothing}
+      </div>
+    </uui-box>`;
   }
 
   #renderSecret() {
     return html`
-      <div class="note positive"><umb-icon name="icon-check"></umb-icon><span>The new secret is set for <span class="mono">${this._clientId}</span>.</span></div>
-      <uui-label for="secret">Client secret</uui-label>
-      <div class="secret-row">
-        <uui-input id="secret" label="Client secret" readonly .value=${this._secret}></uui-input>
-        <uui-button look="secondary" label="Copy" @click=${this.#copy}></uui-button>
+      <div class="note positive">
+        <umb-icon name="icon-check"></umb-icon>
+        <span>The new secret is set for <code class="mono">${this._clientId}</code>.</span>
       </div>
-      <div class="note warning">
-        <umb-icon name="icon-alert"></umb-icon>
-        <span>Copy it now. It is shown once: Umbraco stores only its hash, and Umbrella doesn't store it at all. Send it separately from the config.</span>
-      </div>
-      <h4>Put it into the AI tool</h4>
-      <ul>
-        <li>Claude Code (plugin): run <code>/plugin configure ${PLUGIN_ID}</code> in Claude Code.</li>
-        <li>Claude Code (.mcp.json) and Cursor: set <code>${SECRET_VARIABLE}</code> to it, then restart the tool.</li>
-        <li>VS Code: it asks for the secret the next time it starts the server.</li>
-        <li>Anything else: replace the secret in its config or command.</li>
-      </ul>
+      <uui-box headline="Client secret">
+        <div class="stack">
+          <div class="secret-row">
+            <uui-input id="secret" label="Client secret" readonly .value=${this._secret}></uui-input>
+            <uui-button look="primary" label="Copy" @click=${this.#copy}>
+              <umb-icon name="icon-documents"></umb-icon> Copy
+            </uui-button>
+          </div>
+          <div class="note warning">
+            <umb-icon name="icon-alert"></umb-icon>
+            <span>Copy it now. It is shown once: Umbraco stores only its hash, and Umbrella doesn't store it at all. Send it separately from the config.</span>
+          </div>
+        </div>
+      </uui-box>
+      <uui-box headline="Put it into the AI tool">
+        <ul>
+          <li><strong>Claude Code (plugin):</strong> run <code>/plugin configure ${PLUGIN_ID}</code> in Claude Code.</li>
+          <li><strong>Claude Code (.mcp.json) & Cursor:</strong> set <code>${SECRET_VARIABLE}</code> to it, then restart the tool.</li>
+          <li><strong>VS Code:</strong> prompts for the secret the next time it starts the server.</li>
+          <li><strong>Other clients:</strong> replace the secret in its configuration file or command.</li>
+        </ul>
+      </uui-box>
     `;
   }
 
@@ -164,21 +181,93 @@ export class UmbrellaNewSecretModalElement extends UmbModalBaseElement {
   static styles = [
     UmbTextStyles,
     css`
-      .content { display: flex; flex-direction: column; gap: var(--uui-size-space-3); }
-      .content p { margin: 0; }
-      .muted { color: var(--uui-color-text-alt); }
-      .mono, code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.9em; }
-      .prefix { padding-left: var(--uui-size-space-3); color: var(--uui-color-text-alt); font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.85em; white-space: nowrap; }
-      uui-input, uui-select { width: 100%; }
-      .secret-row { display: flex; gap: var(--uui-size-space-2); align-items: center; }
-      .secret-row uui-input { flex: 1; min-width: 0; font-family: ui-monospace, Menlo, Consolas, monospace; }
-      .error { display: flex; align-items: center; gap: var(--uui-size-space-2); color: var(--uui-color-danger-standalone); }
-      .note { display: flex; gap: var(--uui-size-space-2); align-items: flex-start; padding: var(--uui-size-space-3); border-radius: var(--uui-border-radius); }
-      .note umb-icon { flex: none; margin-top: 2px; }
-      .note.positive { background: var(--uui-color-positive); color: var(--uui-color-positive-contrast); }
-      .note.warning { background: var(--uui-color-warning); color: var(--uui-color-warning-contrast); }
-      h4 { margin: var(--uui-size-space-3) 0 0; }
-      ul { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: var(--uui-size-space-1); }
+      .content,
+      .stack {
+        display: flex;
+        flex-direction: column;
+        gap: var(--uui-size-space-4);
+      }
+      .content p {
+        margin: 0;
+      }
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: var(--uui-size-space-2);
+      }
+      .client-box {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: var(--uui-size-space-3);
+        border-radius: var(--uui-border-radius);
+        background: var(--uui-color-surface-alt);
+        border: 1px solid var(--uui-color-divider);
+      }
+      .muted {
+        color: var(--uui-color-text-alt);
+      }
+      .small {
+        font-size: var(--uui-type-small-size);
+      }
+      .mono,
+      code {
+        font-family: var(--uui-font-monospace, ui-monospace, Menlo, Consolas, monospace);
+        font-size: 0.9em;
+      }
+      .prefix {
+        padding-left: var(--uui-size-space-3);
+        color: var(--uui-color-text-alt);
+        font-family: var(--uui-font-monospace, ui-monospace, Menlo, Consolas, monospace);
+        font-size: 0.85em;
+        white-space: nowrap;
+      }
+      uui-input,
+      uui-select {
+        width: 100%;
+      }
+      .secret-row {
+        display: flex;
+        gap: var(--uui-size-space-2);
+        align-items: center;
+      }
+      .secret-row uui-input {
+        flex: 1;
+        min-width: 0;
+        font-family: var(--uui-font-monospace, ui-monospace, Menlo, Consolas, monospace);
+      }
+      .error {
+        display: flex;
+        align-items: center;
+        gap: var(--uui-size-space-2);
+        color: var(--uui-color-danger-standalone);
+      }
+      .note {
+        display: flex;
+        gap: var(--uui-size-space-2);
+        align-items: flex-start;
+        padding: var(--uui-size-space-3) var(--uui-size-space-4);
+        border-radius: var(--uui-border-radius);
+      }
+      .note umb-icon {
+        flex: none;
+        margin-top: 2px;
+      }
+      .note.positive {
+        background: var(--uui-color-positive);
+        color: var(--uui-color-positive-contrast);
+      }
+      .note.warning {
+        background: var(--uui-color-warning);
+        color: var(--uui-color-warning-contrast);
+      }
+      ul {
+        margin: 0;
+        padding-left: 1.2em;
+        display: flex;
+        flex-direction: column;
+        gap: var(--uui-size-space-2);
+      }
     `,
   ];
 }

@@ -30,6 +30,13 @@ const ADMIN_ALIAS = "admin";
 /** McpProducts.RequiredId: CMS can't be switched off. */
 const REQUIRED_ID = "cms";
 
+const LEVEL_DESCRIPTIONS = {
+  off: "Not loaded",
+  readOnly: "Inspect only",
+  noDestructive: "No delete tools",
+  full: "All enabled tools",
+};
+
 const POLL_MS = 5000;
 
 const sectionLabel = (name) => name.replace(/^[A-Za-z]+\.Section\./, "");
@@ -162,7 +169,6 @@ export class UmbrellaNewConnectionModalElement extends UmbModalBaseElement {
     try {
       if (!this.#done.has("user")) {
         this._failedStep = "user";
-        // A retry after a lost response: the user may already be there.
         if (!(this.#attempted && (await getUser(this.#auth, this.#userKey)))) {
           this.#attempted = true;
           await createApiUser(this.#auth, {
@@ -200,7 +206,6 @@ export class UmbrellaNewConnectionModalElement extends UmbModalBaseElement {
     }
   }
 
-  /** Back to an earlier step after the user could not be created; nothing exists yet, so everything can change. */
   #back(step) {
     this.#attempted = false;
     this._error = null;
@@ -218,7 +223,6 @@ export class UmbrellaNewConnectionModalElement extends UmbModalBaseElement {
     this.#poll = setInterval(() => this.#checkConnected(), POLL_MS);
   }
 
-  /** Polls the Overview until this user's MCP server has connected and reported its tools. */
   async #checkConnected() {
     try {
       const overview = await request(this.#auth, "GET", "overview");
@@ -281,117 +285,154 @@ export class UmbrellaNewConnectionModalElement extends UmbModalBaseElement {
     const index = STEPS.findIndex((s) => s.id === this._step);
     return html`<ol class="steps">
       ${STEPS.map(
-        (s, i) => html`<li class=${i < index ? "done" : ""} aria-current=${i === index ? "step" : "false"}><span class="dot">${i + 1}</span>${s.label}</li>`,
+        (s, i) => html`<li class=${i < index ? "done" : ""} aria-current=${i === index ? "step" : "false"}>
+          <span class="dot">${i < index ? html`<umb-icon name="icon-check"></umb-icon>` : i + 1}</span>
+          <span>${s.label}</span>
+        </li>`,
       )}
     </ol>`;
   }
 
   #renderDetails() {
     const error = this._suffix ? this.#suffixError : null;
-    return html`
-      <div class="field">
-        <uui-label for="name" required>Name of MCP client</uui-label>
-        <uui-input
-          id="name"
-          label="Name"
-          placeholder="A person or an agent"
-          .value=${this._name}
-          @input=${(e) => {
-            this._name = e.target.value;
-            if (!this.#suffixEdited) this._suffix = suggestSuffix(this._name);
-          }}
-        ></uui-input>
-        <p class="muted small">Shown in the access table, and in Umbraco's history next to what its AI tool changes.</p>
+    return html`<uui-box headline="API user identity">
+      <div class="stack">
+        <div class="field">
+          <uui-label for="name" required>Name of MCP client</uui-label>
+          <uui-input
+            id="name"
+            label="Name"
+            placeholder="e.g. Alice or Content Agent"
+            .value=${this._name}
+            @input=${(e) => {
+              this._name = e.target.value;
+              if (!this.#suffixEdited) this._suffix = suggestSuffix(this._name);
+            }}
+          ></uui-input>
+          <p class="muted small">Shown in the access table, and in Umbraco's audit history next to what its AI tool changes.</p>
+        </div>
+        <div class="field">
+          <uui-label for="suffix" required>Client id</uui-label>
+          <uui-input
+            id="suffix"
+            label="Client id"
+            .value=${this._suffix}
+            @input=${(e) => {
+              this.#suffixEdited = true;
+              this._suffix = e.target.value;
+            }}
+          >
+            <span slot="prepend" class="prefix">${CLIENT_ID_PREFIX}</span>
+          </uui-input>
+          ${error
+            ? html`<p class="error small"><umb-icon name="icon-alert"></umb-icon>${error}</p>`
+            : html`<p class="muted small">Suggested from the name. Their AI tool signs in with this identifier.</p>`}
+        </div>
       </div>
-      <div class="field">
-        <uui-label for="suffix" required>Client id</uui-label>
-        <uui-input
-          id="suffix"
-          label="Client id"
-          .value=${this._suffix}
-          @input=${(e) => {
-            this.#suffixEdited = true;
-            this._suffix = e.target.value;
-          }}
-        >
-          <span slot="prepend" class="prefix">${CLIENT_ID_PREFIX}</span>
-        </uui-input>
-        ${error
-          ? html`<p class="error small"><umb-icon name="icon-alert"></umb-icon>${error}</p>`
-          : html`<p class="muted small">Suggested from the name. Their AI tool signs in with it.</p>`}
-      </div>
-    `;
+    </uui-box>`;
+  }
+
+  #setChoice(productId, value) {
+    this._choices = { ...this._choices, [productId]: value };
+    this.#suggest();
   }
 
   #renderLevels(p) {
     const choice = this._choices[p.id] ?? "defaults";
-    const options = [
-      { value: "defaults", label: `Defaults (${LEVEL_LABELS[p.access] ?? LEVEL_LABELS.full})` },
-      ...LEVELS.filter((l) => !(p.id === REQUIRED_ID && l.value === "off")),
-    ];
-    return html`<uui-button-group role="group" aria-label="Access for ${p.displayName}">
-      ${options.map(
-        (o) => html`<uui-button
-          compact
-          look=${choice === o.value ? "primary" : "outline"}
-          label=${o.label}
-          aria-pressed=${choice === o.value ? "true" : "false"}
-          @click=${() => {
-            this._choices = { ...this._choices, [p.id]: o.value };
-            this.#suggest();
-          }}
-        >${o.label}</uui-button>`,
-      )}
-    </uui-button-group>`;
+    const isDefaults = choice === "defaults";
+    return html`<div class="level-picker" role="radiogroup" aria-label="Access for ${p.displayName}">
+      <button
+        type="button"
+        role="radio"
+        class="level-option level-defaults"
+        aria-checked=${isDefaults ? "true" : "false"}
+        @click=${() => !isDefaults && this.#setChoice(p.id, "defaults")}
+      >
+        <span class="level-option-title">
+          <umb-icon name="icon-settings"></umb-icon>
+          <span>Defaults</span>
+        </span>
+      </button>
+      <div class="level-grid">
+        ${LEVELS.map((l) => {
+          const active = choice === l.value;
+          const requiredOff = p.id === REQUIRED_ID && l.value === "off";
+          const desc = requiredOff ? "Required for sign-in" : LEVEL_DESCRIPTIONS[l.value];
+          return html`<button
+            type="button"
+            role="radio"
+            class="level-option"
+            aria-checked=${active ? "true" : "false"}
+            ?disabled=${requiredOff}
+            title=${requiredOff ? "CMS cannot be switched off" : ""}
+            @click=${() => !active && this.#setChoice(p.id, l.value)}
+          >
+            <span class="level-option-title">${levelGlyph(l.value)} <span>${l.label}</span></span>
+            <span class="level-option-desc">${desc}</span>
+          </button>`;
+        })}
+      </div>
+    </div>`;
   }
 
   #renderAccess() {
-    if (this._loadError) return html`<p class="error"><umb-icon name="icon-alert"></umb-icon>Could not load the user groups: ${this._loadError}</p>`;
-    if (!this._groups) return html`<uui-loader></uui-loader>`;
+    if (this._loadError) return html`<uui-box><p class="error"><umb-icon name="icon-alert"></umb-icon>Could not load the user groups: ${this._loadError}</p></uui-box>`;
+    if (!this._groups) return html`<div class="loader-wrap"><uui-loader></uui-loader></div>`;
     const isAdmin = this.#me?.isAdmin === true;
     const own = new Set(this.#me?.userGroupIds ?? []);
     const missing = missingSections(this.#products, this._choices, this._groups, this._selected);
     const adminPicked = this._groups.some((g) => g.alias === ADMIN_ALIAS && this._selected.has(g.id));
     return html`
-      <div>
-        <h3>What may ${this._name.trim() || "it"} use?</h3>
-        <p class="muted small">The same steps as Tool Permissions. Defaults follows the site's defaults, also when they change later; any other step is saved as this API user's own setting.</p>
-      </div>
-      ${this.#products.map(
-        (p) => html`<div class="product">
-          <div class="product-name">
-            <strong>${p.displayName}</strong>
-            ${p.sectionAlias ? html`<span class="muted small">needs the ${sectionLabel(p.sectionAlias)} section</span>` : nothing}
-          </div>
-          ${this.#renderLevels(p)}
-        </div>`,
-      )}
-      <div class="field">
-        <h3>User groups</h3>
-        <p class="muted small">Preselected so every product that is on has its section. Start nodes and document permissions come from the groups too.</p>
+      <uui-box headline="What may ${this._name.trim() || "it"} use?">
+        <p class="muted small intro-text">
+          Defaults follows the site's defaults (including when they change later); any other choice is saved as this API user's own setting.
+        </p>
+        <div class="product-list">
+          ${this.#products.map((p) => {
+            const isCustom = (this._choices[p.id] ?? "defaults") !== "defaults";
+            return html`<div class="product">
+              <div class="product-name">
+                <div class="product-title">
+                  <strong>${p.displayName}</strong>
+                  ${isCustom ? html`<uui-tag class="compact-tag" look="primary" color="positive">Custom</uui-tag>` : nothing}
+                </div>
+                ${p.sectionAlias ? html`<uui-tag class="compact-tag" look="secondary">Needs ${sectionLabel(p.sectionAlias)} section</uui-tag>` : nothing}
+              </div>
+              ${this.#renderLevels(p)}
+            </div>`;
+          })}
+        </div>
+      </uui-box>
+      <uui-box headline="User groups">
+        <p class="muted small intro-text">
+          Preselected so every enabled product has its required section. Start nodes and content permissions also come from these user groups.
+        </p>
         <div class="groups">
           ${repeat(
             this._groups,
             (g) => g.id,
-            (g) => html`<uui-checkbox
-              label=${g.name}
-              .checked=${this._selected.has(g.id)}
-              @change=${(e) => {
-                const next = new Set(this._selected);
-                e.target.checked ? next.add(g.id) : next.delete(g.id);
-                this.#groupsEdited = true;
-                this._selected = next;
-              }}
-            >
-              <span class="group"
-                >${g.name} <span class="muted small">${g.sections.map(sectionLabel).join(", ") || "No sections"}</span>
-                ${!isAdmin && !own.has(g.id) ? html`<span class="hint small">You can't assign this group</span>` : nothing}</span
+            (g) => html`<div class="group-card ${this._selected.has(g.id) ? "is-checked" : ""}">
+              <uui-checkbox
+                label=${g.name}
+                .checked=${this._selected.has(g.id)}
+                @change=${(e) => {
+                  const next = new Set(this._selected);
+                  e.target.checked ? next.add(g.id) : next.delete(g.id);
+                  this.#groupsEdited = true;
+                  this._selected = next;
+                }}
               >
-            </uui-checkbox>`,
+                <span class="group">
+                  <strong>${g.name}</strong>
+                  <span class="muted small">${g.sections.map(sectionLabel).join(", ") || "No sections"}</span>
+                  ${!isAdmin && !own.has(g.id) ? html`<uui-tag class="compact-tag" look="secondary" color="warning">You can't assign this group</uui-tag>` : nothing}
+                </span>
+              </uui-checkbox>
+            </div>`,
           )}
         </div>
-        ${this._selected.size === 0 ? html`<p class="muted small">Pick at least one group.</p>` : nothing}
-      </div>
+        ${this._selected.size === 0 ? html`<p class="error small group-error">Pick at least one group.</p>` : nothing}
+      </uui-box>
       ${adminPicked
         ? html`<div class="note warning"><umb-icon name="icon-alert"></umb-icon><span>Administrators gives the AI tool every section and permission. Tool settings are guardrails, not access control.</span></div>`
         : nothing}
@@ -413,60 +454,63 @@ export class UmbrellaNewConnectionModalElement extends UmbModalBaseElement {
 
   #renderReview() {
     const groups = (this._groups ?? []).filter((g) => this._selected.has(g.id)).map((g) => g.name);
-    return html`
-      <div>
-        <h3>Check and create</h3>
-        <p class="muted small">Creates the API user, its client credentials and its access. The client secret is made here and shown once.</p>
-      </div>
+    return html`<uui-box headline="Check and create">
+      <p class="muted small intro-text">Creates the API user, its client credentials, and its product access. The client secret is generated in your browser and shown once.</p>
       <dl class="summary">
         <dt>Name</dt><dd><strong>${this._name.trim()}</strong></dd>
-        <dt>Client id</dt><dd class="mono">${this.#clientId}</dd>
-        <dt>User groups</dt><dd>${groups.join(", ")}</dd>
-        ${this.#products.map((p) => html`<dt>${p.displayName.replace(/^Umbraco /, "")}</dt><dd>${levelGlyph(effectiveLevel(this._choices[p.id] ?? "defaults", p.access))} ${this.#levelSummary(p)}</dd>`)}
+        <dt>Client id</dt><dd><code class="mono-pill">${this.#clientId}</code></dd>
+        <dt>User groups</dt><dd>${groups.map((g) => html`<uui-tag class="compact-tag" look="secondary">${g}</uui-tag>`)}</dd>
+        ${this.#products.map(
+          (p) => html`<dt>${p.displayName.replace(/^Umbraco /, "")}</dt>
+            <dd>${levelGlyph(effectiveLevel(this._choices[p.id] ?? "defaults", p.access))} ${this.#levelSummary(p)}</dd>`,
+        )}
       </dl>
-    `;
+    </uui-box>`;
   }
 
   #renderFailed() {
     const step = this._failedStep;
     const userExists = this.#done.has("user");
-    return html`
-      <div class="note danger">
-        <umb-icon name="icon-alert"></umb-icon>
-        <span>
-          ${step === "user"
-            ? html`The API user could not be created: ${this._error}`
-            : step === "credentials"
-              ? html`${this._name.trim()} is created, but its client credentials could not be added: ${this._error}`
-              : html`${this._name.trim()} is created and can sign in, but this step failed: ${this._error}`}
-        </span>
+    return html`<uui-box headline="Could not finish setup">
+      <div class="stack">
+        <div class="note danger">
+          <umb-icon name="icon-alert"></umb-icon>
+          <span>
+            ${step === "user"
+              ? html`The API user could not be created: ${this._error}`
+              : step === "credentials"
+                ? html`${this._name.trim()} is created, but its client credentials could not be added: ${this._error}`
+                : html`${this._name.trim()} is created and can sign in, but this step failed: ${this._error}`}
+          </span>
+        </div>
+        ${step === "credentials"
+          ? html`<div class="field">
+              <uui-label for="retry-suffix">Client id</uui-label>
+              <uui-input id="retry-suffix" label="Client id" .value=${this._suffix} @input=${(e) => (this._suffix = e.target.value)}>
+                <span slot="prepend" class="prefix">${CLIENT_ID_PREFIX}</span>
+              </uui-input>
+              ${this._suffix && this.#suffixError
+                ? html`<p class="error small"><umb-icon name="icon-alert"></umb-icon>${this.#suffixError}</p>`
+                : html`<p class="muted small">Change it if another API user has it, then try again. The user is listed in Access per API user, where New secret adds credentials later.</p>`}
+            </div>`
+          : nothing}
+        ${MISSING[step] && userExists ? html`<p class="muted">${MISSING[step]}</p>` : nothing}
       </div>
-      ${step === "credentials"
-        ? html`<div class="field">
-            <uui-label for="retry-suffix">Client id</uui-label>
-            <uui-input id="retry-suffix" label="Client id" .value=${this._suffix} @input=${(e) => (this._suffix = e.target.value)}>
-              <span slot="prepend" class="prefix">${CLIENT_ID_PREFIX}</span>
-            </uui-input>
-            ${this._suffix && this.#suffixError
-              ? html`<p class="error small"><umb-icon name="icon-alert"></umb-icon>${this.#suffixError}</p>`
-              : html`<p class="muted small">Change it if another API user has it, then try again. The user is listed in Access per API user, where New secret adds credentials later.</p>`}
-          </div>`
-        : nothing}
-      ${MISSING[step] && userExists ? html`<p class="muted">${MISSING[step]}</p>` : nothing}
-    `;
+    </uui-box>`;
   }
 
   #renderStatus() {
     const u = this._connected;
     if (!u) {
       return html`<div class="waiting">
-        <h3>Waiting for ${this._name.trim()}'s AI tool</h3>
+        <h4>Waiting for ${this._name.trim()}'s AI tool</h4>
         <uui-loader-bar></uui-loader-bar>
-        <p class="muted small">You can close this panel. The row in Access per API user says "Not connected yet" until its MCP server starts.</p>
+        <p class="muted small">You can close this panel at any time. The row in Access per API user says "Not connected yet" until its MCP server starts.</p>
       </div>`;
     }
     const names = Object.fromEntries(this.#products.map((p) => [p.id, p.displayName]));
-    return html`<div class="note positive">
+    return html`<div class="stack">
+      <div class="note positive">
         <umb-icon name="icon-check"></umb-icon>
         <span>${u.serverVersion ? `Connected with umbrella-mcp ${u.serverVersion}.` : "Connected."}</span>
       </div>
@@ -483,7 +527,8 @@ export class UmbrellaNewConnectionModalElement extends UmbModalBaseElement {
                     : html`Loaded · ${LEVEL_LABELS[a.level]}${a.toolCount ? ` · ${a.toolCount} tools` : ""}`}
             </dd>`,
         )}
-      </dl>`;
+      </dl>
+    </div>`;
   }
 
   #renderResult() {
@@ -492,23 +537,28 @@ export class UmbrellaNewConnectionModalElement extends UmbModalBaseElement {
         <umb-icon name="icon-check"></umb-icon>
         <span><strong>${this._name.trim()}</strong> is created, with its credentials and access.</span>
       </div>
-      <div class="field">
-        <uui-label for="secret">Client secret</uui-label>
-        <div class="secret-row">
-          <uui-input id="secret" label="Client secret" readonly .value=${this.#secret ?? ""}></uui-input>
-          <uui-button look="secondary" label="Copy" @click=${this.#copySecret}></uui-button>
+      <uui-box headline="Client secret">
+        <div class="stack">
+          <div class="secret-row">
+            <uui-input id="secret" label="Client secret" readonly .value=${this.#secret ?? ""}></uui-input>
+            <uui-button look="primary" label="Copy" @click=${this.#copySecret}>
+              <umb-icon name="icon-documents"></umb-icon> Copy
+            </uui-button>
+          </div>
+          <div class="note warning">
+            <umb-icon name="icon-alert"></umb-icon>
+            <span>Copy it now. It is shown once: Umbraco stores only its hash, and Umbrella doesn't store it at all. Send it separately from the config.</span>
+          </div>
         </div>
-        <div class="note warning">
-          <umb-icon name="icon-alert"></umb-icon>
-          <span>Copy it now. It is shown once: Umbraco stores only its hash, and Umbrella doesn't store it at all. Send it separately from the config.</span>
-        </div>
-      </div>
-      <h3>Hand over the config</h3>
-      ${this._setup
-        ? html`<umbrella-client-setup stacked hide-secret-step .setup=${this._setup} .userName=${this._name.trim()} .firstStep=${1}></umbrella-client-setup>`
-        : html`<uui-loader></uui-loader>`}
-      <h3>Connection</h3>
-      ${this.#renderStatus()}
+      </uui-box>
+      <uui-box headline="Hand over the config">
+        ${this._setup
+          ? html`<umbrella-client-setup stacked hide-secret-step .setup=${this._setup} .userName=${this._name.trim()} .firstStep=${1}></umbrella-client-setup>`
+          : html`<div class="loader-wrap"><uui-loader></uui-loader></div>`}
+      </uui-box>
+      <uui-box headline="Connection status">
+        ${this.#renderStatus()}
+      </uui-box>
     `;
   }
 
@@ -521,7 +571,7 @@ export class UmbrellaNewConnectionModalElement extends UmbModalBaseElement {
       case "review":
         return this.#renderReview();
       case "creating":
-        return html`<div class="waiting"><h3>Creating ${this._name.trim()}…</h3><uui-loader-bar></uui-loader-bar></div>`;
+        return html`<uui-box><div class="waiting"><h3>Creating ${this._name.trim()}…</h3><uui-loader-bar></uui-loader-bar></div></uui-box>`;
       case "failed":
         return this.#renderFailed();
       default:
@@ -584,46 +634,308 @@ export class UmbrellaNewConnectionModalElement extends UmbModalBaseElement {
     UmbTextStyles,
     glyphStyles,
     css`
-      .content { display: flex; flex-direction: column; gap: var(--uui-size-space-5); }
-      h3 { margin: 0; font-size: var(--uui-type-default-size); }
-      p { margin: 0; }
-      .muted { color: var(--uui-color-text-alt); }
-      .small { font-size: var(--uui-type-small-size); }
-      .mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.9em; }
-      .prefix { padding-left: var(--uui-size-space-3); color: var(--uui-color-text-alt); font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.85em; white-space: nowrap; }
-      .field { display: flex; flex-direction: column; gap: var(--uui-size-space-2); }
-      uui-input { width: 100%; }
-      .error { display: flex; align-items: center; gap: var(--uui-size-space-2); color: var(--uui-color-danger-standalone); }
-
-      .steps { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--uui-size-space-2) var(--uui-size-space-5); }
-      .steps li { display: flex; align-items: center; gap: var(--uui-size-space-2); color: var(--uui-color-text-alt); font-size: var(--uui-type-small-size); }
-      .steps .dot {
-        display: inline-grid; place-items: center; width: 1.4rem; height: 1.4rem; border-radius: 50%;
-        border: 1px solid var(--uui-color-border); font-weight: 700;
+      .content {
+        display: flex;
+        flex-direction: column;
+        gap: var(--uui-size-space-4);
       }
-      .steps li.done .dot { background: var(--uui-color-positive); border-color: var(--uui-color-positive); color: var(--uui-color-positive-contrast); }
-      .steps li[aria-current="step"] { color: var(--uui-color-text); font-weight: 700; }
-      .steps li[aria-current="step"] .dot { background: var(--uui-color-selected); border-color: var(--uui-color-selected); color: var(--uui-color-selected-contrast); }
+      .stack {
+        display: flex;
+        flex-direction: column;
+        gap: var(--uui-size-space-4);
+      }
+      h3,
+      h4 {
+        margin: 0;
+        font-size: var(--uui-type-default-size);
+      }
+      p {
+        margin: 0;
+      }
+      .intro-text {
+        margin-bottom: var(--uui-size-space-4);
+      }
+      .loader-wrap {
+        display: flex;
+        justify-content: center;
+        padding: var(--uui-size-layout-1);
+      }
+      .muted {
+        color: var(--uui-color-text-alt);
+      }
+      .small {
+        font-size: var(--uui-type-small-size);
+      }
+      .mono,
+      .mono-pill {
+        font-family: var(--uui-font-monospace, ui-monospace, Menlo, Consolas, monospace);
+        font-size: 0.9em;
+      }
+      .mono-pill {
+        padding: 2px var(--uui-size-space-2);
+        border-radius: var(--uui-border-radius);
+        background: var(--uui-color-surface-alt);
+        border: 1px solid var(--uui-color-divider);
+      }
+      .prefix {
+        padding-left: var(--uui-size-space-3);
+        color: var(--uui-color-text-alt);
+        font-family: var(--uui-font-monospace, ui-monospace, Menlo, Consolas, monospace);
+        font-size: 0.85em;
+        white-space: nowrap;
+      }
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: var(--uui-size-space-2);
+      }
+      uui-input {
+        width: 100%;
+      }
+      .error {
+        display: flex;
+        align-items: center;
+        gap: var(--uui-size-space-2);
+        color: var(--uui-color-danger-standalone);
+      }
+      .group-error {
+        margin-top: var(--uui-size-space-2);
+      }
 
-      .product { display: flex; flex-direction: column; gap: var(--uui-size-space-2); padding-bottom: var(--uui-size-space-4); border-bottom: 1px solid var(--uui-color-divider); }
-      .product-name { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--uui-size-space-2); }
-      uui-button-group { flex-wrap: wrap; }
-      .groups { display: flex; flex-direction: column; gap: var(--uui-size-space-2); }
-      .group { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: var(--uui-size-space-2); }
-      .hint { color: var(--uui-color-warning-standalone); }
+      .steps {
+        list-style: none;
+        margin: 0;
+        padding: var(--uui-size-space-3) var(--uui-size-space-4);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: var(--uui-size-space-3);
+        background: var(--uui-color-surface);
+        border-radius: var(--uui-border-radius);
+        box-shadow: var(--uui-shadow-depth-1);
+      }
+      .steps li {
+        display: flex;
+        align-items: center;
+        gap: var(--uui-size-space-2);
+        color: var(--uui-color-text-alt);
+        font-size: var(--uui-type-small-size);
+      }
+      .steps .dot {
+        display: inline-grid;
+        place-items: center;
+        width: 1.5rem;
+        height: 1.5rem;
+        border-radius: 50%;
+        border: 1px solid var(--uui-color-border);
+        font-weight: 700;
+      }
+      .steps li.done .dot {
+        background: var(--uui-color-positive);
+        border-color: var(--uui-color-positive);
+        color: var(--uui-color-positive-contrast);
+      }
+      .steps li[aria-current="step"] {
+        color: var(--uui-color-text);
+        font-weight: 700;
+      }
+      .steps li[aria-current="step"] .dot {
+        background: var(--uui-color-selected);
+        border-color: var(--uui-color-selected);
+        color: var(--uui-color-selected-contrast);
+      }
 
-      .note { display: flex; gap: var(--uui-size-space-2); align-items: flex-start; padding: var(--uui-size-space-3); border-radius: var(--uui-border-radius); }
-      .note umb-icon { flex: none; margin-top: 2px; }
-      .note.positive { background: var(--uui-color-positive); color: var(--uui-color-positive-contrast); }
-      .note.warning { background: var(--uui-color-warning); color: var(--uui-color-warning-contrast); }
-      .note.danger { background: var(--uui-color-danger); color: var(--uui-color-danger-contrast); }
+      .product-list {
+        display: flex;
+        flex-direction: column;
+        gap: var(--uui-size-space-3);
+      }
+      .product {
+        display: flex;
+        flex-direction: column;
+        gap: var(--uui-size-space-3);
+        padding: var(--uui-size-space-3);
+        border: 1px solid var(--uui-color-border);
+        border-radius: var(--uui-border-radius);
+        background: var(--uui-color-surface);
+      }
+      .product-name {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--uui-size-space-2);
+      }
+      .product-title {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--uui-size-space-2);
+      }
+      .level-picker {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 4px;
+        border-radius: var(--uui-border-radius);
+        background: var(--uui-color-surface-alt);
+        border: 1px solid var(--uui-color-border);
+      }
+      .level-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 4px;
+      }
+      @media (max-width: 34rem) {
+        .level-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      .level-option {
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+        min-width: 0;
+        padding: var(--uui-size-space-2) var(--uui-size-space-3);
+        border: 1px solid transparent;
+        border-radius: calc(var(--uui-border-radius) - 1px);
+        background: transparent;
+        font: inherit;
+        color: var(--uui-color-text);
+        text-align: left;
+        cursor: pointer;
+        transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+      }
+      .level-defaults {
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        gap: var(--uui-size-space-2);
+        width: 100%;
+      }
+      .level-option:hover:not(:disabled):not([aria-checked="true"]) {
+        background: var(--uui-color-surface);
+        border-color: var(--uui-color-border);
+      }
+      .level-option:focus-visible {
+        outline: 2px solid var(--uui-color-focus);
+        outline-offset: 1px;
+      }
+      .level-option[aria-checked="true"] {
+        background: var(--uui-color-current);
+        color: var(--uui-color-current-contrast);
+        box-shadow: var(--uui-shadow-depth-1);
+      }
+      .level-option:disabled {
+        cursor: not-allowed;
+        opacity: 0.5;
+      }
+      .level-option-title {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: var(--uui-type-small-size);
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      .level-option-desc {
+        font-size: 0.75rem;
+        color: var(--uui-color-text-alt);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+      }
+      .level-option[aria-checked="true"] .level-option-desc {
+        color: inherit;
+        opacity: 0.85;
+      }
+      .groups {
+        display: flex;
+        flex-direction: column;
+        gap: var(--uui-size-space-2);
+      }
+      .group-card {
+        padding: var(--uui-size-space-2) var(--uui-size-space-3);
+        border: 1px solid var(--uui-color-divider);
+        border-radius: var(--uui-border-radius);
+        background: var(--uui-color-surface-alt);
+      }
+      .group-card.is-checked {
+        border-color: var(--uui-color-selected);
+        background: var(--uui-color-surface);
+      }
+      .group {
+        display: inline-flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--uui-size-space-2);
+      }
 
-      .summary { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--uui-size-space-2) var(--uui-size-space-5); margin: 0; }
-      .summary dt { color: var(--uui-color-text-alt); }
-      .summary dd { margin: 0; overflow-wrap: anywhere; display: flex; align-items: center; gap: var(--uui-size-space-2); }
-      .secret-row { display: flex; gap: var(--uui-size-space-2); align-items: center; }
-      .secret-row uui-input { flex: 1; min-width: 0; font-family: ui-monospace, Menlo, Consolas, monospace; }
-      .waiting { display: flex; flex-direction: column; gap: var(--uui-size-space-3); }
+      .note {
+        display: flex;
+        gap: var(--uui-size-space-2);
+        align-items: flex-start;
+        padding: var(--uui-size-space-3) var(--uui-size-space-4);
+        border-radius: var(--uui-border-radius);
+      }
+      .note umb-icon {
+        flex: none;
+        margin-top: 2px;
+      }
+      .note.positive {
+        background: var(--uui-color-positive);
+        color: var(--uui-color-positive-contrast);
+      }
+      .note.warning {
+        background: var(--uui-color-warning);
+        color: var(--uui-color-warning-contrast);
+      }
+      .note.danger {
+        background: var(--uui-color-danger);
+        color: var(--uui-color-danger-contrast);
+      }
+
+      .summary {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: var(--uui-size-space-3) var(--uui-size-space-5);
+        margin: 0;
+      }
+      .summary dt {
+        color: var(--uui-color-text-alt);
+        font-size: var(--uui-type-small-size);
+      }
+      .summary dd {
+        margin: 0;
+        overflow-wrap: anywhere;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--uui-size-space-2);
+      }
+      .secret-row {
+        display: flex;
+        gap: var(--uui-size-space-2);
+        align-items: center;
+      }
+      .secret-row uui-input {
+        flex: 1;
+        min-width: 0;
+        font-family: var(--uui-font-monospace, ui-monospace, Menlo, Consolas, monospace);
+      }
+      .waiting {
+        display: flex;
+        flex-direction: column;
+        gap: var(--uui-size-space-3);
+      }
+      uui-tag.compact-tag {
+        flex: none;
+        --uui-tag-font-size: 0.7rem;
+        --uui-tag-padding: 0 6px;
+      }
     `,
   ];
 }

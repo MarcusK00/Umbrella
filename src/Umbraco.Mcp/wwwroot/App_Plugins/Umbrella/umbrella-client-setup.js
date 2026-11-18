@@ -36,9 +36,8 @@ export const CLIENTS = {
 };
 
 /**
- * The AI tool picker and the config to copy for it, from a `GET client-setup` response. Used by the Overview's
- * "Connect an AI tool" box (after its own "Sign in as" step, put in the `choose` slot) and by the New connection
- * flow's result screen.
+ * The AI tool picker and the config to copy for it, from a `GET client-setup` response. Used by the Client setup
+ * sidebar modal and by the New connection flow's result screen.
  *
  * Properties: `setup` (the client-setup response), `userName` (who the AI tool connects as, or null), `firstStep`
  * (the number of the AI tool step; the others follow). Attributes: `stacked` puts everything in one column (for a
@@ -70,7 +69,7 @@ export class UmbrellaClientSetupElement extends UmbLitElement {
   async #copy(content) {
     try {
       await navigator.clipboard.writeText(content);
-      this.#notifications?.peek("positive", { data: { message: "Copied" } });
+      this.#notifications?.peek("positive", { data: { message: "Copied to clipboard" } });
     } catch {
       this.#notifications?.peek("danger", { data: { message: "Could not copy. Select the text and copy it by hand." } });
     }
@@ -79,18 +78,35 @@ export class UmbrellaClientSetupElement extends UmbLitElement {
   /** How the client secret gets into the selected AI tool's config. */
   #renderSecret(client, meta) {
     if (meta.secret === "env") {
+      const cmd = `export ${SECRET_VARIABLE}="<the client secret>"`;
       return html`<p>
           ${client.label} reads the client secret from the <code>${SECRET_VARIABLE}</code> environment variable. Set it before you
           start ${client.label}.
         </p>
-        <code class="command">export ${SECRET_VARIABLE}="&lt;the client secret&gt;"</code>
-        <p class="muted small">macOS and Linux. Add the line to your shell profile to keep it.</p>`;
+        <div class="command-row">
+          <code class="command">${cmd}</code>
+          <uui-button look="secondary" compact label="Copy command" @click=${() => this.#copy(cmd)}>
+            <umb-icon name="icon-documents"></umb-icon> Copy
+          </uui-button>
+        </div>
+        <p class="muted small">macOS and Linux. Add the line to your shell profile to keep it across sessions.</p>`;
     }
-    if (meta.secret === "prompt") return html`<p>Nothing to add here: ${client.label} asks for the client secret when it starts the server.</p>`;
+    if (meta.secret === "prompt") {
+      return html`<div class="info-callout">
+        <umb-icon name="icon-info"></umb-icon>
+        <span>Nothing to add here: <strong>${client.label}</strong> asks for the client secret automatically when it starts the server.</span>
+      </div>`;
+    }
     if (meta.secret === "plugin") {
-      return html`<p>Start Claude Code and run this. It asks for the client secret, hides it as you type, and keeps it in your system's credential store.</p>
-        <code class="command">/plugin configure ${PLUGIN_ID}</code>
-        <p class="muted small">The same command changes the site or client id later.</p>`;
+      const cmd = `/plugin configure ${PLUGIN_ID}`;
+      return html`<p>Start Claude Code and run this command. It asks for the client secret, masks it as you type, and stores it in your system's credential store.</p>
+        <div class="command-row">
+          <code class="command">${cmd}</code>
+          <uui-button look="secondary" compact label="Copy command" @click=${() => this.#copy(cmd)}>
+            <umb-icon name="icon-documents"></umb-icon> Copy
+          </uui-button>
+        </div>
+        <p class="muted small">Run the same command later if you ever need to change the site URL or client id.</p>`;
     }
     return html`<p>
       Replace the placeholder with the API user's client secret. The ${client.format === "shell" ? "command" : "file"} then contains the
@@ -113,12 +129,18 @@ export class UmbrellaClientSetupElement extends UmbLitElement {
       <div class="connect-choose">
         <slot name="choose"></slot>
         <div class="field">
-          <h3 id="tool-heading"><span class="num">${toolStep}</span>AI tool</h3>
+          <h3 id="tool-heading"><span class="num">${toolStep}</span>Choose your AI tool</h3>
           <div class="tools" role="group" aria-labelledby="tool-heading">
             ${clients.map((c) => {
               const m = CLIENTS[c.id] ?? CLIENTS.other;
-              return html`<button class="tool" aria-pressed=${c.id === selected?.id ? "true" : "false"} @click=${() => (this._client = c.id)}>
-                <umb-icon name=${m.icon}></umb-icon>
+              const isSelected = c.id === selected?.id;
+              return html`<button
+                type="button"
+                class="tool"
+                aria-pressed=${isSelected ? "true" : "false"}
+                @click=${() => (this._client = c.id)}
+              >
+                <span class="tool-icon"><umb-icon name=${m.icon}></umb-icon></span>
                 <span class="tool-text">
                   <span class="tool-name">${c.label}</span>
                   <span class="tool-sub">${c.format === "shell" ? "Terminal command" : c.fileName ?? "mcpServers config"}</span>
@@ -126,7 +148,9 @@ export class UmbrellaClientSetupElement extends UmbLitElement {
               </button>`;
             })}
           </div>
-          <p class="muted small">The MCP server runs with npx: the computer running the AI tool needs Node.js 22.23.4 or later (24.22.1+ on Node 24, 26.12.1+ on Node 26).</p>
+          <p class="muted small">
+            Runs via <code>npx</code>: the machine running the AI tool needs Node.js 22.23.4+ (24.22.1+ on Node 24, 26.12.1+ on Node 26).
+          </p>
         </div>
       </div>
       ${selected
@@ -141,14 +165,17 @@ export class UmbrellaClientSetupElement extends UmbLitElement {
               </h3>
               <p class="muted">${meta.where}</p>
               ${insecure
-                ? html`<p class="warning">
+                ? html`<div class="warning-callout">
                     <umb-icon name="icon-alert"></umb-icon>
-                    The MCP server needs HTTPS. Open the backoffice over https, or change UMBRACO_BASE_URL below to the site's https address.
-                  </p>`
+                    <span>The MCP server requires HTTPS. Open the backoffice over https, or update <code>UMBRACO_BASE_URL</code> below to the site's https address.</span>
+                  </div>`
                 : nothing}
               <div class="snippet">
                 <div class="snippet-head">
-                  <span><umb-icon name=${selected.format === "shell" ? "icon-terminal" : "icon-document"}></umb-icon>${selected.format === "shell" ? "Terminal" : selected.fileName ?? "MCP configuration"}</span>
+                  <span class="snippet-title">
+                    <umb-icon name=${selected.format === "shell" ? "icon-terminal" : "icon-document"}></umb-icon>
+                    ${selected.format === "shell" ? "Terminal" : selected.fileName ?? "MCP configuration"}
+                  </span>
                   <uui-button look="primary" compact label="Copy" @click=${() => this.#copy(selected.content)}>
                     <umb-icon name="icon-documents"></umb-icon> Copy
                   </uui-button>
@@ -165,7 +192,7 @@ export class UmbrellaClientSetupElement extends UmbLitElement {
             <div class="field">
               <h3><span class="num">${restartStep}</span>Restart ${selected.label.replace(/ \((command|plugin)\)$/, "")}</h3>
               <p class="muted">
-                It connects as ${this.userName ? html`<strong>${this.userName}</strong>` : "the API user"} and shows up in
+                It connects as ${this.userName ? html`<strong>${this.userName}</strong>` : "the API user"} and appears in
                 <strong>Access per API user</strong>.
               </p>
             </div>
@@ -177,53 +204,215 @@ export class UmbrellaClientSetupElement extends UmbLitElement {
   static styles = [
     UmbTextStyles,
     css`
-      :host { display: block; }
-      .muted { color: var(--uui-color-text-alt); margin: 0; }
-      .small { font-size: var(--uui-type-small-size); }
-      .warning { display: flex; align-items: center; gap: var(--uui-size-space-2); margin: 0 0 var(--uui-size-space-3); }
-      .warning umb-icon { color: var(--uui-color-warning-standalone); flex: none; }
-      h3 { margin: 0; }
+      :host {
+        display: block;
+      }
+      .muted {
+        color: var(--uui-color-text-alt);
+        margin: 0;
+      }
+      .small {
+        font-size: var(--uui-type-small-size);
+      }
+      h3 {
+        margin: 0;
+      }
 
-      .connect { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: var(--uui-size-layout-1); align-items: start; }
-      @media (max-width: 64rem) { .connect { grid-template-columns: minmax(0, 1fr); } }
-      :host([stacked]) .connect { grid-template-columns: minmax(0, 1fr); }
-      .connect-choose, .connect-result { display: flex; flex-direction: column; gap: var(--uui-size-space-6); min-width: 0; }
-      .connect-result { padding: var(--uui-size-space-5); border-radius: var(--uui-border-radius); background: var(--uui-color-surface-alt); }
-      .field { display: flex; flex-direction: column; align-items: stretch; gap: var(--uui-size-space-3); }
-      .field > p { margin: 0; max-width: 70ch; }
-      .field h3 { display: flex; align-items: center; gap: var(--uui-size-space-3); font-size: var(--uui-type-default-size); }
+      .connect {
+        display: grid;
+        grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+        gap: var(--uui-size-layout-1);
+        align-items: start;
+      }
+      @media (max-width: 64rem) {
+        .connect {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+      :host([stacked]) .connect {
+        grid-template-columns: minmax(0, 1fr);
+        gap: var(--uui-size-space-5);
+      }
+      .connect-choose,
+      .connect-result {
+        display: flex;
+        flex-direction: column;
+        gap: var(--uui-size-space-5);
+        min-width: 0;
+      }
+      .connect-result {
+        padding: var(--uui-size-space-5);
+        border-radius: var(--uui-border-radius);
+        background: var(--uui-color-surface-alt);
+        border: 1px solid var(--uui-color-divider);
+      }
+      .field {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--uui-size-space-3);
+      }
+      .field > p {
+        margin: 0;
+        max-width: 70ch;
+      }
+      .field h3 {
+        display: flex;
+        align-items: center;
+        gap: var(--uui-size-space-3);
+        font-size: var(--uui-type-default-size);
+      }
       .num {
-        display: inline-grid; place-items: center; flex: none; width: 1.5rem; height: 1.5rem; border-radius: 50%;
-        background: var(--uui-color-current); color: var(--uui-color-current-contrast); font-size: var(--uui-type-small-size); font-weight: 700;
+        display: inline-grid;
+        place-items: center;
+        flex: none;
+        width: 1.6rem;
+        height: 1.6rem;
+        border-radius: 50%;
+        background: var(--uui-color-current);
+        color: var(--uui-color-current-contrast);
+        font-size: var(--uui-type-small-size);
+        font-weight: 700;
       }
 
-      .tools { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: var(--uui-size-space-2); }
+      .tools {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr));
+        gap: var(--uui-size-space-2);
+      }
       .tool {
-        display: flex; align-items: center; gap: var(--uui-size-space-3); min-width: 0;
-        padding: var(--uui-size-space-3); border: 1px solid var(--uui-color-border); border-radius: var(--uui-border-radius);
-        background: var(--uui-color-surface); font: inherit; color: inherit; text-align: left; cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: var(--uui-size-space-3);
+        min-width: 0;
+        padding: var(--uui-size-space-3);
+        border: 1px solid var(--uui-color-border);
+        border-radius: var(--uui-border-radius);
+        background: var(--uui-color-surface);
+        font: inherit;
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+        transition: border-color 120ms ease, background-color 120ms ease, box-shadow 120ms ease;
       }
-      .tool:hover { border-color: var(--uui-color-border-emphasis); }
-      .tool:focus-visible { outline: 2px solid var(--uui-color-focus); outline-offset: 1px; }
-      .tool[aria-pressed="true"] { border-color: var(--uui-color-selected); box-shadow: inset 0 0 0 1px var(--uui-color-selected); }
-      .tool > umb-icon { flex: none; font-size: 1.25rem; color: var(--uui-color-text-alt); }
-      .tool[aria-pressed="true"] > umb-icon { color: var(--uui-color-selected); }
-      .tool-text { display: flex; flex-direction: column; min-width: 0; }
-      .tool-name { font-weight: 600; }
-      .tool-sub { font-size: var(--uui-type-small-size); color: var(--uui-color-text-alt); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .tool:hover {
+        border-color: var(--uui-color-border-emphasis);
+        background: var(--uui-color-surface-alt);
+      }
+      .tool:focus-visible {
+        outline: 2px solid var(--uui-color-focus);
+        outline-offset: 1px;
+      }
+      .tool[aria-pressed="true"] {
+        border-color: var(--uui-color-selected);
+        background: var(--uui-color-surface);
+        box-shadow: inset 0 0 0 1px var(--uui-color-selected);
+      }
+      .tool-icon {
+        display: inline-grid;
+        place-items: center;
+        flex: none;
+        width: 2rem;
+        height: 2rem;
+        border-radius: var(--uui-border-radius);
+        background: var(--uui-color-surface-alt);
+        color: var(--uui-color-text-alt);
+        font-size: 1.1rem;
+      }
+      .tool[aria-pressed="true"] .tool-icon {
+        background: var(--uui-color-selected);
+        color: var(--uui-color-selected-contrast);
+      }
+      .tool-text {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .tool-name {
+        font-weight: 600;
+        line-height: 1.25;
+      }
+      .tool-sub {
+        font-size: var(--uui-type-small-size);
+        color: var(--uui-color-text-alt);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
 
-      .snippet { border: 1px solid var(--uui-color-border); border-radius: var(--uui-border-radius); background: var(--uui-color-surface); overflow: hidden; }
-      .snippet-head {
-        display: flex; justify-content: space-between; align-items: center; gap: var(--uui-size-space-3);
-        padding: var(--uui-size-space-2) var(--uui-size-space-2) var(--uui-size-space-2) var(--uui-size-space-4);
-        border-bottom: 1px solid var(--uui-color-divider);
+      .warning-callout,
+      .info-callout {
+        display: flex;
+        align-items: flex-start;
+        gap: var(--uui-size-space-3);
+        padding: var(--uui-size-space-3) var(--uui-size-space-4);
+        border-radius: var(--uui-border-radius);
       }
-      .snippet-head span { display: inline-flex; align-items: center; gap: var(--uui-size-space-2); font-weight: 600; }
-      pre { margin: 0; overflow-x: auto; padding: var(--uui-size-space-4); white-space: pre; font-size: var(--uui-type-small-size); max-height: 24rem; }
-      code { font-size: 0.9em; }
+      .warning-callout {
+        background: var(--uui-color-warning);
+        color: var(--uui-color-warning-contrast);
+      }
+      .info-callout {
+        background: var(--uui-color-surface);
+        border: 1px solid var(--uui-color-border);
+      }
+      .warning-callout umb-icon,
+      .info-callout umb-icon {
+        flex: none;
+        margin-top: 2px;
+      }
+
+      .snippet {
+        border: 1px solid var(--uui-color-border);
+        border-radius: var(--uui-border-radius);
+        background: var(--uui-color-surface);
+        overflow: hidden;
+      }
+      .snippet-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: var(--uui-size-space-3);
+        padding: var(--uui-size-space-2) var(--uui-size-space-3) var(--uui-size-space-2) var(--uui-size-space-4);
+        border-bottom: 1px solid var(--uui-color-divider);
+        background: var(--uui-color-surface-alt);
+      }
+      .snippet-title {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--uui-size-space-2);
+        font-weight: 600;
+        font-size: var(--uui-type-small-size);
+      }
+      pre {
+        margin: 0;
+        overflow-x: auto;
+        padding: var(--uui-size-space-4);
+        white-space: pre;
+        font-family: var(--uui-font-monospace, ui-monospace, Menlo, Consolas, monospace);
+        font-size: var(--uui-type-small-size);
+        line-height: 1.5;
+        max-height: 22rem;
+      }
+      code {
+        font-family: var(--uui-font-monospace, ui-monospace, Menlo, Consolas, monospace);
+        font-size: 0.9em;
+      }
+      .command-row {
+        display: flex;
+        align-items: center;
+        gap: var(--uui-size-space-2);
+      }
       .command {
-        display: block; padding: var(--uui-size-space-3) var(--uui-size-space-4); overflow-x: auto; white-space: pre;
-        border: 1px solid var(--uui-color-border); border-radius: var(--uui-border-radius); background: var(--uui-color-surface);
+        flex: 1;
+        min-width: 0;
+        display: block;
+        padding: var(--uui-size-space-3) var(--uui-size-space-4);
+        overflow-x: auto;
+        white-space: pre;
+        border: 1px solid var(--uui-color-border);
+        border-radius: var(--uui-border-radius);
+        background: var(--uui-color-surface);
       }
     `,
   ];

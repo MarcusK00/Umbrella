@@ -26,7 +26,7 @@ export class UmbrellaApiUserInfoModalElement extends UmbModalBaseElement {
 
   #renderConnection(user, addonVersion) {
     if (!user.connected) {
-      return html`<div><dt>Last connected</dt><dd>Not connected yet. It shows here once its MCP server starts.</dd></div>`;
+      return html`<div><dt>Last connected</dt><dd>Not connected yet. Appears here once its MCP server starts.</dd></div>`;
     }
     return html`<div>
         <dt>Last connected</dt>
@@ -36,15 +36,15 @@ export class UmbrellaApiUserInfoModalElement extends UmbModalBaseElement {
         <dt>MCP server</dt>
         <dd>
           ${user.serverVersion
-            ? html`umbrella-mcp ${user.serverVersion}
+            ? html`<code>umbrella-mcp ${user.serverVersion}</code>
                 ${user.serverVersion === addonVersion
-                  ? html`<span class="muted">, the add-on's version</span>`
-                  : html`<uui-tag color="warning" look="primary">Add-on is ${addonVersion}</uui-tag>`}`
+                  ? html`<uui-tag class="compact-tag" look="secondary" color="positive">Matches add-on</uui-tag>`
+                  : html`<uui-tag class="compact-tag" color="warning" look="primary">Add-on is ${addonVersion}</uui-tag>`}`
             : html`<span class="muted">Not reported yet</span>`}
         </dd>
       </div>
       ${user.lastReportedAt
-        ? html`<div><dt>Last reported its tools</dt><dd>${formatRelative(user.lastReportedAt)} <span class="muted">(${formatDate(user.lastReportedAt)})</span></dd></div>`
+        ? html`<div><dt>Last reported tools</dt><dd>${formatRelative(user.lastReportedAt)} <span class="muted">(${formatDate(user.lastReportedAt)})</span></dd></div>`
         : nothing}`;
   }
 
@@ -54,18 +54,20 @@ export class UmbrellaApiUserInfoModalElement extends UmbModalBaseElement {
     return html`<ul class="access">
       ${user.access.map((a) => {
         const level = a.sectionAccess === false ? "off" : a.level;
-        return html`<li>
-          <span class="product">${names[a.productId] ?? a.displayName}</span>
-          <span class="level">${a.sectionAccess === false ? nothing : html`${levelGlyph(level)}${LEVEL_LABELS[a.level] ?? a.level}`}</span>
+        return html`<li class="access-card">
+          <div class="access-top">
+            <span class="product">${names[a.productId] ?? a.displayName}</span>
+            <span class="level">${a.sectionAccess === false ? nothing : html`${levelGlyph(level)}${LEVEL_LABELS[a.level] ?? a.level}`}</span>
+          </div>
           <span class="muted small">
             ${a.sectionAccess === false ? "No access: no user group grants its section" : a.scope === "user" ? "Own settings" : "Defaults"}
             ${a.disabledToolCount > 0 && a.level !== "off" && a.sectionAccess !== false ? ` · ${a.disabledToolCount} ${a.disabledToolCount === 1 ? "tool" : "tools"} switched off` : nothing}
-            ${a.toolCount === null || a.toolCount === undefined || a.level === "off" || a.sectionAccess === false ? nothing : html` · ${tools(a.toolCount)}`}
+            ${a.toolCount === null || a.toolCount === undefined || a.level === "off" || a.sectionAccess === false ? nothing : html` · <strong>${tools(a.toolCount)}</strong>`}
           </span>
         </li>`;
       })}
     </ul>
-    ${user.toolCount === null || user.toolCount === undefined ? nothing : html`<p class="muted small">${tools(user.toolCount)} in all at its last start.</p>`}`;
+    ${user.toolCount === null || user.toolCount === undefined ? nothing : html`<p class="total-line muted small"><strong>${tools(user.toolCount)}</strong> in total at its last start.</p>`}`;
   }
 
   render() {
@@ -73,20 +75,35 @@ export class UmbrellaApiUserInfoModalElement extends UmbModalBaseElement {
     if (!user) return nothing;
     return html`<umb-body-layout headline=${user.name}>
       <div class="content">
-        <div class="state">${this.#renderState(user)}</div>
-        <uui-box headline="Sign-in">
+        <uui-box>
+          <div class="profile-head">
+            <uui-avatar class="large" name=${user.name}></uui-avatar>
+            <div class="profile-meta">
+              <div class="profile-row">
+                <strong>${user.name}</strong>
+                ${this.#renderState(user)}
+              </div>
+              <span class="mono muted small">${user.clientIds?.length ? user.clientIds.join(", ") : "No client credentials"}</span>
+            </div>
+          </div>
+        </uui-box>
+        <uui-box headline="Sign-in & Connection">
           <dl>
             <div><dt>Client id</dt><dd class="mono">${user.clientIds?.length ? user.clientIds.join(", ") : "None"}</dd></div>
-            <div><dt>State</dt><dd>${STATES[user.state] ?? user.state}</dd></div>
+            <div><dt>Account state</dt><dd>${STATES[user.state] ?? user.state}</dd></div>
+            ${this.#renderConnection(user, addonVersion)}
           </dl>
         </uui-box>
-        <uui-box headline="Connection">
-          <dl>${this.#renderConnection(user, addonVersion)}</dl>
-        </uui-box>
-        <uui-box headline="Access">
+        <uui-box headline="Permissions & Products">
           <dl>
-            <div><dt>User groups</dt><dd>${user.groups?.length ? user.groups.join(", ") : "None"}</dd></div>
-            <div><dt>Sections</dt><dd>${user.sections?.length ? user.sections.map(sectionLabel).join(", ") : "None"}</dd></div>
+            <div>
+              <dt>User groups</dt>
+              <dd>${user.groups?.length ? user.groups.map((g) => html`<uui-tag class="compact-tag" look="secondary">${g}</uui-tag>`) : "None"}</dd>
+            </div>
+            <div>
+              <dt>Granted sections</dt>
+              <dd>${user.sections?.length ? user.sections.map((s) => html`<uui-tag class="compact-tag" look="secondary">${sectionLabel(s)}</uui-tag>`) : "None"}</dd>
+            </div>
           </dl>
           <h4>Tools per product</h4>
           ${this.#renderAccess(user, products)}
@@ -102,20 +119,111 @@ export class UmbrellaApiUserInfoModalElement extends UmbModalBaseElement {
     UmbTextStyles,
     glyphStyles,
     css`
-      .content { display: flex; flex-direction: column; gap: var(--uui-size-space-5); }
-      .muted { color: var(--uui-color-text-alt); }
-      .small { font-size: var(--uui-type-small-size); }
-      .mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.9em; }
-      dl { display: flex; flex-direction: column; gap: var(--uui-size-space-3); margin: 0; }
-      dt { font-size: var(--uui-type-small-size); color: var(--uui-color-text-alt); }
-      dd { margin: 2px 0 0; overflow-wrap: anywhere; display: flex; flex-wrap: wrap; align-items: center; gap: var(--uui-size-space-2); }
-      h4 { margin: var(--uui-size-space-5) 0 var(--uui-size-space-3); font-size: var(--uui-type-default-size); }
-      .access { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--uui-size-space-3); }
-      .access li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px var(--uui-size-space-3); }
-      .access .product { font-weight: 600; }
-      .access .level { display: inline-flex; align-items: center; gap: var(--uui-size-space-2); justify-self: end; }
-      .access .muted { grid-column: 1 / -1; }
-      .access p { margin: 0; }
+      .content {
+        display: flex;
+        flex-direction: column;
+        gap: var(--uui-size-space-4);
+      }
+      .muted {
+        color: var(--uui-color-text-alt);
+      }
+      .small {
+        font-size: var(--uui-type-small-size);
+      }
+      .mono,
+      code {
+        font-family: var(--uui-font-monospace, ui-monospace, Menlo, Consolas, monospace);
+        font-size: 0.9em;
+      }
+      .profile-head {
+        display: flex;
+        align-items: center;
+        gap: var(--uui-size-space-4);
+      }
+      uui-avatar.large {
+        width: 3rem;
+        height: 3rem;
+        font-size: 1rem;
+        flex: none;
+      }
+      .profile-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+      }
+      .profile-row {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: var(--uui-size-space-2);
+        font-size: var(--uui-type-h5-size, 1.1rem);
+      }
+      dl {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+        gap: var(--uui-size-space-4);
+        margin: 0;
+      }
+      dt {
+        font-size: var(--uui-type-small-size);
+        color: var(--uui-color-text-alt);
+      }
+      dd {
+        margin: 4px 0 0;
+        overflow-wrap: anywhere;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--uui-size-space-2);
+        font-weight: 500;
+      }
+      h4 {
+        margin: var(--uui-size-space-5) 0 var(--uui-size-space-3);
+        padding-top: var(--uui-size-space-4);
+        border-top: 1px solid var(--uui-color-divider);
+        font-size: var(--uui-type-default-size);
+      }
+      .access {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: var(--uui-size-space-2);
+      }
+      .access-card {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: var(--uui-size-space-3);
+        border-radius: var(--uui-border-radius);
+        background: var(--uui-color-surface-alt);
+        border: 1px solid var(--uui-color-divider);
+      }
+      .access-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--uui-size-space-3);
+      }
+      .access .product {
+        font-weight: 600;
+      }
+      .access .level {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--uui-size-space-2);
+        font-weight: 600;
+      }
+      .total-line {
+        margin: var(--uui-size-space-3) 0 0;
+      }
+      uui-tag.compact-tag {
+        flex: none;
+        --uui-tag-font-size: 0.7rem;
+        --uui-tag-padding: 0 6px;
+      }
     `,
   ];
 }
