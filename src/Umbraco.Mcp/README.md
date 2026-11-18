@@ -1,6 +1,6 @@
 # ☂️ Umbrella
 
-**Let your AI tool work with your Umbraco 18 site: content, forms, automations and personalisation, through one MCP server.**
+**Let your AI tool work with your Umbraco site: content, forms, automations and personalisation, through one MCP server.**
 
 Install this package in your site, then connect Claude Code, VS Code, Cursor or Claude Desktop with the config the backoffice gives you: each person connects their own AI tool. It gets tools for exactly the Umbraco products your site has. No product installed, no tools for it, so the AI isn't buried in tools it can't use.
 
@@ -54,7 +54,7 @@ The panel then shows the client secret once (copy it: Umbraco only keeps a hash)
   "mcpServers": {
     "umbraco": {
       "command": "npx",
-      "args": ["-y", "umbrella-mcp@18.0.3"],
+      "args": ["-y", "umbrella-mcp@18.1.0"],
       "env": {
         "UMBRACO_BASE_URL": "https://your-site",
         "UMBRACO_CLIENT_ID": "umbraco-back-office-mcp",

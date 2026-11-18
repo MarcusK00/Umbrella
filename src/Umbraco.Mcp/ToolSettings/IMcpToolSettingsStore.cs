@@ -11,6 +11,11 @@ public interface IMcpToolSettingsStore
 
     void SetDisabledCollections(IReadOnlyDictionary<string, IReadOnlyList<string>> disabled);
 
+    /// <summary>Names of the switched-off tools (unprefixed) by module id. Empty when nothing is stored.</summary>
+    IReadOnlyDictionary<string, IReadOnlyList<string>> GetDisabledTools();
+
+    void SetDisabledTools(IReadOnlyDictionary<string, IReadOnlyList<string>> disabled);
+
     /// <summary>Ids of the modules that only get read-only tools. Empty when nothing is stored.</summary>
     IReadOnlyList<string> GetReadOnlyModules();
 

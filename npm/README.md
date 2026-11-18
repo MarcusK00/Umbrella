@@ -1,6 +1,6 @@
 # umbrella-mcp
 
-One MCP server for your Umbraco 18 site. It loads the Umbraco CMS tools, plus Umbraco Forms, Umbraco Automate and Umbraco Engage tools when the site has those products installed. Tools are prefixed `cms--`, `forms--`, `automate--` and `engage--`, and `get-mcp-health` explains what loaded and why.
+One MCP server for your Umbraco site. It loads the Umbraco CMS tools, plus Umbraco Forms, Umbraco Automate and Umbraco Engage tools when the site has those products installed. Tools are prefixed `cms--`, `forms--`, `automate--` and `engage--`, and `get-mcp-health` explains what loaded and why.
 
 ## Setup
 
@@ -11,7 +11,7 @@ Product detection needs the [`Umbraco.Community.Umbrella`](https://www.nuget.org
   "mcpServers": {
     "umbraco": {
       "command": "npx",
-      "args": ["-y", "umbrella-mcp@18.0.3"],
+      "args": ["-y", "umbrella-mcp@18.1.0"],
       "env": {
         "UMBRACO_BASE_URL": "https://your-site",
         "UMBRACO_CLIENT_ID": "umbraco-back-office-mcp",
@@ -36,11 +36,13 @@ Without the NuGet package, the server still starts, with CMS tools only.
 | `UMBRACO_READONLY` | `true` registers only read-only tools, for every product |
 | `UMBRACO_NO_DESTRUCTIVE` | `true` leaves out tools the products mark as destructive (`destructiveHint`), for every product |
 | `UMBRACO_INCLUDE_SLICES`, `UMBRACO_EXCLUDE_SLICES` | Toolkit slice filters, for every product |
-| `UMBRACO_INCLUDE_TOOL_COLLECTIONS`, `UMBRACO_EXCLUDE_TOOL_COLLECTIONS`, `UMBRACO_INCLUDE_TOOLS`, `UMBRACO_EXCLUDE_TOOLS`, `UMBRACO_TOOL_MODES` | Filters. Unprefixed entries apply to CMS, `forms:<value>` to Forms; the tool lists also accept names like `forms--list-forms` |
+| `UMBRACO_INCLUDE_TOOLS`, `UMBRACO_EXCLUDE_TOOLS`, `UMBRACO_TOOL_MODES` | Filters. Unprefixed entries apply to CMS, `forms:<value>` to Forms; the tool lists also accept names like `forms--list-forms` |
 
-Tool groups switched off in the backoffice (Settings → Umbrella) are left out on the next start, unless the environment sets `UMBRACO_INCLUDE_TOOL_COLLECTIONS` or `UMBRACO_EXCLUDE_TOOL_COLLECTIONS` for that product. A product set to read-only there registers only its read-only tools, and one set to no destructive tools leaves out its destructive tools; both always apply.
+Tool groups switched off in the backoffice (Settings → Umbrella) are left out on the next start. A product set to read-only there registers only its read-only tools, and one set to no destructive tools leaves out its destructive tools; both always apply.
 
-Every tool group is on until the dashboard saves a list for that product (the defaults, or that API user's own settings) or the environment sets a collection filter for it.
+Every tool group is on until the dashboard saves a list for that product (the defaults, or that API user's own settings).
+
+`UMBRACO_INCLUDE_TOOL_COLLECTIONS` and `UMBRACO_EXCLUDE_TOOL_COLLECTIONS` were removed in 18.1.0: choose tool groups in Tool Permissions.
 
 `umbrella-mcp --list-tools`, run with the same environment variables, prints the tool names it would register, then exits.
 

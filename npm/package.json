@@ -1,7 +1,7 @@
 {
   "name": "umbrella-mcp",
-  "version": "18.0.3",
-  "description": "One MCP server for your Umbraco 18 site: loads the tools for the Umbraco products the site has installed.",
+  "version": "18.1.0",
+  "description": "One MCP server for your Umbraco site: loads the tools for the Umbraco products the site has installed.",
   "keywords": [
     "umbraco",
     "mcp",

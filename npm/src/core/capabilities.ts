@@ -11,6 +11,8 @@ export interface ProductCapability {
   issues: string[];
   /** Tool groups switched off in the backoffice. Missing on older add-ons. */
   disabledCollections?: string[] | null;
+  /** Tools switched off one by one in the backoffice (unprefixed names). Missing or null on older add-ons means none. */
+  disabledTools?: string[] | null;
   /** Only read-only tools, as set in the backoffice. Missing on older add-ons. */
   readOnly?: boolean | null;
   /** No destructive tools, as set in the backoffice. Missing on older add-ons. */
@@ -47,6 +49,9 @@ const isProduct = (p: unknown): p is ProductCapability => {
     (o.disabledCollections === undefined ||
       o.disabledCollections === null ||
       (Array.isArray(o.disabledCollections) && o.disabledCollections.every((c) => typeof c === "string"))) &&
+    (o.disabledTools === undefined ||
+      o.disabledTools === null ||
+      (Array.isArray(o.disabledTools) && o.disabledTools.every((c) => typeof c === "string"))) &&
     (o.readOnly === undefined || o.readOnly === null || typeof o.readOnly === "boolean") &&
     (o.noDestructive === undefined || o.noDestructive === null || typeof o.noDestructive === "boolean") &&
     (o.off === undefined || o.off === null || typeof o.off === "boolean") &&
@@ -89,6 +94,12 @@ export async function fetchCapabilities(request: () => Promise<RawResponse> = de
 export function siteDisabledCollections(caps: CapabilitiesResult, moduleId: string): string[] | null {
   if (caps.kind !== "ok") return null;
   return caps.payload.products.find((p) => p.id === moduleId)?.disabledCollections ?? null;
+}
+
+/** The tools the site switched off one by one for a module; empty without the add-on, for a missing or null field, or an unlisted module. */
+export function siteDisabledTools(caps: CapabilitiesResult, moduleId: string): string[] {
+  if (caps.kind !== "ok") return [];
+  return caps.payload.products.find((p) => p.id === moduleId)?.disabledTools ?? [];
 }
 
 /** Whether the site limits a module to read-only tools; false without the add-on or on add-ons that predate the field. */
