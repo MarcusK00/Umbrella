@@ -14,7 +14,26 @@ public class McpCatalogueFallbackTests
     private static McpToolCatalogue Catalogue(params DateTimeOffset[] reportedAt) =>
         new("17.0.0", reportedAt.Select((at, i) => (at, i)).ToDictionary(
             x => $"module-{x.i}",
-            x => new McpModuleCatalogue(x.at, false, [new McpCollectionInfo("form", 3)])));
+            x => new McpModuleCatalogue(x.at, [new McpCollectionInfo("form", 3)])));
+
+    [Test]
+    public void Highest_merges_tool_lists_by_name()
+    {
+        Guid u1 = Guid.NewGuid(), u2 = Guid.NewGuid(), u3 = Guid.NewGuid();
+        static McpToolInfo T(string n, bool ro = false) => new(n, null, ro, false);
+        static McpToolCatalogue With(IReadOnlyList<McpToolInfo>? tools) =>
+            new("17.0.0", new Dictionary<string, McpModuleCatalogue> { ["forms"] = new(T1, [new McpCollectionInfo("form", 2, Tools: tools)]) });
+
+        McpToolCatalogue merged = McpCatalogueFallback.Highest(
+            new Dictionary<Guid, McpToolCatalogue> { [u1] = With([T("a", true), T("b")]), [u2] = With([T("b", true), T("c")]), [u3] = With(null) },
+            McpToolCatalogue.Empty,
+            new HashSet<Guid> { u1, u2, u3 });
+
+        IReadOnlyList<McpToolInfo> tools = merged.Modules["forms"].Collections.Single().Tools!;
+        Assert.That(tools.Select(t => t.Name), Is.EqualTo(new[] { "a", "b", "c" }));
+        Assert.That(tools.Single(t => t.Name == "a").ReadOnly, Is.True);
+        Assert.That(tools.Single(t => t.Name == "b").ReadOnly, Is.False);
+    }
 
     [Test]
     public void Own_catalogue_wins()
@@ -91,7 +110,7 @@ public class McpCatalogueFallbackTests
     }
 
     private static McpModuleCatalogue Module(DateTimeOffset at, params McpCollectionInfo[] collections) =>
-        new(at, false, collections);
+        new(at, collections);
 
     [Test]
     public void Highest_takes_the_most_tools_per_group_across_api_users()

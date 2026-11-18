@@ -186,7 +186,7 @@ internal sealed class FakeToolSettingsStore : IMcpToolSettingsStore
     public void SetUserCatalogue(Guid userKey, McpCatalogueReport report, DateTimeOffset at) =>
         UserCatalogues[userKey] = new McpToolCatalogue(
             report.UmbrellaVersion,
-            report.Modules.ToDictionary(m => m.Id, m => new McpModuleCatalogue(at, m.SiteSettingsIgnored, m.Collections)));
+            report.Modules.ToDictionary(m => m.Id, m => new McpModuleCatalogue(at, m.Collections)));
 
     public IReadOnlyDictionary<Guid, McpToolCatalogue> GetAllUserCatalogues() =>
         UserReadsThrow is not null ? throw UserReadsThrow : new Dictionary<Guid, McpToolCatalogue>(UserCatalogues);

@@ -49,7 +49,7 @@ public sealed class KeyValueMcpToolSettingsStore(IKeyValueService keyValues, ILo
         var modules = new Dictionary<string, McpModuleCatalogue>(GetCatalogue().Modules, StringComparer.Ordinal);
         foreach (McpModuleReport module in report.Modules)
         {
-            modules[module.Id] = new McpModuleCatalogue(at, module.SiteSettingsIgnored, module.Collections);
+            modules[module.Id] = new McpModuleCatalogue(at, module.Collections);
         }
 
         keyValues.SetValue(CatalogueKey, JsonSerializer.Serialize(new McpToolCatalogue(report.UmbrellaVersion, modules), Json));
@@ -87,7 +87,7 @@ public sealed class KeyValueMcpToolSettingsStore(IKeyValueService keyValues, ILo
         var modules = new Dictionary<string, McpModuleCatalogue>(StringComparer.Ordinal);
         foreach (McpModuleReport module in report.Modules)
         {
-            modules[module.Id] = new McpModuleCatalogue(at, module.SiteSettingsIgnored, module.Collections);
+            modules[module.Id] = new McpModuleCatalogue(at, module.Collections);
         }
 
         keyValues.SetValue(

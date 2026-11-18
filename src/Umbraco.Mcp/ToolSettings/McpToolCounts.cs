@@ -6,8 +6,7 @@ internal static class McpToolCounts
 {
     /// <summary>
     /// How many of a module's reported tools the MCP server gets with the site's settings for it: the groups that are on
-    /// (the saved list, else the groups the module keeps off by default), counted at the product's level. Null when the
-    /// server's environment sets its own collection filters for the module, because the site cannot see those.
+    /// (the saved list, else the groups the module keeps off by default), counted at the product's level.
     /// A report from an older server without level counts falls back to all tools of a group.
     /// </summary>
     public static int? Effective(McpModuleCatalogue module, McpProductStatus product)
@@ -16,11 +15,6 @@ internal static class McpToolCounts
         if (product.Off)
         {
             return 0;
-        }
-
-        if (module.SiteSettingsIgnored)
-        {
-            return null;
         }
 
         var off = product.DisabledCollections is { } saved
