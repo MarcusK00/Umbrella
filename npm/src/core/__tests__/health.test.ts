@@ -53,7 +53,7 @@ describe("buildHealthReport", () => {
     expect(r.addon).toEqual({ installed: true, version: "17.0.0", status: "ok" });
     expect(r.products.find((p) => p.id === "forms")).toEqual({
       id: "forms", displayName: "Umbraco Forms", description: "forms description", installed: true, enabled: true, version: "17.6.1",
-      hasModule: true, loaded: true, toolCount: 118, access: "full", destructiveRemoved: 0, issues: [],
+      hasModule: true, loaded: true, toolCount: 118, access: "full", destructiveRemoved: 0, disabledToolsRemoved: 0, issues: [],
     });
   });
 
@@ -233,6 +233,24 @@ describe("buildHealthReport", () => {
     it("words no destructive tools for this API user", () => {
       const r = buildHealthReport(state(caps, [{ ...forms, siteNoDestructive: true, destructiveRemoved: 10 }]));
       expect(r.notes).toContain("Umbraco Forms: no destructive tools (10 removed), as set in the backoffice for this API user.");
+    });
+
+    it("notes tools switched off for this API user", () => {
+      const automate: ModuleRuntimeState = {
+        decision: { module: mod("automate", "Automate"), product: null, load: true, reason: "ok" },
+        loaded: true, toolCount: 10, issues: [], siteSettingsScope: "user",
+        disabledToolsRemoved: ["publish-automation", "trigger-automation"],
+      };
+      const r = buildHealthReport(state(caps, [automate]));
+      expect(r.notes).toContain("Automate: 2 tools switched off in the backoffice for this API user: publish-automation, trigger-automation.");
+      expect(r.products.find((p) => p.id === "automate")?.disabledToolsRemoved).toBe(2);
+    });
+
+    it("says 1 tool, and adds no note for an empty list", () => {
+      const one = buildHealthReport(state(caps, [{ ...forms, siteSettingsScope: "site", disabledToolsRemoved: ["x"] }]));
+      expect(one.notes).toContain("Umbraco Forms: 1 tool switched off in the backoffice: x.");
+      const none = buildHealthReport(state(caps, [{ ...forms, disabledToolsRemoved: [] }]));
+      expect(none.notes.join(" ")).not.toMatch(/switched off/);
     });
 
     it("keeps the site wording when the scope is site or absent", () => {

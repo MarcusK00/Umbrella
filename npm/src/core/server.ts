@@ -11,7 +11,7 @@ import {
   useDraft202012ToolSchemas,
   type HttpResponse,
 } from "@umbraco-cms/mcp-server-sdk";
-import { fetchCapabilities, siteDisabledCollections, siteNoDestructive, siteReadOnly, siteSettingsScope } from "./capabilities.js";
+import { fetchCapabilities, siteDisabledCollections, siteDisabledTools, siteNoDestructive, siteReadOnly, siteSettingsScope } from "./capabilities.js";
 import { buildCatalogue, reportCatalogue, type CatalogueReportResult } from "./catalogue.js";
 import { installClientContext } from "./client-context.js";
 import { buildEffectiveFilterInput, envNoDestructive, envReadOnly, removedCollectionEnvVars } from "./filter-config.js";
@@ -152,9 +152,10 @@ export async function startServer(options: {
         allModeNames: loaded.allModeNames,
         allSliceNames: loaded.allSliceNames,
       }).loadFromConfig(config);
-      const result = registerModuleTools(ctx, module, loaded, filter, { excludeDestructive });
+      const result = registerModuleTools(ctx, module, loaded, filter, { excludeDestructive, disabledTools: new Set(siteDisabledTools(capabilities, module.id)) });
       state.toolCount = result.registered;
       state.destructiveRemoved = result.destructiveRemoved;
+      state.disabledToolsRemoved = result.disabledRemoved;
       state.loaded = true;
     } catch (error) {
       if (error instanceof DuplicateToolNameError || module.required) throw error;
