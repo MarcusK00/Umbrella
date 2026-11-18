@@ -40,7 +40,7 @@ public class McpToolSettingsControllerTests
     private static readonly DateTimeOffset T2 = new(2026, 10, 2, 8, 0, 0, TimeSpan.Zero);
 
     private static McpToolCatalogue Catalogue(DateTimeOffset at, string module = "forms") =>
-        new("17.0.0", new Dictionary<string, McpModuleCatalogue> { [module] = new(at, false, [new McpCollectionInfo("form", 3)]) });
+        new("17.0.0", new Dictionary<string, McpModuleCatalogue> { [module] = new(at, [new McpCollectionInfo("form", 3)]) });
 
     private static McpProductOverride Override(string level = McpToolLevel.Full, params string[] disabled) => new(disabled, level);
 
@@ -48,7 +48,7 @@ public class McpToolSettingsControllerTests
         x.Level == y.Level && x.DisabledCollections.SequenceEqual(y.DisabledCollections);
 
     private static McpCatalogueReport Report(string id = "forms", int collections = 1, string name = "prevalue-source") =>
-        new("17.0.0-alpha.1", [new McpModuleReport(id, false, Enumerable.Range(0, collections).Select(i => new McpCollectionInfo(collections == 1 ? name : $"{name}-{i}", 10)).ToList())]);
+        new("17.0.0-alpha.1", [new McpModuleReport(id, Enumerable.Range(0, collections).Select(i => new McpCollectionInfo(collections == 1 ? name : $"{name}-{i}", 10)).ToList())]);
 
     private static string? PolicyOf(string method) =>
         typeof(McpToolSettingsController).GetMethod(method)!.GetCustomAttribute<AuthorizeAttribute>()?.Policy;
@@ -211,7 +211,7 @@ public class McpToolSettingsControllerTests
     public void Post_keeps_non_destructive_counts_between_zero_and_the_tool_count(int? reported, int? stored)
     {
         var store = new FakeToolSettingsStore();
-        var report = new McpCatalogueReport("17.0.0", [new McpModuleReport("forms", false, [new McpCollectionInfo("form", 10, null, false, reported)])]);
+        var report = new McpCatalogueReport("17.0.0", [new McpModuleReport("forms", [new McpCollectionInfo("form", 10, null, false, reported)])]);
 
         Controller(store, User(UserKind.Api)).PostCatalogue(report);
 
@@ -261,11 +261,76 @@ public class McpToolSettingsControllerTests
         Assert.That(store.ReadOnly, Is.EqualTo(new[] { "cms" }));
     }
 
+    private static McpCollectionInfo OnlyCollection(FakeToolSettingsStore store) =>
+        store.Merged.Single().Report.Modules.Single().Collections.Single();
+
+    [Test]
+    public void PostCatalogue_normalises_tools()
+    {
+        var store = new FakeToolSettingsStore();
+        var tools = new List<McpToolInfo>
+        {
+            new(" a ", new string('x', 250), true, false),
+            new("a", "second", false, true),
+            new("", "empty", false, false),
+            new("b", null, false, true),
+        };
+        var report = new McpCatalogueReport("17.0.0", [new McpModuleReport("forms", [new McpCollectionInfo("form", 99, 7, false, 7, tools)])]);
+
+        Controller(store, User(UserKind.Api)).PostCatalogue(report);
+
+        McpCollectionInfo stored = OnlyCollection(store);
+        Assert.That(stored.Tools!.Select(t => t.Name), Is.EqualTo(new[] { "a", "b" }));
+        Assert.That(stored.Tools![0].Description, Has.Length.EqualTo(McpToolSettingsValidation.MaxDescriptionLength));
+        Assert.That(stored.Tools![0].ReadOnly, Is.True);
+        Assert.That(stored.Tools![0].Destructive, Is.False);
+        Assert.That(stored.ToolCount, Is.EqualTo(2));
+        Assert.That(stored.ReadOnlyToolCount, Is.EqualTo(1));
+        Assert.That(stored.NonDestructiveToolCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void PostCatalogue_rejects_more_than_300_tools_in_a_collection()
+    {
+        var tools = Enumerable.Range(0, 301).Select(i => new McpToolInfo($"t{i}", null, false, false)).ToList();
+        var report = new McpCatalogueReport("17.0.0", [new McpModuleReport("forms", [new McpCollectionInfo("form", 301, Tools: tools)])]);
+
+        IActionResult result = Controller(new FakeToolSettingsStore(), User(UserKind.Api)).PostCatalogue(report);
+
+        Assert.That(result, Is.InstanceOf<BadRequestObjectResult>());
+    }
+
+    [Test]
+    public void PostCatalogue_without_tools_keeps_the_counts()
+    {
+        var store = new FakeToolSettingsStore();
+        var report = new McpCatalogueReport("17.0.0", [new McpModuleReport("forms", [new McpCollectionInfo("form", 10, 4, false, 8)])]);
+
+        Controller(store, User(UserKind.Api)).PostCatalogue(report);
+
+        McpCollectionInfo stored = OnlyCollection(store);
+        Assert.That(stored.Tools, Is.Null);
+        Assert.That(stored.ToolCount, Is.EqualTo(10));
+        Assert.That(stored.ReadOnlyToolCount, Is.EqualTo(4));
+        Assert.That(stored.NonDestructiveToolCount, Is.EqualTo(8));
+    }
+
+    [Test]
+    public void PostCatalogue_rejects_a_tool_name_over_100_characters()
+    {
+        var tools = new List<McpToolInfo> { new(new string('n', 101), null, false, false) };
+        var report = new McpCatalogueReport("17.0.0", [new McpModuleReport("forms", [new McpCollectionInfo("form", 1, Tools: tools)])]);
+
+        IActionResult result = Controller(new FakeToolSettingsStore(), User(UserKind.Api)).PostCatalogue(report);
+
+        Assert.That(result, Is.InstanceOf<BadRequestObjectResult>());
+    }
+
     [Test]
     public void PostCatalogue_keeps_disabledByDefault()
     {
         var store = new FakeToolSettingsStore();
-        var report = new McpCatalogueReport("17.0.0", [new McpModuleReport("forms", false, [new McpCollectionInfo("umbraco-server", 1, 1, true)])]);
+        var report = new McpCatalogueReport("17.0.0", [new McpModuleReport("forms", [new McpCollectionInfo("umbraco-server", 1, 1, true)])]);
 
         Controller(store, User(UserKind.Api)).PostCatalogue(report);
 
@@ -277,7 +342,7 @@ public class McpToolSettingsControllerTests
     {
         var store = new FakeToolSettingsStore();
         var report = JsonSerializer.Deserialize<McpCatalogueReport>(
-            """{"umbrellaVersion":"17.0.0","modules":[{"id":"forms","siteSettingsIgnored":false,"collections":[{"name":"form","toolCount":10}]}]}""",
+            """{"umbrellaVersion":"17.0.0","modules":[{"id":"forms","collections":[{"name":"form","toolCount":10}]}]}""",
             new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
 
         Controller(store, User(UserKind.Api)).PostCatalogue(report);
@@ -292,7 +357,7 @@ public class McpToolSettingsControllerTests
     public void Post_keeps_read_only_counts_between_zero_and_the_tool_count(int? reported, int? stored)
     {
         var store = new FakeToolSettingsStore();
-        var report = new McpCatalogueReport("17.0.0", [new McpModuleReport("forms", false, [new McpCollectionInfo("form", 10, reported)])]);
+        var report = new McpCatalogueReport("17.0.0", [new McpModuleReport("forms", [new McpCollectionInfo("form", 10, reported)])]);
 
         Controller(store, User(UserKind.Api)).PostCatalogue(report);
 
@@ -437,7 +502,7 @@ public class McpToolSettingsControllerTests
     {
         McpApiUserInfo editor = ApiUser("Editor"), admin = ApiUser("Admin");
         McpToolCatalogue Forms(DateTimeOffset at, int tools) =>
-            new("17.0.0", new Dictionary<string, McpModuleCatalogue> { ["forms"] = new(at, false, [new McpCollectionInfo("form", tools)]) });
+            new("17.0.0", new Dictionary<string, McpModuleCatalogue> { ["forms"] = new(at, [new McpCollectionInfo("form", tools)]) });
         var store = new FakeToolSettingsStore
         {
             Catalogue = Forms(T2, 3),
@@ -649,5 +714,77 @@ public class McpToolSettingsControllerTests
         McpToolCatalogue own = store.UserCatalogues[api.Key];
         Assert.That(own.Modules["forms"].Collections.Single(), Is.EqualTo(new McpCollectionInfo("prevalue-source", 10)));
         Assert.That(own.Modules["forms"].ReportedAt, Is.InRange(before, DateTimeOffset.UtcNow));
+    }
+
+    private static McpToolSettingsRequest ToolsRequest(IReadOnlyDictionary<string, IReadOnlyList<string>?>? tools) =>
+        new(new Dictionary<string, IReadOnlyList<string>?>(), null, null, null, tools);
+
+    [Test]
+    public void PutToolSettings_saves_disabledTools()
+    {
+        var store = new FakeToolSettingsStore();
+
+        IActionResult result = Controller(store).PutToolSettings(ToolsRequest(
+            new Dictionary<string, IReadOnlyList<string>?> { ["forms"] = [" a ", "a", "", "b"] }));
+
+        Assert.That(result, Is.InstanceOf<OkObjectResult>());
+        Assert.That(store.DisabledTools["forms"], Is.EqualTo(new[] { "a", "b" }));
+        Assert.That(((McpToolSettings)((OkObjectResult)result).Value!).DisabledTools["forms"], Is.EqualTo(new[] { "a", "b" }));
+    }
+
+    [Test]
+    public void PutToolSettings_without_disabledTools_clears_them()
+    {
+        var store = new FakeToolSettingsStore { DisabledTools = new() { ["forms"] = ["a"] } };
+
+        Controller(store).PutToolSettings(ToolsRequest(null));
+
+        Assert.That(store.DisabledTools, Is.Empty);
+    }
+
+    [Test]
+    public void PutToolSettings_rejects_an_unknown_product_in_disabledTools()
+    {
+        var store = new FakeToolSettingsStore();
+
+        IActionResult result = Controller(store).PutToolSettings(ToolsRequest(
+            new Dictionary<string, IReadOnlyList<string>?> { ["nope"] = ["a"] }));
+
+        Assert.That(result, Is.InstanceOf<BadRequestObjectResult>());
+        Assert.That(store.DisabledTools, Is.Empty);
+    }
+
+    [Test]
+    public void PutToolSettings_rejects_more_than_500_names()
+    {
+        var store = new FakeToolSettingsStore();
+
+        IActionResult result = Controller(store).PutToolSettings(ToolsRequest(
+            new Dictionary<string, IReadOnlyList<string>?> { ["forms"] = Enumerable.Range(0, 501).Select(i => "t" + i).ToList() }));
+
+        Assert.That(result, Is.InstanceOf<BadRequestObjectResult>());
+    }
+
+    [Test]
+    public async Task PutUserToolSettings_saves_override_disabledTools()
+    {
+        McpApiUserInfo ann = ApiUser("ann");
+        var store = new FakeToolSettingsStore();
+
+        IActionResult result = await Controller(store, directory: new FakeApiUserDirectory(ann)).PutUserToolSettings(ann.Key,
+            new McpUserToolSettingsRequest(new Dictionary<string, McpProductOverrideRequest?> { ["forms"] = new([], McpToolLevel.Full, [" a ", "a"]) }));
+
+        Assert.That(result, Is.InstanceOf<OkObjectResult>());
+        Assert.That(store.UserOverrides[ann.Key]["forms"].DisabledTools, Is.EqualTo(new[] { "a" }));
+    }
+
+    [Test]
+    public async Task GetToolSettings_returns_disabledTools()
+    {
+        var store = new FakeToolSettingsStore { DisabledTools = new() { ["forms"] = ["a"] } };
+
+        var body = (McpToolSettingsResponse)((OkObjectResult)await Controller(store).GetToolSettings()).Value!;
+
+        Assert.That(body.DisabledTools["forms"], Is.EqualTo(new[] { "a" }));
     }
 }

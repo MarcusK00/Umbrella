@@ -13,7 +13,7 @@ public class KeyValueMcpToolSettingsStoreTests
         new(values, NullLogger<KeyValueMcpToolSettingsStore>.Instance);
 
     private static McpModuleReport Module(string id, params string[] collections) =>
-        new(id, false, collections.Select(c => new McpCollectionInfo(c, 3)).ToList());
+        new(id, collections.Select(c => new McpCollectionInfo(c, 3)).ToList());
 
     [Test]
     public void Nothing_stored_means_nothing_disabled_and_nothing_reported()
@@ -83,7 +83,7 @@ public class KeyValueMcpToolSettingsStoreTests
     public void Catalogue_round_trips_disabledByDefault()
     {
         var values = new FakeKeyValueService();
-        Store(values).MergeCatalogue(new McpCatalogueReport("1.0.0", [new McpModuleReport("forms", false, [new McpCollectionInfo("umbraco-server", 1, 1, true)])]), First);
+        Store(values).MergeCatalogue(new McpCatalogueReport("1.0.0", [new McpModuleReport("forms", [new McpCollectionInfo("umbraco-server", 1, 1, true)])]), First);
 
         Assert.That(Store(values).GetCatalogue().Modules["forms"].Collections.Single().DisabledByDefault, Is.True);
     }
@@ -92,7 +92,7 @@ public class KeyValueMcpToolSettingsStoreTests
     public void The_catalogue_stores_read_only_tool_counts()
     {
         var values = new FakeKeyValueService();
-        Store(values).MergeCatalogue(new McpCatalogueReport("1.0.0", [new McpModuleReport("forms", false, [new McpCollectionInfo("form", 9, 4)])]), First);
+        Store(values).MergeCatalogue(new McpCatalogueReport("1.0.0", [new McpModuleReport("forms", [new McpCollectionInfo("form", 9, 4)])]), First);
 
         Assert.That(values.Values[KeyValueMcpToolSettingsStore.CatalogueKey], Does.Contain("\"readOnlyToolCount\":4"));
         Assert.That(Store(values).GetCatalogue().Modules["forms"].Collections.Single(), Is.EqualTo(new McpCollectionInfo("form", 9, 4)));
@@ -141,7 +141,22 @@ public class KeyValueMcpToolSettingsStoreTests
         string json = values.Values[KeyValueMcpToolSettingsStore.CatalogueKey]!;
         Assert.That(json, Does.Contain("\"umbrellaVersion\":\"1.0.0\""));
         Assert.That(json, Does.Contain("\"toolCount\":3"));
-        Assert.That(json, Does.Contain("\"siteSettingsIgnored\":false"));
+    }
+
+    [Test]
+    public void Reads_a_catalogue_row_written_by_17_0()
+    {
+        var values = new FakeKeyValueService();
+        values.SetValue(
+            KeyValueMcpToolSettingsStore.CatalogueKey,
+            """{"umbrellaVersion":"17.0.2","modules":{"forms":{"reportedAt":"2026-11-01T00:00:00+00:00","siteSettingsIgnored":true,"collections":[{"name":"form","toolCount":3}]}}}""");
+
+        McpToolCatalogue catalogue = Store(values).GetCatalogue();
+
+        Assert.That(catalogue.Modules, Has.Count.EqualTo(1));
+        McpCollectionInfo collection = catalogue.Modules["forms"].Collections.Single();
+        Assert.That(collection.Name, Is.EqualTo("form"));
+        Assert.That(collection.Tools, Is.Null);
     }
 
     [Test]
@@ -252,5 +267,26 @@ public class KeyValueMcpToolSettingsStoreTests
         Assert.That(store.GetCatalogue(), Is.EqualTo(McpToolCatalogue.Empty));
         Assert.That(store.GetDisabledCollections(), Is.Empty);
         Assert.That(store.GetAllUserOverrides().Keys, Is.EqualTo(new[] { UserA }));
+    }
+
+    [Test]
+    public void Disabled_tools_round_trip_in_their_own_row()
+    {
+        var values = new FakeKeyValueService();
+
+        Store(values).SetDisabledTools(new Dictionary<string, IReadOnlyList<string>> { ["automate"] = ["publish-automation"] });
+
+        Assert.That(Store(values).GetDisabledTools()["automate"], Is.EqualTo(new[] { "publish-automation" }));
+        Assert.That(KeyValueMcpToolSettingsStore.DisabledToolsKey, Is.EqualTo("Umbraco.Mcp.DisabledTools"));
+        Assert.That(Store(new FakeKeyValueService()).GetDisabledTools(), Is.Empty);
+    }
+
+    [Test]
+    public void An_override_row_without_disabledTools_reads_as_none()
+    {
+        var values = new FakeKeyValueService();
+        values.SetValue(KeyValueMcpToolSettingsStore.UserOverridesKeyPrefix + UserA.ToString("D"), "{\"cms\":{\"disabledCollections\":[],\"level\":\"full\"}}");
+
+        Assert.That(Store(values).GetUserOverrides(UserA)["cms"].DisabledTools, Is.Empty);
     }
 }

@@ -127,13 +127,13 @@ describe("registerModuleTools", () => {
       const l = loaded("forms-client", tools());
       const r = registerModuleTools(c, mod("forms"), l, noFilter(l), { excludeDestructive: true });
       expect([...c.calls.keys()]).toEqual(["forms--list-forms"]);
-      expect(r).toEqual({ registered: 1, destructiveRemoved: 1 });
+      expect(r).toEqual({ registered: 1, destructiveRemoved: 1, disabledRemoved: [] });
     });
 
     it("without the option nothing is dropped", () => {
       const c = ctx();
       const l = loaded("forms-client", tools());
-      expect(registerModuleTools(c, mod("forms"), l, noFilter(l))).toEqual({ registered: 2, destructiveRemoved: 0 });
+      expect(registerModuleTools(c, mod("forms"), l, noFilter(l))).toEqual({ registered: 2, destructiveRemoved: 0, disabledRemoved: [] });
     });
 
     it("read-only and no-destructive together equal read-only", () => {
@@ -165,7 +165,35 @@ describe("registerModuleTools", () => {
       const l = loaded("forms-client", tools());
       const filter = createCollectionConfigLoader({ modeRegistry: [], allModeNames: [], allSliceNames: ["read"] })
         .loadFromConfig({ excludeTools: ["delete-form"] });
-      expect(registerModuleTools(c, mod("forms"), l, filter, { excludeDestructive: true })).toEqual({ registered: 1, destructiveRemoved: 0 });
+      expect(registerModuleTools(c, mod("forms"), l, filter, { excludeDestructive: true })).toEqual({ registered: 1, destructiveRemoved: 0, disabledRemoved: [] });
+    });
+  });
+
+  describe("disabledTools", () => {
+    it("drops the named tools and reports them", () => {
+      const c = ctx();
+      const l = loaded("forms-client", [tool("a"), tool("b"), tool("c")]);
+      const r = registerModuleTools(c, mod("forms"), l, noFilter(l), { disabledTools: new Set(["b", "zzz"]) });
+      expect(r.registered).toBe(2);
+      expect(r.disabledRemoved).toEqual(["b"]);
+      expect([...c.calls.keys()]).toEqual(["forms--a", "forms--c"]);
+    });
+
+    it("counts only tools that would otherwise have been registered", () => {
+      const c = ctx();
+      const l = loaded("forms-client", [tool("a"), tool("b", { annotations: { destructiveHint: true } })]);
+      const r = registerModuleTools(c, mod("forms"), l, noFilter(l), { excludeDestructive: true, disabledTools: new Set(["b"]) });
+      expect(r.destructiveRemoved).toBe(1);
+      expect(r.disabledRemoved).toEqual([]);
+    });
+
+    it("an include list cannot bring a switched-off tool back", () => {
+      const c = ctx();
+      const l = loaded("forms-client", [tool("a"), tool("b")]);
+      const filter = createCollectionConfigLoader({ modeRegistry: [], allModeNames: [], allSliceNames: ["read"] })
+        .loadFromConfig({ includeTools: ["b"] });
+      registerModuleTools(c, mod("forms"), l, filter, { disabledTools: new Set(["b"]) });
+      expect([...c.calls.keys()]).not.toContain("forms--b");
     });
   });
 

@@ -13,6 +13,7 @@ public sealed class KeyValueMcpToolSettingsStore(IKeyValueService keyValues, ILo
 {
     internal const string SettingsKey = "Umbraco.Mcp.ToolSettings";
     internal const string CatalogueKey = "Umbraco.Mcp.Catalogue";
+    internal const string DisabledToolsKey = "Umbraco.Mcp.DisabledTools";
     internal const string ReadOnlyKey = "Umbraco.Mcp.ReadOnlyModules";
     internal const string NoDestructiveKey = "Umbraco.Mcp.NoDestructiveModules";
     internal const string OffKey = "Umbraco.Mcp.OffModules";
@@ -26,6 +27,12 @@ public sealed class KeyValueMcpToolSettingsStore(IKeyValueService keyValues, ILo
 
     public void SetDisabledCollections(IReadOnlyDictionary<string, IReadOnlyList<string>> disabled) =>
         keyValues.SetValue(SettingsKey, JsonSerializer.Serialize(disabled, Json));
+
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> GetDisabledTools() =>
+        Read<Dictionary<string, IReadOnlyList<string>>>(DisabledToolsKey) ?? new Dictionary<string, IReadOnlyList<string>>();
+
+    public void SetDisabledTools(IReadOnlyDictionary<string, IReadOnlyList<string>> disabled) =>
+        keyValues.SetValue(DisabledToolsKey, JsonSerializer.Serialize(disabled, Json));
 
     public IReadOnlyList<string> GetReadOnlyModules() => Read<List<string>>(ReadOnlyKey) ?? [];
 
@@ -49,7 +56,7 @@ public sealed class KeyValueMcpToolSettingsStore(IKeyValueService keyValues, ILo
         var modules = new Dictionary<string, McpModuleCatalogue>(GetCatalogue().Modules, StringComparer.Ordinal);
         foreach (McpModuleReport module in report.Modules)
         {
-            modules[module.Id] = new McpModuleCatalogue(at, module.SiteSettingsIgnored, module.Collections);
+            modules[module.Id] = new McpModuleCatalogue(at, module.Collections);
         }
 
         keyValues.SetValue(CatalogueKey, JsonSerializer.Serialize(new McpToolCatalogue(report.UmbrellaVersion, modules), Json));
@@ -87,7 +94,7 @@ public sealed class KeyValueMcpToolSettingsStore(IKeyValueService keyValues, ILo
         var modules = new Dictionary<string, McpModuleCatalogue>(StringComparer.Ordinal);
         foreach (McpModuleReport module in report.Modules)
         {
-            modules[module.Id] = new McpModuleCatalogue(at, module.SiteSettingsIgnored, module.Collections);
+            modules[module.Id] = new McpModuleCatalogue(at, module.Collections);
         }
 
         keyValues.SetValue(
@@ -120,7 +127,7 @@ public sealed class KeyValueMcpToolSettingsStore(IKeyValueService keyValues, ILo
         {
             if (value is not null && McpToolLevel.IsValid(value.Level))
             {
-                result[productId] = value with { DisabledCollections = value.DisabledCollections ?? [] };
+                result[productId] = value with { DisabledCollections = value.DisabledCollections ?? [], DisabledTools = value.DisabledTools ?? [] };
             }
         }
 

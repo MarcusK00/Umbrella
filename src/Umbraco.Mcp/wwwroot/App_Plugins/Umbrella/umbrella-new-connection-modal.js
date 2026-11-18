@@ -68,6 +68,7 @@ export class UmbrellaNewConnectionModalElement extends UmbModalBaseElement {
   #notifications;
   #me = null;
   #defaultsDisabled = {};
+  #defaultsTools = {};
   #suffixEdited = false;
   #groupsEdited = false;
   #userKey = crypto.randomUUID();
@@ -117,6 +118,7 @@ export class UmbrellaNewConnectionModalElement extends UmbModalBaseElement {
       ]);
       this.#me = me;
       this.#defaultsDisabled = settings?.disabledCollections ?? {};
+      this.#defaultsTools = settings?.disabledTools ?? {};
       this._groups = groups;
       this.#suggest();
     } catch (error) {
@@ -185,7 +187,7 @@ export class UmbrellaNewConnectionModalElement extends UmbModalBaseElement {
       }
       if (!this.#done.has("settings")) {
         this._failedStep = "settings";
-        const overrides = buildOverrides(this._choices, this.#defaultsDisabled);
+        const overrides = buildOverrides(this._choices, this.#defaultsDisabled, this.#defaultsTools);
         if (Object.keys(overrides).length > 0) {
           await request(this.#auth, "PUT", `tool-settings/users/${encodeURIComponent(this.#userKey)}`, { overrides });
         }
