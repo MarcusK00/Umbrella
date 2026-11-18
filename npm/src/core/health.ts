@@ -15,10 +15,8 @@ export interface ModuleRuntimeState {
   issues: string[];
   /** Collections the site disabled for this module (from capabilities). */
   siteDisabledCollections?: string[];
-  /** The module's default-off collections that were applied, because neither the site nor the env set a list. */
+  /** The module's default-off collections that were applied, because the site has no saved list. */
   defaultDisabledCollections?: string[];
-  /** The environment sets collection filters for this module, so the site's list was not applied. */
-  siteSettingsIgnored?: boolean;
   /** The site limits this module to read-only tools (from capabilities). */
   siteReadOnly?: boolean;
   /** The site removes this module's destructive tools (from capabilities). */
@@ -41,6 +39,8 @@ export interface HealthState {
   noDestructiveFromEnv: boolean;
   /** UMBRACO_READONLY is set, which keeps only read-only tools for every module. */
   readOnlyFromEnv: boolean;
+  /** The removed collection variables (UMBRACO_INCLUDE/EXCLUDE_TOOL_COLLECTIONS) that are still set. */
+  removedEnvVars: string[];
   /** The name of the API user the server signed in as, when the site returned one. */
   apiUserName: string | null;
   /** Absent when the catalogue was not reported (no add-on). */
@@ -116,10 +116,14 @@ export function buildHealthReport(state: HealthState): HealthReport {
     notes.push("UMBRACO_NO_DESTRUCTIVE is set, so destructive tools are removed for every product.");
   }
 
+  for (const name of state.removedEnvVars) {
+    notes.push(`${name} is no longer read; choose tool groups in Settings → Umbrella → Tool Permissions.`);
+  }
+
   const products: HealthProduct[] = state.modules.map((
     {
       decision, loaded, toolCount, issues,
-      siteDisabledCollections = [], defaultDisabledCollections = [], siteSettingsIgnored = false, siteReadOnly = false,
+      siteDisabledCollections = [], defaultDisabledCollections = [], siteReadOnly = false,
       siteNoDestructive = false, siteSettingsScope = "site", destructiveRemoved = 0,
     },
   ) => {
@@ -128,13 +132,10 @@ export function buildHealthReport(state: HealthState): HealthReport {
     const hasDashboard = caps.kind === "ok";
     const inBackoffice = siteSettingsScope === "user" ? "in the backoffice for this API user" : "in the backoffice";
     if (defaultDisabledCollections.length > 0) {
-      // `<id>:*`, not the group names: an include list keeps only the groups it names.
-      const how = hasDashboard ? "Switch them on in the Umbrella dashboard." : `Set UMBRACO_INCLUDE_TOOL_COLLECTIONS=${decision.module.id}:* to switch them on.`;
+      const how = hasDashboard ? "Switch them on in the Umbrella dashboard." : "Install the Umbraco.Community.Umbrella add-on to choose tool groups.";
       notes.push(`${name}: tool groups off by default: ${defaultDisabledCollections.join(", ")}. ${how}`);
     }
-    if (hasDashboard && siteSettingsIgnored) {
-      notes.push(`${name}: the backoffice tool group settings are ignored because the environment sets collection filters for this module.`);
-    } else if (hasDashboard && siteDisabledCollections.length > 0) {
+    if (hasDashboard && siteDisabledCollections.length > 0) {
       notes.push(`${name}: tool groups disabled ${inBackoffice}: ${siteDisabledCollections.join(", ")}.`);
     }
     if (hasDashboard && siteReadOnly) {

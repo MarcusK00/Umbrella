@@ -9,7 +9,7 @@ const mod = (id: string, displayName: string, required = false): McpProductModul
 
 const state = (capabilities: CapabilitiesResult, modules: ModuleRuntimeState[], forced: string[] = [], serverVersion = "17.0.0"): HealthState => ({
   capabilities, serverVersion, umbracoVersion: "17.7.0", versionCheckMessage: null, forcedModules: forced, modules, noDestructiveFromEnv: false,
-  readOnlyFromEnv: false, apiUserName: null,
+  readOnlyFromEnv: false, apiUserName: null, removedEnvVars: [],
 });
 
 const cmsLoaded: ModuleRuntimeState = {
@@ -171,9 +171,9 @@ describe("buildHealthReport", () => {
     expect(r.notes).toContain("Umbraco Forms: tool groups off by default: umbraco-server, acceptance-tests. Switch them on in the Umbrella dashboard.");
   });
 
-  it("notes default-off tool groups without the add-on and points at the env var", () => {
+  it("notes default-off tool groups without the add-on and points at the add-on", () => {
     const r = buildHealthReport(state({ kind: "no-addon" }, [{ ...formsLoaded, defaultDisabledCollections: ["umbraco-server", "acceptance-tests"] }]));
-    expect(r.notes).toContain("Umbraco Forms: tool groups off by default: umbraco-server, acceptance-tests. Set UMBRACO_INCLUDE_TOOL_COLLECTIONS=forms:* to switch them on.");
+    expect(r.notes).toContain("Umbraco Forms: tool groups off by default: umbraco-server, acceptance-tests. Install the Umbraco.Community.Umbrella add-on to choose tool groups.");
   });
 
   it("says nothing about defaults when none were applied", () => {
@@ -182,24 +182,23 @@ describe("buildHealthReport", () => {
     expect(buildHealthReport(state(caps, [formsLoaded])).notes.join(" ")).not.toMatch(/off by default/);
   });
 
-  it("notes when the environment overrides the backoffice settings", () => {
-    const r = buildHealthReport(state({ kind: "ok", payload: { addonVersion: "17.0.0", products: [] } }, [{ ...cmsLoaded, siteDisabledCollections: ["log-viewer"], siteSettingsIgnored: true }]));
+  it("notes each removed variable that is still set", () => {
+    const r = buildHealthReport({ ...state({ kind: "no-addon" }, [cmsLoaded]), removedEnvVars: ["UMBRACO_EXCLUDE_TOOL_COLLECTIONS"] });
     expect(r.notes).toContain(
-      "Umbraco CMS: the backoffice tool group settings are ignored because the environment sets collection filters for this module.",
+      "UMBRACO_EXCLUDE_TOOL_COLLECTIONS is no longer read; choose tool groups in Settings → Umbrella → Tool Permissions.",
     );
-    expect(r.notes.join(" ")).not.toMatch(/disabled in the backoffice/);
+    expect(buildHealthReport(state({ kind: "no-addon" }, [cmsLoaded])).notes.join(" ")).not.toMatch(/no longer read/);
   });
 
   it("says nothing about backoffice settings when the site has no add-on (there is no dashboard)", () => {
-    const r = buildHealthReport(state({ kind: "no-addon" }, [{ ...cmsLoaded, siteSettingsIgnored: true, siteReadOnly: true }]));
+    const r = buildHealthReport(state({ kind: "no-addon" }, [{ ...cmsLoaded, siteReadOnly: true }]));
     expect(r.notes.join(" ")).not.toMatch(/backoffice/);
   });
 
-  it("notes a product set to read-only in the backoffice, also when the environment overrides its groups", () => {
+  it("notes a product set to read-only in the backoffice", () => {
     const caps = { kind: "ok" as const, payload: { addonVersion: "17.0.0", products: [] } };
     const note = "Umbraco CMS: only read-only tools, as set in the backoffice.";
     expect(buildHealthReport(state(caps, [{ ...cmsLoaded, siteReadOnly: true }])).notes).toContain(note);
-    expect(buildHealthReport(state(caps, [{ ...cmsLoaded, siteReadOnly: true, siteSettingsIgnored: true }])).notes).toContain(note);
     expect(buildHealthReport(state(caps, [cmsLoaded])).notes.join(" ")).not.toMatch(/read-only/);
   });
 
@@ -245,14 +244,6 @@ describe("buildHealthReport", () => {
       expect(r.notes).toContain("Umbraco Forms: only read-only tools, as set in the backoffice.");
       expect(r.notes).toContain("Umbraco Forms: no destructive tools (3 removed), as set in the backoffice.");
       expect(r.notes).toContain("Umbraco CMS: tool groups disabled in the backoffice: log-viewer.");
-      expect(r.notes.join(" ")).not.toMatch(/for this API user/);
-    });
-
-    it("keeps the ignored-settings note unchanged under user scope", () => {
-      const r = buildHealthReport(state(caps, [{ ...forms, siteDisabledCollections: ["media"], siteSettingsIgnored: true }]));
-      expect(r.notes).toContain(
-        "Umbraco Forms: the backoffice tool group settings are ignored because the environment sets collection filters for this module.",
-      );
       expect(r.notes.join(" ")).not.toMatch(/for this API user/);
     });
   });

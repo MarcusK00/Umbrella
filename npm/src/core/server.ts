@@ -14,7 +14,7 @@ import {
 import { fetchCapabilities, siteDisabledCollections, siteNoDestructive, siteReadOnly, siteSettingsScope } from "./capabilities.js";
 import { buildCatalogue, reportCatalogue, type CatalogueReportResult } from "./catalogue.js";
 import { installClientContext } from "./client-context.js";
-import { buildEffectiveFilterInput, envNoDestructive, envReadOnly } from "./filter-config.js";
+import { buildEffectiveFilterInput, envNoDestructive, envReadOnly, removedCollectionEnvVars } from "./filter-config.js";
 import { HEALTH_TOOL_NAME, registerHealthTool, type HealthState, type ModuleRuntimeState } from "./health.js";
 import type { LoadedModule, McpProductModule } from "./module-contract.js";
 import { parseForcedModules, selectModules } from "./module-selection.js";
@@ -143,10 +143,9 @@ export async function startServer(options: {
       state.siteReadOnly = siteReadOnly(capabilities, module.id);
       state.siteNoDestructive = siteNoDestructive(capabilities, module.id);
       state.siteSettingsScope = siteSettingsScope(capabilities, module.id);
-      const { config, siteSettingsIgnored, defaultsApplied, excludeDestructive } = buildEffectiveFilterInput(
+      const { config, defaultsApplied, excludeDestructive } = buildEffectiveFilterInput(
         env, module.id, module.required === true, siteDisabled, state.siteReadOnly, module.defaultDisabledCollections, state.siteNoDestructive,
       );
-      state.siteSettingsIgnored = siteSettingsIgnored;
       state.defaultDisabledCollections = defaultsApplied;
       const filter = createCollectionConfigLoader({
         modeRegistry: loaded.allModes,
@@ -168,7 +167,7 @@ export async function startServer(options: {
   if (capabilities.kind === "ok") {
     catalogueReport = await reportCatalogue(buildCatalogue(
       version,
-      ready.map(({ state, loaded }) => ({ module: state.decision.module, loaded, siteSettingsIgnored: state.siteSettingsIgnored ?? false })),
+      ready.map(({ state, loaded }) => ({ module: state.decision.module, loaded })),
       user,
     ));
   }
@@ -178,6 +177,7 @@ export async function startServer(options: {
     capabilities, serverVersion: version, umbracoVersion, versionCheckMessage, forcedModules, modules: states, catalogueReport,
     noDestructiveFromEnv: envNoDestructive(env),
     readOnlyFromEnv: envReadOnly(env),
+    removedEnvVars: removedCollectionEnvVars(env),
     apiUserName: typeof apiUserName === "string" && apiUserName.length > 0 ? apiUserName : null,
   };
   registerHealthTool(server, () => healthState);

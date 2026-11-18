@@ -24,11 +24,10 @@ describe("buildCatalogue", () => {
       collection("prevalue-source", [{ name: "get-prevalue-source" }]),
     ]);
 
-    expect(buildCatalogue("17.0.0", [{ module: mod("forms"), loaded: forms, siteSettingsIgnored: true }], { id: "u" })).toEqual({
+    expect(buildCatalogue("17.0.0", [{ module: mod("forms"), loaded: forms }], { id: "u" })).toEqual({
       umbrellaVersion: "17.0.0",
       modules: [{
         id: "forms",
-        siteSettingsIgnored: true,
         collections: [{ name: "form", toolCount: 1, readOnlyToolCount: 0, nonDestructiveToolCount: 1 }, { name: "prevalue-source", toolCount: 1, readOnlyToolCount: 0, nonDestructiveToolCount: 1 }],
       }],
     });
@@ -37,7 +36,7 @@ describe("buildCatalogue", () => {
   it("flags default-off collections", () => {
     const forms = loaded([collection("umbraco-server", [{ name: "get-server-info" }]), collection("form", [{ name: "list-forms" }])]);
     const module = { ...mod("forms"), defaultDisabledCollections: ["umbraco-server"] };
-    const [server, form] = buildCatalogue("17.0.0", [{ module, loaded: forms, siteSettingsIgnored: false }], {}).modules[0].collections;
+    const [server, form] = buildCatalogue("17.0.0", [{ module, loaded: forms }], {}).modules[0].collections;
     expect(server).toMatchObject({ name: "umbraco-server", disabledByDefault: true });
     expect(form).not.toHaveProperty("disabledByDefault");
   });
@@ -52,7 +51,7 @@ describe("buildCatalogue", () => {
       ]),
     ]);
 
-    const [module] = buildCatalogue("1", [{ module: mod("forms"), loaded: forms, siteSettingsIgnored: false }], {}).modules;
+    const [module] = buildCatalogue("1", [{ module: mod("forms"), loaded: forms }], {}).modules;
 
     expect(module.collections).toEqual([{ name: "form", toolCount: 3, readOnlyToolCount: 2, nonDestructiveToolCount: 3 }]);
   });
@@ -67,7 +66,7 @@ describe("buildCatalogue", () => {
       ]),
     ]);
 
-    const [module] = buildCatalogue("1", [{ module: mod("forms"), loaded: forms, siteSettingsIgnored: false }], {}).modules;
+    const [module] = buildCatalogue("1", [{ module: mod("forms"), loaded: forms }], {}).modules;
 
     expect(module.collections[0]).toMatchObject({ toolCount: 3, nonDestructiveToolCount: 2 });
   });
@@ -77,8 +76,8 @@ describe("buildCatalogue", () => {
     const ok = loaded([collection("persona", [{ name: "get-persona" }])]);
 
     const r = buildCatalogue("1", [
-      { module: mod("automate"), loaded: broken, siteSettingsIgnored: false },
-      { module: mod("engage"), loaded: ok, siteSettingsIgnored: false },
+      { module: mod("automate"), loaded: broken },
+      { module: mod("engage"), loaded: ok },
     ], {});
 
     expect(r.modules.map((m) => m.id)).toEqual(["engage"]);

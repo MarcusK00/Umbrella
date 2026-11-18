@@ -6,8 +6,6 @@ export const CATALOGUE_PATH = "/umbraco/management/api/v1/mcp/catalogue";
 
 export interface CatalogueModule {
   id: string;
-  /** The environment sets collection filters for this module, so the backoffice settings do not apply. */
-  siteSettingsIgnored: boolean;
   /**
    * `readOnlyToolCount`: how many of the usable tools are left when the module is read-only.
    * `nonDestructiveToolCount`: how many are left when destructive tools are removed.
@@ -28,16 +26,15 @@ type RawResponse = { status: number; data: unknown };
 /** Every collection of every loaded module, before filters, so the backoffice can also show the disabled ones. */
 export function buildCatalogue(
   version: string,
-  modules: Array<{ module: McpProductModule; loaded: LoadedModule; siteSettingsIgnored: boolean }>,
+  modules: Array<{ module: McpProductModule; loaded: LoadedModule }>,
   user: unknown,
 ): CataloguePayload {
   const result: CatalogueModule[] = [];
-  for (const { module, loaded, siteSettingsIgnored } of modules) {
+  for (const { module, loaded } of modules) {
     try {
       const defaults = new Set(module.defaultDisabledCollections ?? []);
       result.push({
         id: module.id,
-        siteSettingsIgnored,
         collections: loaded.collections.map((c) => {
           const usable = c.tools(user).filter((t) => !t.enabled || t.enabled(user));
           return {
