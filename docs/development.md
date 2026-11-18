@@ -68,9 +68,11 @@ How to build, run and test Umbrella from a fresh clone. How the code fits togeth
 
    Set `UMBRELLA_CLIENT_SECRET` to the same secret, restart your AI tool, and open `demo-site/` in it. Run `npm run build` again after changing the server, then reconnect.
 
-## The Claude Code plugin
+## The plugins (Claude Code, Codex, Antigravity)
 
-The marketplace (`.claude-plugin/marketplace.json`) and the plugin (`plugins/umbrella/`) are plain files; nothing builds them. Check them with Claude Code:
+The marketplaces (`.claude-plugin/marketplace.json`, `.agents/plugins/marketplace.json`) and the multi-provider plugin (`plugins/umbrella/`) are plain files; nothing builds them. Check them locally:
+
+### Claude Code
 
 ```bash
 claude plugin validate .
@@ -102,6 +104,28 @@ claude plugin install umbrella@umbrella --config base_url=https://localhost:4439
 
 Then run `/plugin configure umbrella@umbrella` in Claude Code to add the secret. `claude plugin marketplace remove umbrella` removes it again.
 
+### Codex
+
+To test the Codex marketplace from this checkout:
+
+```bash
+codex plugin marketplace add .
+codex plugin add umbrella@umbrella
+```
+
+Export `UMBRACO_BASE_URL`, `UMBRACO_CLIENT_ID`, `UMBRACO_CLIENT_SECRET` (and `NODE_TLS_REJECT_UNAUTHORIZED=0` for the demo site) before starting Codex.
+
+### Antigravity
+
+Validate and install from this checkout (run `agy plugin validate` without `--strict` in this multi-tool directory, because `.mcp.json` and `.claude-plugin`/`.codex-plugin` files emit expected multi-tool warnings under `--strict`):
+
+```bash
+agy plugin validate ./plugins/umbrella
+agy plugin install ./plugins/umbrella
+```
+
+Then enable `umbrella` in **Customizations → Installed** (or `/plugin`) and fill in the four variables.
+
 ## Tests
 
 ```bash
@@ -123,7 +147,7 @@ Expected noise: Jest runs with `--experimental-vm-modules`, so every run prints 
 
 Both scripts need the demo site running, `npm/.env`, and the API user.
 
-- **`scripts/e2e.sh`** runs the local build (`npm run build` first) against the site: capabilities report Forms, Automate and Engage; every prefix has tools; descriptions are product-prefixed; switching off a tool group and setting Forms to read-only or to no destructive tools (checking `forms--delete-form` is gone) change the tool list; with no saved list every tool group is on, including ones such as `forms--get-server-info`; the Overview reports the add-on version, and `client-setup` returns the six client configs for the API user's client id without the secret; and `get-mcp-health`, `forms--list-forms` and `automate--list-automations` answer. It changes the site's default tool settings while it runs, and clears the API user's own settings for the run, and restores both afterwards, even when it fails.
+- **`scripts/e2e.sh`** runs the local build (`npm run build` first) against the site: capabilities report Forms, Automate and Engage; every prefix has tools; descriptions are product-prefixed; switching off a tool group and setting Forms to read-only or to no destructive tools (checking `forms--delete-form` is gone) change the tool list; with no saved list every tool group is on, including ones such as `forms--get-server-info`; the Overview reports the add-on version, and `client-setup` returns the nine client configs for the API user's client id without the secret; and `get-mcp-health`, `forms--list-forms` and `automate--list-automations` answer. It changes the site's default tool settings while it runs, and clears the API user's own settings for the run, and restores both afterwards, even when it fails.
 - **`scripts/pack-check.sh`** packs `umbrella-mcp` and installs it with `npx` in an empty folder, the way users get it. There npm ignores the package's `overrides`, so this is the check that every product still shares one toolkit copy: it fails when `cms--`, `forms--`, `automate--` or `engage--` tools are missing. It also checks that no vendor tarball is packed.
 
 ## Before you commit

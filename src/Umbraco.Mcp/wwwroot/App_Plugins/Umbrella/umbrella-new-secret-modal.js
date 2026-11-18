@@ -148,7 +148,9 @@ export class UmbrellaNewSecretModalElement extends UmbModalBaseElement {
       <uui-box headline="Put it into the AI tool">
         <ul>
           <li><strong>Claude Code (plugin):</strong> run <code>/plugin configure ${PLUGIN_ID}</code> in Claude Code.</li>
-          <li><strong>Claude Code (.mcp.json) & Cursor:</strong> set <code>${SECRET_VARIABLE}</code> to it, then restart the tool.</li>
+          <li><strong>Claude Code (.mcp.json) &amp; Cursor:</strong> set <code>${SECRET_VARIABLE}</code> to it, then restart the tool.</li>
+          <li><strong>Codex (plugin):</strong> set <code>UMBRACO_CLIENT_SECRET</code> to it, then restart Codex.</li>
+          <li><strong>Antigravity (plugin):</strong> update <code>UMBRACO_CLIENT_SECRET</code> in <strong>Customizations → Installed</strong> (or <code>/plugin</code>).</li>
           <li><strong>VS Code:</strong> prompts for the secret the next time it starts the server.</li>
           <li><strong>Other clients:</strong> replace the secret in its configuration file or command.</li>
         </ul>
