@@ -3,6 +3,14 @@ import { UmbLitElement } from "@umbraco-cms/backoffice/lit-element";
 import { UmbTextStyles } from "@umbraco-cms/backoffice/style";
 import { LEVELS, LEVEL_LABELS, glyphStyles, groupLabel, levelGlyph, tools } from "./umbrella-access.js";
 import { allowedAt, filterGroups, groupKeptCount } from "./umbrella-tool-logic.js";
+import {
+  formatApproxTokens,
+  formatSizeTooltip,
+  groupKeptSizeBytes,
+  groupPotentialSizeBytes,
+  moduleSizeSummary,
+  sortGroupEntries,
+} from "./umbrella-tool-size.js";
 
 const LEVEL_DESCRIPTIONS = {
   off: "Not loaded",
@@ -38,6 +46,7 @@ export class UmbrellaProductCardElement extends UmbLitElement {
     _filter: { state: true },
     _selectedGroup: { state: true },
     _groupsExpanded: { state: true },
+    _sortBy: { state: true },
   };
 
   constructor() {
@@ -59,6 +68,7 @@ export class UmbrellaProductCardElement extends UmbLitElement {
     this._filter = "";
     this._selectedGroup = "";
     this._groupsExpanded = false;
+    this._sortBy = "name";
   }
 
   willUpdate(changed) {
@@ -70,6 +80,7 @@ export class UmbrellaProductCardElement extends UmbLitElement {
       this._filter = "";
       this._selectedGroup = "";
       this._groupsExpanded = false;
+      this._sortBy = "name";
     } else if (changed.has("mode") && changed.get("mode") !== this.mode) {
       this._groupsExpanded = false;
     }
@@ -83,12 +94,17 @@ export class UmbrellaProductCardElement extends UmbLitElement {
     return { level: this.level, groupOn: !this.disabled.has(collection.name), disabledTools: this.disabledTools };
   }
 
-  /** How many tools the AI tool gets with these settings, out of every tool the product reported; null without counts. */
+  /** How many tools and bytes the AI tool gets with these settings, out of everything the product reported; null without counts. */
   #available() {
     if (!this.showCounts || !this.module) return null;
     const total = this.module.collections.reduce((sum, c) => sum + c.toolCount, 0);
     const kept = this.module.collections.reduce((sum, c) => sum + groupKeptCount(c, this.#stateFor(c)), 0);
-    return { kept, total };
+    const size = moduleSizeSummary(this.module.collections, (c) => this.#stateFor(c));
+    return { kept, total, keptBytes: size?.keptBytes ?? null, totalBytes: size?.totalBytes ?? null };
+  }
+
+  #hasSizes() {
+    return this.showCounts && !!this.module?.collections?.some((c) => typeof c.sizeBytes === "number");
   }
 
   /** The tools switched off in a group that is on and that the level would otherwise offer. */
@@ -135,6 +151,9 @@ export class UmbrellaProductCardElement extends UmbLitElement {
         <span>${LEVEL_LABELS[this.level] ?? LEVEL_LABELS.full}</span>
       </span>
       ${available && this.level !== "off" ? html`<span class="muted">· ${available.kept} of ${tools(available.total)}</span>` : nothing}
+      ${available && this.level !== "off" && available.keptBytes !== null
+        ? html`<span class="muted" title=${formatSizeTooltip(available.keptBytes)}>· ${formatApproxTokens(available.keptBytes, { unit: true })}</span>`
+        : nothing}
       ${this.disabledTools.size > 0 && this.level !== "off"
         ? html`<span class="muted">· ${this.disabledTools.size} switched off</span>`
         : nothing}
@@ -172,9 +191,17 @@ export class UmbrellaProductCardElement extends UmbLitElement {
     const available = this.#available();
     if (!available) return nothing;
     const share = available.total ? Math.round((available.kept / available.total) * 100) : 0;
+    const hasSize = available.keptBytes !== null && available.totalBytes !== null;
     return html`<div class="meter" aria-label="${available.kept} of ${tools(available.total)} available (${share}%)">
       <div class="meter-head">
-        <span class="meter-text"><strong>${available.kept}</strong> of ${tools(available.total)} available</span>
+        <span class="meter-text">
+          <strong>${available.kept}</strong> of ${tools(available.total)} available
+          ${hasSize
+            ? html` <span class="meter-size" title=${formatSizeTooltip(available.keptBytes)}>
+                  · <strong>${formatApproxTokens(available.keptBytes, { unit: true })}</strong> of ${formatApproxTokens(available.totalBytes)}
+                </span>`
+            : nothing}
+        </span>
         <span class="meter-pct">${share}%</span>
       </div>
       <div class="meter-track" role="presentation"><div class="meter-fill" style="width: ${share}%"></div></div>
@@ -187,6 +214,9 @@ export class UmbrellaProductCardElement extends UmbLitElement {
     const label = groupLabel(c.name);
     const checkedGroup = !this.disabled.has(c.name);
     const kept = groupKeptCount(c, this.#stateFor(c));
+    const keptBytes = this.showCounts ? groupKeptSizeBytes(c, this.#stateFor(c)) : null;
+    const potentialBytes = this.showCounts ? groupPotentialSizeBytes(c, this.level) : null;
+    const paneBytes = checkedGroup ? keptBytes : potentialBytes;
     const hasTools = Array.isArray(c.tools);
     const list = filteredTools ?? c.tools ?? [];
     const all = c.tools ?? [];
@@ -197,7 +227,9 @@ export class UmbrellaProductCardElement extends UmbLitElement {
         <div class="tools-pane-title-row">
           <h4>${label}</h4>
           ${this.showCounts
-            ? html`<span class="muted small">${checkedGroup ? `${kept} / ${c.toolCount}` : "Off"}</span>`
+            ? html`<span class="muted small" title=${paneBytes !== null ? formatSizeTooltip(paneBytes) : nothing}>
+                ${checkedGroup ? `${kept} / ${c.toolCount}` : "Off"}${paneBytes !== null ? ` · ${formatApproxTokens(paneBytes, { unit: true })}` : ""}
+              </span>`
             : nothing}
         </div>
         ${anyOff && this.editable
@@ -229,6 +261,9 @@ export class UmbrellaProductCardElement extends UmbLitElement {
                     @change=${(e) => this.#emit("tools-change", { names: [t.name], enabled: e.target.checked })}
                   ></uui-checkbox>
                   <span class="tool-meta">
+                    ${typeof t.sizeBytes === "number" && this.showCounts
+                      ? html`<span class="tool-size" title=${formatSizeTooltip(t.sizeBytes)}>${formatApproxTokens(t.sizeBytes)}</span>`
+                      : nothing}
                     ${t.readOnly ? html`<uui-tag class="compact-tag" look="secondary">Read-only</uui-tag>` : nothing}
                     ${t.destructive ? html`<uui-tag class="compact-tag" look="secondary" color="danger">Destructive</uui-tag>` : nothing}
                     ${reason ? html`<uui-tag class="compact-tag" look="outline" color="warning">Filtered (${reason})</uui-tag>` : nothing}
@@ -252,7 +287,9 @@ export class UmbrellaProductCardElement extends UmbLitElement {
     const collections = this.module.collections;
     const on = collections.filter((c) => !this.disabled.has(c.name)).length;
     const filter = this._filter.trim();
-    const shown = filterGroups(collections, this._filter, groupLabel);
+    const hasSizes = this.#hasSizes();
+    const sortBy = hasSizes ? this._sortBy : "name";
+    const shown = sortGroupEntries(filterGroups(collections, this._filter, groupLabel), sortBy, this.level);
     const off = this.disabledTools.size;
 
     const collapsible = this.mode === "custom";
@@ -297,6 +334,27 @@ export class UmbrellaProductCardElement extends UmbLitElement {
                     >×</uui-button>`
                   : nothing}
               </uui-input>
+              ${hasSizes
+                ? html`<div class="sort-group" role="group" aria-label="Sort tool groups">
+                    <button
+                      type="button"
+                      class="sort-btn"
+                      aria-pressed=${sortBy === "name" ? "true" : "false"}
+                      @click=${() => (this._sortBy = "name")}
+                    >
+                      Name
+                    </button>
+                    <button
+                      type="button"
+                      class="sort-btn"
+                      aria-pressed=${sortBy === "size" ? "true" : "false"}
+                      title="Sort by estimated context size (largest first)"
+                      @click=${() => (this._sortBy = "size")}
+                    >
+                      Size
+                    </button>
+                  </div>`
+                : nothing}
               ${collapsible
                 ? html`<uui-button
                     look="secondary"
@@ -325,6 +383,9 @@ export class UmbrellaProductCardElement extends UmbLitElement {
               ${shown.map(({ collection: c, tools: matchedTools, matchedGroup }) => {
                 const checked = !this.disabled.has(c.name);
                 const kept = groupKeptCount(c, this.#stateFor(c));
+                const keptBytes = this.showCounts ? groupKeptSizeBytes(c, this.#stateFor(c)) : null;
+                const potentialBytes = this.showCounts ? groupPotentialSizeBytes(c, this.level) : null;
+                const shownBytes = checked ? keptBytes : potentialBytes;
                 const offCount = checked ? this.#offInGroup(c) : 0;
                 const label = groupLabel(c.name);
                 const isSelected = c.name === selectedName;
@@ -343,7 +404,9 @@ export class UmbrellaProductCardElement extends UmbLitElement {
                     <div class="group-select-main">
                       <span class="group-name">${label}</span>
                       ${this.showCounts
-                        ? html`<span class="group-count">${checked ? `${kept}/${c.toolCount}` : "Off"}</span>`
+                        ? html`<span class="group-count" title=${shownBytes !== null ? formatSizeTooltip(shownBytes) : nothing}>
+                            ${checked ? `${kept}/${c.toolCount}` : "Off"}${shownBytes !== null ? ` · ${formatApproxTokens(shownBytes)}` : ""}
+                          </span>`
                         : nothing}
                     </div>
                     <div class="group-badges">
@@ -640,6 +703,36 @@ export class UmbrellaProductCardElement extends UmbLitElement {
         flex: 1;
         min-width: 0;
       }
+      .sort-group {
+        display: inline-flex;
+        flex: none;
+        padding: 2px;
+        border: 1px solid var(--uui-color-border);
+        border-radius: var(--uui-border-radius);
+        background: var(--uui-color-surface-alt);
+      }
+      .sort-btn {
+        padding: 3px var(--uui-size-space-2);
+        border: 0;
+        border-radius: calc(var(--uui-border-radius) - 1px);
+        background: transparent;
+        font: inherit;
+        font-size: var(--uui-type-small-size);
+        font-weight: 600;
+        color: var(--uui-color-text-alt);
+        cursor: pointer;
+      }
+      .sort-btn:hover:not([aria-pressed="true"]) {
+        color: var(--uui-color-text);
+      }
+      .sort-btn[aria-pressed="true"] {
+        background: var(--uui-color-current);
+        color: var(--uui-color-current-contrast);
+      }
+      .sort-btn:focus-visible {
+        outline: 2px solid var(--uui-color-focus);
+        outline-offset: 1px;
+      }
       .groups-toggle-btn {
         flex: none;
       }
@@ -841,6 +934,11 @@ export class UmbrellaProductCardElement extends UmbLitElement {
         align-items: center;
         gap: var(--uui-size-space-2);
         flex-wrap: wrap;
+      }
+      .tool-size {
+        color: var(--uui-color-text-alt);
+        font-size: var(--uui-type-small-size);
+        font-variant-numeric: tabular-nums;
       }
       uui-tag.compact-tag {
         flex: none;

@@ -414,10 +414,47 @@ public class McpOverviewServiceTests
 
         McpOverviewApiUser row = overview.ApiUsers.Single();
         Assert.That(row.Access.Single(a => a.ProductId == "automate"),
-            Is.EqualTo(new McpOverviewAccess("automate", "Umbraco Automate", "full", "site", 0, false)));
+            Is.EqualTo(new McpOverviewAccess("automate", "Umbraco Automate", "full", "site", 0, false, SizeBytes: 0)));
         Assert.That(row.Access.Single(a => a.ProductId == "forms").SectionAccess, Is.True);
         Assert.That(row.ToolCount, Is.EqualTo(7));
+        Assert.That(row.SizeBytes, Is.Null);
         Assert.That(overview.Findings.Where(f => f.Severity == McpFinding.Warning), Is.Empty);
+    }
+
+    [Test]
+    public async Task User_sizes_sum_the_effective_bytes_when_every_product_reports_them()
+    {
+        McpApiUser user = NamedUser("Anna");
+        McpProductStatus[] own =
+        [
+            Product("cms", "Umbraco CMS") with { DisabledCollections = ["b"], DisabledTools = ["t2"] },
+            Product("forms", "Umbraco Forms") with { ReadOnly = true },
+            Product("automate", "Umbraco Automate") with { Off = true },
+        ];
+        var catalogue = new McpToolCatalogue(Addon, new Dictionary<string, McpModuleCatalogue>
+        {
+            ["cms"] = new(Reported,
+            [
+                new McpCollectionInfo("a", 2, Tools:
+                [
+                    new McpToolInfo("t1", null, true, false, SizeBytes: 1200),
+                    new McpToolInfo("t2", null, false, false, SizeBytes: 800),
+                ], SizeBytes: 2000),
+                new McpCollectionInfo("b", 1, SizeBytes: 5000),
+            ]),
+            ["forms"] = new(Reported, [new McpCollectionInfo("a", 4, ReadOnlyToolCount: 2, SizeBytes: 4000, ReadOnlySizeBytes: 1500)]),
+        });
+        var service = Service(
+            settings: new FakeToolSettingsStore { UserCatalogues = { [user.Key] = catalogue } },
+            users: new FakeApiUserProvider(user),
+            caps: new StubCapabilities(
+                new McpCapabilities(Addon, AllProducts),
+                new Dictionary<Guid, McpCapabilities> { [user.Key] = new McpCapabilities(Addon, own) }));
+
+        McpOverviewApiUser row = (await service.GetOverviewAsync()).ApiUsers.Single();
+
+        Assert.That(row.Access.Select(a => a.SizeBytes), Is.EqualTo(new int?[] { 1200, 1500, 0 }));
+        Assert.That(row.SizeBytes, Is.EqualTo(2700));
     }
 
     [Test]

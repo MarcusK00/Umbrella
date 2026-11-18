@@ -3,6 +3,7 @@ import { UmbModalBaseElement } from "@umbraco-cms/backoffice/modal";
 import { UmbTextStyles } from "@umbraco-cms/backoffice/style";
 import { formatDate } from "./umbrella-api.js";
 import { LEVEL_LABELS, formatRelative, glyphStyles, levelGlyph, tools } from "./umbrella-access.js";
+import { formatApproxTokens, formatSizeTooltip } from "./umbrella-tool-size.js";
 
 const STATES = { active: "Active", disabled: "Disabled", lockedOut: "Locked out" };
 
@@ -62,12 +63,22 @@ export class UmbrellaApiUserInfoModalElement extends UmbModalBaseElement {
           <span class="muted small">
             ${a.sectionAccess === false ? "No access: no user group grants its section" : a.scope === "user" ? "Own settings" : "Defaults"}
             ${a.disabledToolCount > 0 && a.level !== "off" && a.sectionAccess !== false ? ` · ${a.disabledToolCount} ${a.disabledToolCount === 1 ? "tool" : "tools"} switched off` : nothing}
-            ${a.toolCount === null || a.toolCount === undefined || a.level === "off" || a.sectionAccess === false ? nothing : html` · <strong>${tools(a.toolCount)}</strong>`}
+            ${a.toolCount === null || a.toolCount === undefined || a.level === "off" || a.sectionAccess === false
+              ? nothing
+              : html` · <strong>${tools(a.toolCount)}</strong>${a.sizeBytes !== null && a.sizeBytes !== undefined
+                  ? html` <span title=${formatSizeTooltip(a.sizeBytes)}>· ${formatApproxTokens(a.sizeBytes, { unit: true })}</span>`
+                  : nothing}`}
           </span>
         </li>`;
       })}
     </ul>
-    ${user.toolCount === null || user.toolCount === undefined ? nothing : html`<p class="total-line muted small"><strong>${tools(user.toolCount)}</strong> in total at its last start.</p>`}`;
+    ${user.toolCount === null || user.toolCount === undefined
+      ? nothing
+      : html`<p class="total-line muted small">
+          <strong>${tools(user.toolCount)}</strong>${user.sizeBytes !== null && user.sizeBytes !== undefined
+            ? html` (<span title=${formatSizeTooltip(user.sizeBytes)}>${formatApproxTokens(user.sizeBytes, { unit: true })}</span>)`
+            : nothing} in total at its last start.
+        </p>`}`;
   }
 
   render() {

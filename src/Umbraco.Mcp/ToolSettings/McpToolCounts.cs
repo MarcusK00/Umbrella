@@ -26,6 +26,46 @@ internal static class McpToolCounts
                 : c.ToolCount);
     }
 
+    /// <summary>
+    /// Total <c>tools/list</c> UTF-8 bytes of the module's kept tools, or null when any active non-empty group lacks size data.
+    /// </summary>
+    public static int? EffectiveSizeBytes(McpModuleCatalogue module, McpProductStatus product)
+    {
+        if (product.Off)
+        {
+            return 0;
+        }
+
+        int total = 0;
+        foreach (McpCollectionInfo c in OnCollections(module, product))
+        {
+            int? size;
+            if (c.Tools is { } tools && (tools.Count == 0 || tools.All(t => t.SizeBytes is not null)))
+            {
+                size = tools.Where(t => IsKept(t, product)).Sum(t => t.SizeBytes ?? 0);
+            }
+            else
+            {
+                size = product.ReadOnly ? c.ReadOnlySizeBytes ?? c.SizeBytes
+                    : product.NoDestructive ? c.NonDestructiveSizeBytes ?? c.SizeBytes
+                    : c.SizeBytes;
+                if (size is null && c.ToolCount == 0)
+                {
+                    size = 0;
+                }
+            }
+
+            if (size is null)
+            {
+                return null;
+            }
+
+            total += size.Value;
+        }
+
+        return total;
+    }
+
     /// <summary>The tools the MCP server registers from the groups that report tools: group on, level, not switched off.</summary>
     public static IReadOnlyList<McpToolInfo> KeptTools(McpModuleCatalogue module, McpProductStatus product)
     {
