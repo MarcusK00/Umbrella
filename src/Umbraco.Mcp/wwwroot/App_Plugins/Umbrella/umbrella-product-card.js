@@ -112,7 +112,7 @@ export class UmbrellaProductCardElement extends UmbLitElement {
   }
 
   #renderTag() {
-    if (this.mode === "follows") return html`<uui-tag look="secondary">Follows defaults</uui-tag>`;
+    if (this.mode === "follows") return html`<uui-tag look="secondary">Follows default</uui-tag>`;
     return nothing;
   }
 
@@ -143,15 +143,17 @@ export class UmbrellaProductCardElement extends UmbLitElement {
   /** Collapsed summary shown when an API user follows the site defaults for this product. */
   #renderCollapsedFollows() {
     const available = this.#available();
+    const levelLabel = LEVEL_LABELS[this.level] ?? LEVEL_LABELS.full;
     return html`<div class="follows-collapsed">
-      <span class="follows-level ${this.level === "off" ? "is-off" : ""}">
+      <div class="follows-pill ${this.level === "off" ? "is-off" : ""}">
         ${levelGlyph(this.level)}
-        <span>${LEVEL_LABELS[this.level] ?? LEVEL_LABELS.full}</span>
-      </span>
-      ${available && this.level !== "off" ? html`<span class="muted">· ${available.kept} of ${tools(available.total)}</span>` : nothing}
-      ${this.disabledTools.size > 0 && this.level !== "off"
-        ? html`<span class="muted">· ${this.disabledTools.size} switched off</span>`
-        : nothing}
+        <span>${levelLabel}</span>
+      </div>
+      <p class="follows-meta muted small">
+        Inherited from site defaults${available && this.level !== "off" ? ` · ${available.kept} of ${tools(available.total)}` : ""}${this.disabledTools.size > 0 && this.level !== "off"
+          ? ` · ${this.disabledTools.size} switched off`
+          : ""}
+      </p>
     </div>`;
   }
 
@@ -512,22 +514,29 @@ export class UmbrellaProductCardElement extends UmbLitElement {
       .follows-collapsed {
         flex: 1;
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
-        flex-wrap: wrap;
         gap: var(--uui-size-space-2);
-        padding: var(--uui-box-default-padding, var(--uui-size-space-5));
+        padding: var(--uui-size-layout-1) var(--uui-box-default-padding, var(--uui-size-space-5));
         text-align: center;
       }
-      .follows-level {
+      .follows-pill {
         display: inline-flex;
         align-items: center;
         gap: var(--uui-size-space-2);
+        padding: var(--uui-size-space-1) var(--uui-size-space-3);
+        border-radius: 999px;
+        border: 1px solid var(--uui-color-border);
+        background: var(--uui-color-surface-alt);
         font-weight: 600;
       }
-      .follows-level.is-off {
+      .follows-pill.is-off {
         color: var(--uui-color-text-alt);
         font-weight: normal;
+      }
+      .follows-meta {
+        font-variant-numeric: tabular-nums;
       }
 
       .access-section {
