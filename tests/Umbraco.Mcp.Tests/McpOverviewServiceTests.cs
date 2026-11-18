@@ -179,40 +179,9 @@ public class McpOverviewServiceTests
     }
 
     [Test]
-    public void Missing_section_is_a_note_naming_the_section()
+    public void Missing_section_is_not_a_finding()
     {
-        McpFinding finding = Findings(users: [User(UserState.Active, "Ua.Section.Automate")]).Single();
-
-        Assert.That(finding.Severity, Is.EqualTo(McpFinding.Info));
-        Assert.That(finding.Area, Is.EqualTo(McpFindingArea.ApiUsers));
-        Assert.That(finding.Message, Is.EqualTo(
-            "The API user \"MCP API user\" has no access to Umbraco Forms: none of its user groups grant Umb.Section.Forms."));
-    }
-
-    [Test]
-    public void No_section_finding_for_a_product_off_in_the_defaults()
-    {
-        var caps = new McpCapabilities(Addon, AllProducts.Select(p => p.Id == "forms" ? p with { Off = true } : p).ToList());
-
-        Assert.That(Findings(caps: caps, users: [User(UserState.Active, "Ua.Section.Automate")]), Is.Empty);
-    }
-
-    [Test]
-    public async Task No_section_finding_for_a_product_off_for_that_user()
-    {
-        McpApiUser anna = new(Guid.NewGuid(), "Anna", UserState.Active, ["Ua.Section.Automate"], ["a"], Reported);
-        McpApiUser bob = new(Guid.NewGuid(), "Bob", UserState.Active, ["Ua.Section.Automate"], ["b"], Reported);
-        McpProductStatus[] annaOwn = AllProducts.Select(p => p.Id == "forms" ? p with { Off = true, SettingsScope = McpSettingsScope.User } : p).ToArray();
-        var service = Service(
-            users: new FakeApiUserProvider(anna, bob),
-            caps: new StubCapabilities(
-                new McpCapabilities(Addon, AllProducts),
-                new Dictionary<Guid, McpCapabilities> { [anna.Key] = new McpCapabilities(Addon, annaOwn) }));
-
-        McpOverview overview = await service.GetOverviewAsync();
-
-        Assert.That(overview.Findings.Select(f => f.Message), Has.None.Contains("\"Anna\" has no access to Umbraco Forms"));
-        Assert.That(overview.Findings.Select(f => f.Message), Has.Some.Contains("\"Bob\" has no access to Umbraco Forms"));
+        Assert.That(Findings(users: [User(UserState.Active, "Ua.Section.Automate")]), Is.Empty);
     }
 
     [Test]

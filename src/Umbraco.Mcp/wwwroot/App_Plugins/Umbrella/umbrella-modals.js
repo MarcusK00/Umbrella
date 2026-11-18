@@ -10,7 +10,7 @@ export const UMBRELLA_NEW_CONNECTION_MODAL = new UmbModalToken("Umbrella.Modal.N
   modal: { type: "sidebar", size: "medium" },
 });
 
-/** Data `{ user, products, addonVersion }`; submits `{ action: "edit-permissions" }` or `{ action: "show-config", clientId }`. */
+/** Data `{ user, products, addonVersion }`; read-only. */
 export const UMBRELLA_API_USER_INFO_MODAL = new UmbModalToken("Umbrella.Modal.ApiUserInfo", {
   modal: { type: "sidebar", size: "medium" },
 });

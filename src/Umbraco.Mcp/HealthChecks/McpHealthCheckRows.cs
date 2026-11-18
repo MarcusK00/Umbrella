@@ -44,15 +44,6 @@ internal static class McpHealthCheckRows
             }
         }
 
-        if (area == McpFindingArea.Products)
-        {
-            string[] missing = overview.Products.Where(p => !p.Installed && p.Issues.Count == 0).Select(p => p.DisplayName).ToArray();
-            if (missing.Length > 0)
-            {
-                rows.Add(Row(StatusResultType.Info, $"Not installed: {string.Join(", ", missing)}."));
-            }
-        }
-
         return rows;
     }
 

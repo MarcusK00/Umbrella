@@ -23,14 +23,14 @@ public class McpProductsHealthCheckTests
     }
 
     [Test]
-    public void Not_installed_products_fold_into_one_info_row()
+    public void Not_installed_products_are_not_mentioned()
     {
         List<HealthCheckStatus> rows = Rows(Make(products:
             [Product("Umbraco CMS"), Product("Umbraco Forms", installed: false), Product("Umbraco Engage", installed: false)]));
 
-        Assert.That(rows, Has.Count.EqualTo(2));
-        Assert.That(rows[1].ResultType, Is.EqualTo(StatusResultType.Info));
-        Assert.That(rows[1].Message, Is.EqualTo("Not installed: Umbraco Forms, Umbraco Engage."));
+        Assert.That(rows, Has.Count.EqualTo(1));
+        Assert.That(rows[0].ResultType, Is.EqualTo(StatusResultType.Success));
+        Assert.That(rows[0].Message, Does.Not.Contain("Forms").And.Not.Contain("Engage"));
     }
 
     [Test]
@@ -41,8 +41,7 @@ public class McpProductsHealthCheckTests
             findings: findings,
             products: [Product("Umbraco CMS"), Product("Umbraco Forms", installed: false, issues: ["Its package is broken."]), Product("Umbraco Engage", installed: false)]));
 
-        Assert.That(rows.Select(r => r.Message), Has.None.Contains("Umbraco Forms, "));
-        Assert.That(rows.Any(r => r.Message == "Not installed: Umbraco Engage."), Is.True);
+        Assert.That(rows.Select(r => r.Message), Has.None.Contains("Not installed"));
     }
 
     [Test]

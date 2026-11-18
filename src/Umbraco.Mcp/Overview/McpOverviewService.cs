@@ -323,9 +323,7 @@ public sealed class McpOverviewService(
         {
             foreach (McpApiUser user in users)
             {
-                // A product switched off for the user (its own settings, else the defaults) needs no section.
-                IReadOnlyList<McpProductStatus> products = userCapabilities?.GetValueOrDefault(user.Key)?.Products ?? caps?.Products ?? [];
-                userFindings.AddRange(BuildUserFindings(user, products.Where(p => !p.Off).ToList(), sectionByProduct));
+                userFindings.AddRange(BuildUserFindings(user));
             }
         }
 
@@ -426,10 +424,11 @@ public sealed class McpOverviewService(
     private static string UseAddonVersion(string addonVersion) =>
         $"Set {McpClientConfig.NpmPackage}@{addonVersion}, the add-on's version, in the AI tool's MCP configuration.";
 
-    private static IEnumerable<McpFinding> BuildUserFindings(
-        McpApiUser user,
-        IReadOnlyList<McpProductStatus> products,
-        IReadOnlyDictionary<string, string?> sectionByProduct)
+    /// <summary>
+    /// Only a user that cannot sign in is a finding. Missing section access and products that are not installed are
+    /// choices, not faults, so they are not reported here (the Overview's access table shows them as "No access").
+    /// </summary>
+    private static IEnumerable<McpFinding> BuildUserFindings(McpApiUser user)
     {
         string? blocked = user.State switch
         {
@@ -444,16 +443,6 @@ public sealed class McpOverviewService(
                 : $"\"{user.Name}\"";
             yield return new(McpFinding.Warning, McpFindingArea.ApiUsers,
                 $"The API user {name} is {blocked}, so the MCP server can no longer sign in with it.");
-        }
-
-        foreach ((McpProductStatus p, string section) in ProductsWithSection(products, sectionByProduct))
-        {
-            if (!user.AllowedSections.Contains(section, StringComparer.OrdinalIgnoreCase))
-            {
-                // Often on purpose (an API user for content only), so a note rather than something to fix.
-                yield return new(McpFinding.Info, McpFindingArea.ApiUsers,
-                    $"The API user \"{user.Name}\" has no access to {p.DisplayName}: none of its user groups grant {section}.");
-            }
         }
     }
 }
