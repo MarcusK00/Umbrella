@@ -5,32 +5,31 @@ import { UMB_NOTIFICATION_CONTEXT } from "@umbraco-cms/backoffice/notification";
 import { umbConfirmModal, umbOpenModal } from "@umbraco-cms/backoffice/modal";
 import { UmbTextStyles } from "@umbraco-cms/backoffice/style";
 import { formatDate, request } from "./umbrella-api.js";
-import { formatRelative } from "./umbrella-access.js";
+import { LEVEL_LABELS, formatRelative, glyphStyles, levelGlyph } from "./umbrella-access.js";
 import "./umbrella-access-table.js";
-import "./umbrella-client-setup.js";
+import { UMBRELLA_CONNECT_MODAL } from "./umbrella-connect-modal.js";
 import { UMBRELLA_API_USER_INFO_MODAL, UMBRELLA_NEW_CONNECTION_MODAL, UMBRELLA_NEW_SECRET_MODAL } from "./umbrella-modals.js";
 import { disableUser, enableUser } from "./umbrella-users-api.js";
 
 const AREAS = { products: "Products", server: "MCP server", apiUsers: "API users" };
 
 /**
- * Settings → Umbrella → Overview: a status banner (all good, or what needs attention, with the versions in play), the
- * access table of the API users MCP servers have connected as, and how to connect an AI tool as a chosen API user.
+ * Settings → Umbrella → Overview:
+ * 1. Compact status banner (all good, ready to connect, or what needs attention).
+ * 2. Default permissions card (lists active products, their versions and default levels, with a prominent Edit default permissions action).
+ * 3. Connections table (connected and created API users, when each last connected, their per-product access and row actions).
  */
 export class UmbrellaOverviewElement extends UmbLitElement {
   static properties = {
     _data: { state: true },
     _error: { state: true },
     _setup: { state: true },
-    _setupError: { state: true },
     _busy: { state: true },
-    _connectOpen: { state: true },
     _notesOpen: { state: true },
   };
 
   #auth;
   #notifications;
-  // Bumped on each load; a response from an older load is dropped.
   #seq = 0;
 
   constructor() {
@@ -38,10 +37,7 @@ export class UmbrellaOverviewElement extends UmbLitElement {
     this._data = null;
     this._error = null;
     this._setup = null;
-    this._setupError = null;
     this._busy = false;
-    // null until the user opens or closes it; until then it follows #connectOpenByDefault().
-    this._connectOpen = null;
     this._notesOpen = false;
     this.consumeContext(UMB_NOTIFICATION_CONTEXT, (ctx) => (this.#notifications = ctx));
     this.consumeContext(UMB_AUTH_CONTEXT, (ctx) => {
@@ -58,7 +54,7 @@ export class UmbrellaOverviewElement extends UmbLitElement {
 
   async #load() {
     const seq = ++this.#seq;
-    const setup = this.#loadSetup(this._setup?.clientId);
+    const setup = this.#loadSetup();
     try {
       const data = await request(this.#auth, "GET", "overview");
       if (seq !== this.#seq) return;
@@ -71,18 +67,11 @@ export class UmbrellaOverviewElement extends UmbLitElement {
     await setup;
   }
 
-  /**
-   * The client config filled in with `clientId`, or with the configured client id when there is none. A client id
-   * that no API user has any more falls back to the configured one.
-   */
-  async #loadSetup(clientId) {
+  async #loadSetup() {
     try {
-      const query = clientId ? `?clientId=${encodeURIComponent(clientId)}` : "";
-      this._setup = await request(this.#auth, "GET", `client-setup${query}`);
-      this._setupError = null;
-    } catch (error) {
-      if (clientId) return this.#loadSetup();
-      this._setupError = error.message;
+      this._setup = await request(this.#auth, "GET", "client-setup");
+    } catch {
+      // Fallback for takenClientIds only.
     }
   }
 
@@ -108,7 +97,7 @@ export class UmbrellaOverviewElement extends UmbLitElement {
         color: "danger",
       });
     } catch {
-      return; // Cancelled.
+      return;
     }
     this._busy = true;
     try {
@@ -135,7 +124,9 @@ export class UmbrellaOverviewElement extends UmbLitElement {
 
   /** Every client id an API user already has, so a new one can't clash. */
   #takenClientIds() {
-    return (this._setup?.apiUsers ?? []).flatMap((u) => u.clientIds);
+    const fromSetup = (this._setup?.apiUsers ?? []).flatMap((u) => u.clientIds ?? []);
+    const fromOverview = (this._data?.apiUsers ?? []).flatMap((u) => u.clientIds ?? []);
+    return [...new Set([...fromSetup, ...fromOverview])];
   }
 
   async #newConnection() {
@@ -146,6 +137,22 @@ export class UmbrellaOverviewElement extends UmbLitElement {
       // Closed before Done; a user may still have been created, so reload below.
     }
     await this.#load();
+  }
+
+  async #openConnect(userKey) {
+    const user = userKey ? this.#user(userKey) : null;
+    const clientId = user?.clientIds?.[0] ?? undefined;
+    let result;
+    try {
+      result = await umbOpenModal(this, UMBRELLA_CONNECT_MODAL, {
+        data: { clientId, canManageUsers: this._data?.canManageUsers === true },
+      });
+    } catch {
+      return;
+    }
+    if (result?.action === "new-connection") {
+      await this.#newConnection();
+    }
   }
 
   async #newSecret(key) {
@@ -173,7 +180,7 @@ export class UmbrellaOverviewElement extends UmbLitElement {
           color: "danger",
         });
       } catch {
-        return; // Cancelled.
+        return;
       }
     }
     this._busy = true;
@@ -189,54 +196,15 @@ export class UmbrellaOverviewElement extends UmbLitElement {
     }
   }
 
-  #editPermissions(key) {
-    this.dispatchEvent(new CustomEvent("umbrella-edit-permissions", { detail: { key }, bubbles: true, composed: true }));
+  #editPermissions(key, productId) {
+    this.dispatchEvent(new CustomEvent("umbrella-edit-permissions", { detail: { key, productId }, bubbles: true, composed: true }));
   }
 
-  /** Open when nobody has connected yet, or when something about the server or the API users needs attention. */
-  #connectOpenByDefault() {
-    const { server, findings } = this._data;
-    return this.#connectedUsers().length === 0 || server === null || findings.some((f) => f.severity === "warning" && f.area !== "products");
-  }
-
-  #openConnect() {
-    this._connectOpen = true;
-    this.updateComplete.then(() => this.shadowRoot.querySelector("#connect")?.scrollIntoView({ behavior: "smooth", block: "start" }));
-  }
-
-  /** When an MCP server last started, and as which API user, under the status headline. */
-  #renderFacts() {
-    const latest = this.#connectedUsers().reduce((a, u) => (!a || u.lastConnected > a.lastConnected ? u : a), null);
-    return html`<dl class="facts">
-      <div>
-        <dt>Last connection</dt>
-        <dd>
-          ${latest
-            ? html`<span title=${formatDate(latest.lastConnected)}>${formatRelative(latest.lastConnected)}</span>
-                <span class="muted">·</span> ${latest.name}`
-            : html`<span class="muted">None yet</span>`}
-        </dd>
-      </div>
-    </dl>`;
-  }
-
-  /** The one version of the add-on and the MCP server, which are released together; a differing server is called out. */
-  #renderVersion() {
-    const { addonVersion, server } = this._data;
-    return html`<p class="version muted small">
-      Umbrella: ${addonVersion}
-      ${server && !server.matchesAddon
-        ? html`<uui-tag color="warning" look="primary">MCP server ${server.version} differs</uui-tag>`
-        : nothing}
-    </p>`;
-  }
-
-  /** All good (or ready to connect) with any notes, or what needs attention grouped by area. */
   #renderStatus() {
     const { findings } = this._data;
     const apiUsers = this.#connectedUsers();
+    const latest = apiUsers.reduce((a, u) => (!a || u.lastConnected > a.lastConnected ? u : a), null);
     const warnings = findings.filter((f) => f.severity === "warning");
-    // The empty API users table already says nobody has connected.
     const notes = findings.filter((f) => f.severity === "info" && !(f.area === "apiUsers" && apiUsers.length === 0));
     const attention = warnings.length > 0;
     const users = apiUsers.length;
@@ -248,21 +216,43 @@ export class UmbrellaOverviewElement extends UmbLitElement {
     const lead = attention
       ? "AI tools may be missing tools until these are fixed."
       : users === 0
-        ? "The add-on is installed. Connect an AI tool to start using MCP with this site."
-        : `${users} API ${users === 1 ? "user has" : "users have"} connected through MCP.`;
+        ? "The add-on is installed. Create a new connection or open Client setup to start using MCP with this site."
+        : html`${users} API ${users === 1 ? "user has" : "users have"} connected through MCP${latest
+            ? html` <span class="sep">·</span> Last connected <span title=${formatDate(latest.lastConnected)}>${formatRelative(latest.lastConnected)}</span> by <strong>${latest.name}</strong>`
+            : nothing}.`;
     const areas = Object.keys(AREAS).filter((a) => warnings.some((f) => f.area === a));
+
     return html`<uui-box class="status ${attention ? "attention" : users === 0 ? "ready" : "ok"}">
       <div class="status-head" role="status">
-        <span class="status-icon"><umb-icon name=${attention ? "icon-alert" : users === 0 ? "icon-wall-plug" : "icon-check"}></umb-icon></span>
+        <span class="status-icon">
+          <umb-icon name=${attention ? "icon-alert" : users === 0 ? "icon-wall-plug" : "icon-check"}></umb-icon>
+        </span>
         <div class="status-text">
           <h2>${headline}</h2>
           <p>${lead}</p>
         </div>
-        ${attention
-          ? html`<div class="status-actions">
-              <uui-button look="secondary" label="Open health checks" href="/umbraco/section/settings/dashboard/health-check"></uui-button>
-            </div>`
-          : nothing}
+        <div class="status-actions">
+          ${notes.length > 0
+            ? html`<uui-button
+                look="secondary"
+                compact
+                label=${this._notesOpen ? `Hide ${notes.length} ${notes.length === 1 ? "note" : "notes"}` : `${notes.length} ${notes.length === 1 ? "note" : "notes"}`}
+                @click=${() => (this._notesOpen = !this._notesOpen)}
+              >
+                <umb-icon name="icon-info"></umb-icon>
+                ${notes.length} ${notes.length === 1 ? "note" : "notes"}
+                <uui-symbol-expand ?open=${this._notesOpen}></uui-symbol-expand>
+              </uui-button>`
+            : nothing}
+          ${attention
+            ? html`<uui-button
+                look="secondary"
+                compact
+                label="Open health checks"
+                href="/umbraco/section/settings/dashboard/health-check"
+              ></uui-button>`
+            : nothing}
+        </div>
       </div>
       ${attention
         ? html`<div class="findings">
@@ -276,50 +266,72 @@ export class UmbrellaOverviewElement extends UmbLitElement {
             )}
           </div>`
         : nothing}
-      ${this.#renderNotes(notes)}
-      ${this.#renderFacts()}
+      ${this._notesOpen && notes.length > 0
+        ? html`<div class="notes-panel">
+            <ul>
+              ${notes.map((f) => html`<li>${f.message}</li>`)}
+            </ul>
+          </div>`
+        : nothing}
     </uui-box>`;
   }
 
-  /** Info findings, collapsed behind a small toggle: they are often on purpose (an API user for content only). */
-  #renderNotes(notes) {
-    if (!notes.length) return nothing;
-    return html`<div class="notes">
-      <button class="notes-toggle" aria-expanded=${this._notesOpen ? "true" : "false"} @click=${() => (this._notesOpen = !this._notesOpen)}>
-        <umb-icon name="icon-info"></umb-icon>
-        ${notes.length} ${notes.length === 1 ? "note" : "notes"}
-        <umb-icon class="chevron" name=${this._notesOpen ? "icon-navigation-up" : "icon-navigation-down"}></umb-icon>
-      </button>
-      ${this._notesOpen ? html`<ul>${notes.map((f) => html`<li>${f.message}</li>`)}</ul>` : nothing}
-    </div>`;
+  /** Installed & enabled products and their default access levels, with a prominent Edit default permissions action. */
+  #renderDefaultProducts() {
+    const activeProducts = this._data.products.filter((p) => p.installed && p.enabled);
+    return html`<uui-box headline="Default permissions" headline-variant="h2">
+      <div slot="header-actions">
+        <uui-button look="secondary" label="Edit default permissions" @click=${() => this.#editPermissions("")}>
+          <umb-icon name="icon-edit"></umb-icon> Edit default permissions
+        </uui-button>
+      </div>
+      <div class="products-grid">
+        ${activeProducts.map(
+          (p) => html`<div class="product-card ${p.access === "off" ? "is-off" : ""}">
+            <div class="product-card-top">
+              <span class="product-card-name">${p.displayName}</span>
+              ${p.version ? html`<span class="product-card-version">${p.version}</span>` : nothing}
+            </div>
+            <div class="product-card-bottom">
+              <span class="product-card-level">
+                ${levelGlyph(p.access)}
+                <span>${LEVEL_LABELS[p.access] ?? LEVEL_LABELS.full}</span>
+              </span>
+            </div>
+          </div>`,
+        )}
+      </div>
+    </uui-box>`;
   }
 
   #renderUsers() {
     const { apiUsers, products, canManageUsers } = this._data;
-    const connected = this.#connectedUsers().length;
-    const newConnection = (look) =>
+    const connectBtn = (look = "secondary") =>
+      html`<uui-button look=${look} label="Client setup" @click=${() => this.#openConnect()}>
+        <umb-icon name="icon-code"></umb-icon> Client setup
+      </uui-button>`;
+    const newConnectionBtn = (look = "primary") =>
       html`<uui-button look=${look} label="New connection" @click=${this.#newConnection}>
         <umb-icon name="icon-add"></umb-icon> New connection
       </uui-button>`;
-    return html`<uui-box id="users" headline="Access per API user" headline-variant="h2">
-      ${connected || canManageUsers
-        ? html`<div slot="header-actions" class="header-actions">
-            ${connected ? html`<span class="muted">${connected} connected</span>` : nothing}
-            ${canManageUsers && apiUsers.length > 0 ? newConnection("primary") : nothing}
-          </div>`
-        : nothing}
+
+    return html`<uui-box id="users" headline="Connections" headline-variant="h2">
+      <div slot="header-actions" class="header-actions">
+        ${connectBtn("secondary")}
+        ${canManageUsers && apiUsers.length > 0 ? newConnectionBtn("primary") : nothing}
+      </div>
       ${apiUsers.length === 0
         ? html`<div class="empty">
-            <umb-icon name="icon-users"></umb-icon>
-            <p><strong>No MCP server has connected yet</strong></p>
+            <span class="empty-icon"><umb-icon name="icon-users"></umb-icon></span>
+            <h3>No MCP server has connected yet</h3>
             <p class="muted">
               ${canManageUsers
-                ? "New connection creates an API user for a person or agent and hands over the config for their AI tool."
-                : "When an AI tool starts the MCP server, the API user it signs in as appears here with the tools it gets."}
+                ? "Create a new connection to set up an API user with client credentials and product access, or generate the config for an existing API user."
+                : "When an AI tool starts the MCP server, the API user it signs in as appears here along with the tools it receives."}
             </p>
             <div class="empty-actions">
-              ${canManageUsers ? newConnection("primary") : nothing}
-              <uui-button look=${canManageUsers ? "secondary" : "primary"} label="Connect an AI tool" @click=${this.#openConnect}></uui-button>
+              ${canManageUsers ? newConnectionBtn("primary") : nothing}
+              ${connectBtn(canManageUsers ? "secondary" : "primary")}
             </div>
           </div>`
         : html`<umbrella-access-table
@@ -336,129 +348,228 @@ export class UmbrellaOverviewElement extends UmbLitElement {
     </uui-box>`;
   }
 
-  /** One option per client id of each API user, plus the configured client id when no API user has it yet. */
-  #renderClientIdPicker() {
-    const { apiUsers, clientId, configuredClientId } = this._setup;
-    const options = apiUsers.flatMap((u) => u.clientIds.map((id) => ({ name: `${u.name} (${id})`, value: id })));
-    if (!options.some((o) => o.value === configuredClientId)) {
-      options.unshift({ name: `${configuredClientId} (no API user has this client id yet)`, value: configuredClientId });
-    }
-    return html`<uui-select
-      label="API user"
-      .options=${options.map((o) => ({ ...o, selected: o.value === clientId }))}
-      @change=${(e) => this.#loadSetup(e.target.value)}
-    ></uui-select>`;
-  }
-
-  #renderConnectSteps() {
-    if (!this._setup) {
-      return this._setupError
-        ? html`<p class="warning"><umb-icon name="icon-alert"></umb-icon>Could not load the client config: ${this._setupError}</p>`
-        : html`<uui-loader></uui-loader>`;
-    }
-    const { apiUsers, clientId } = this._setup;
-    const userName = apiUsers.find((u) => u.clientIds.includes(clientId))?.name;
-    return html`<umbrella-client-setup .setup=${this._setup} .userName=${userName ?? null}>
-      <div class="field" slot="choose">
-        <h3><span class="num">1</span>Sign in as</h3>
-        ${this.#renderClientIdPicker()}
-        <p class="muted small">
-          Give each person their own API user, so their access can be set on its own.
-          ${this._data?.canManageUsers
-            ? html`<button class="link" @click=${this.#newConnection}>Create an API user</button>`
-            : "Someone with access to the Users section can create one with New connection."}
-        </p>
-      </div>
-    </umbrella-client-setup>`;
-  }
-
-  #renderConnect() {
-    const open = this._connectOpen ?? this.#connectOpenByDefault();
-    return html`<uui-box id="connect" headline="Connect an AI tool" headline-variant="h2">
-      <uui-button
-        slot="header-actions"
-        look="secondary"
-        compact
-        label=${open ? "Hide steps" : "Show steps"}
-        @click=${() => (this._connectOpen = !open)}
-      ></uui-button>
-      ${open
-        ? this.#renderConnectSteps()
-        : html`<p class="muted">The config for Claude Code, Claude Desktop, VS Code, Cursor and other MCP clients, signed in as an API user you pick.</p>`}
-    </uui-box>`;
-  }
-
   render() {
     if (this._error) return html`<uui-box headline="Umbrella"><p>Could not load the overview: ${this._error}</p></uui-box>`;
-    if (!this._data) return html`<uui-loader></uui-loader>`;
-    return html`${this.#renderStatus()} ${this.#renderUsers()} ${this.#renderConnect()} ${this.#renderVersion()}`;
+    if (!this._data) return html`<div class="loader-wrap"><uui-loader></uui-loader></div>`;
+    return html`${this.#renderStatus()} ${this.#renderDefaultProducts()} ${this.#renderUsers()}`;
   }
 
   static styles = [
     UmbTextStyles,
+    glyphStyles,
     css`
-      :host { display: flex; flex-direction: column; gap: var(--uui-size-layout-1); padding: var(--uui-size-layout-1); }
-      h2, h3 { margin: 0; }
-      .muted { color: var(--uui-color-text-alt); margin: 0; }
-      .small { font-size: var(--uui-type-small-size); }
-      .version { display: flex; align-items: center; gap: var(--uui-size-space-2); margin-top: calc(var(--uui-size-space-3) * -1); }
-      .warning { display: flex; align-items: center; gap: var(--uui-size-space-2); margin: 0 0 var(--uui-size-space-3); }
-      .warning umb-icon { color: var(--uui-color-warning-standalone); flex: none; }
+      :host {
+        display: flex;
+        flex-direction: column;
+        gap: var(--uui-size-layout-1);
+        padding: var(--uui-size-layout-1);
+      }
+      h2,
+      h3 {
+        margin: 0;
+      }
+      .muted {
+        color: var(--uui-color-text-alt);
+        margin: 0;
+      }
+      .small {
+        font-size: var(--uui-type-small-size);
+      }
+      .sep {
+        margin: 0 2px;
+        opacity: 0.6;
+      }
+      .loader-wrap {
+        display: flex;
+        justify-content: center;
+        padding: var(--uui-size-layout-2);
+      }
 
-      .status { border-left: 4px solid var(--uui-color-positive-standalone); }
-      .status.ready { border-left-color: var(--uui-color-interactive-emphasis); }
-      .status.attention { border-left-color: var(--uui-color-warning-standalone); }
-      .status-head { display: flex; align-items: center; gap: var(--uui-size-space-4); flex-wrap: wrap; }
+      .status {
+        border-left: 4px solid var(--uui-color-positive-standalone);
+      }
+      .status.ready {
+        border-left-color: var(--uui-color-interactive-emphasis);
+      }
+      .status.attention {
+        border-left-color: var(--uui-color-warning-standalone);
+      }
+      .status-head {
+        display: flex;
+        align-items: center;
+        gap: var(--uui-size-space-4);
+        flex-wrap: wrap;
+      }
       .status-icon {
-        display: inline-grid; place-items: center; flex: none; width: 2.5rem; height: 2.5rem; border-radius: 50%;
-        font-size: 1.25rem; color: var(--uui-color-positive-contrast); background: var(--uui-color-positive-standalone);
+        display: inline-grid;
+        place-items: center;
+        flex: none;
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 50%;
+        font-size: 1.25rem;
+        color: var(--uui-color-positive-contrast);
+        background: var(--uui-color-positive-standalone);
       }
-      .ready .status-icon { color: var(--uui-color-interactive-contrast); background: var(--uui-color-interactive-emphasis); }
-      .attention .status-icon { color: var(--uui-color-warning-contrast); background: var(--uui-color-warning-standalone); }
-      .status-text { flex: 1 1 18rem; min-width: 0; }
-      .status-text h2 { font-size: var(--uui-type-h5-size, 1.125rem); }
-      .status-text p { margin: var(--uui-size-space-1) 0 0; color: var(--uui-color-text-alt); }
-      .status-actions { display: flex; gap: var(--uui-size-space-2); flex-wrap: wrap; }
-      .findings { display: grid; gap: var(--uui-size-space-4); margin-top: var(--uui-size-space-5); padding-left: calc(2.5rem + var(--uui-size-space-4)); }
-      .finding-group h3 { font-size: var(--uui-type-small-size); color: var(--uui-color-text-alt); font-weight: 700; }
-      .finding-group ul { margin: var(--uui-size-space-2) 0 0; padding-left: 1.1em; }
-      .finding-group li { margin-bottom: var(--uui-size-space-2); max-width: 75ch; }
-      .notes { margin: var(--uui-size-space-4) 0 0; padding-left: calc(2.5rem + var(--uui-size-space-4)); }
-      .notes-toggle {
-        display: inline-flex; align-items: center; gap: var(--uui-size-space-2); padding: 2px 0; border: 0; background: none;
-        font: inherit; font-size: var(--uui-type-small-size); color: var(--uui-color-text-alt); cursor: pointer;
+      .ready .status-icon {
+        color: var(--uui-color-interactive-contrast);
+        background: var(--uui-color-interactive-emphasis);
       }
-      .notes-toggle:hover { color: var(--uui-color-interactive-emphasis); }
-      .notes-toggle .chevron { font-size: 0.75em; }
-      .notes ul { margin: var(--uui-size-space-2) 0 0; padding-left: 1.1em; }
-      .notes li { color: var(--uui-color-text-alt); font-size: var(--uui-type-small-size); max-width: 75ch; margin-bottom: var(--uui-size-space-1); }
-      .facts {
-        display: flex; flex-wrap: wrap; gap: var(--uui-size-space-3) var(--uui-size-layout-2);
-        margin: var(--uui-size-space-5) 0 0; padding: var(--uui-size-space-4) 0 0 calc(2.5rem + var(--uui-size-space-4));
-        border-top: 1px solid var(--uui-color-divider);
+      .attention .status-icon {
+        color: var(--uui-color-warning-contrast);
+        background: var(--uui-color-warning-standalone);
       }
-      .facts dt { font-size: var(--uui-type-small-size); color: var(--uui-color-text-alt); }
-      .facts dd { margin: 2px 0 0; font-weight: 600; display: flex; align-items: center; gap: var(--uui-size-space-2); }
-      @media (max-width: 48rem) { .findings, .notes, .facts { padding-left: 0; } }
+      .status-text {
+        flex: 1 1 18rem;
+        min-width: 0;
+      }
+      .status-text h2 {
+        font-size: var(--uui-type-h5-size, 1.125rem);
+      }
+      .status-text p {
+        margin: 2px 0 0;
+        color: var(--uui-color-text-alt);
+      }
+      .status-text strong {
+        color: var(--uui-color-text);
+      }
+      .status-actions {
+        display: flex;
+        align-items: center;
+        gap: var(--uui-size-space-2);
+        flex-wrap: wrap;
+      }
 
-      .empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--uui-size-space-2); padding: var(--uui-size-layout-2) var(--uui-size-space-5); }
-      .empty > umb-icon { font-size: 2rem; color: var(--uui-color-text-alt); }
-      .empty p { margin: 0; max-width: 50ch; }
-      .empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--uui-size-space-2); margin-top: var(--uui-size-space-3); }
-      .header-actions { display: flex; align-items: center; gap: var(--uui-size-space-4); }
-
-      .field { display: flex; flex-direction: column; align-items: stretch; gap: var(--uui-size-space-3); }
-      .field > p { margin: 0; max-width: 70ch; }
-      .field h3 { display: flex; align-items: center; gap: var(--uui-size-space-3); font-size: var(--uui-type-default-size); }
-      .num {
-        display: inline-grid; place-items: center; flex: none; width: 1.5rem; height: 1.5rem; border-radius: 50%;
-        background: var(--uui-color-current); color: var(--uui-color-current-contrast); font-size: var(--uui-type-small-size); font-weight: 700;
+      .findings {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+        gap: var(--uui-size-space-3);
+        margin-top: var(--uui-size-space-4);
       }
-      uui-select { width: 100%; }
-      a, .link { color: var(--uui-color-interactive); }
-      a:hover, .link:hover { color: var(--uui-color-interactive-emphasis); }
-      .link { padding: 0; border: 0; background: none; font: inherit; text-decoration: underline; cursor: pointer; }
+      .finding-group {
+        padding: var(--uui-size-space-3) var(--uui-size-space-4);
+        border-radius: var(--uui-border-radius);
+        background: var(--uui-color-surface-alt);
+        border: 1px solid var(--uui-color-divider);
+      }
+      .finding-group h3 {
+        font-size: var(--uui-type-small-size);
+        color: var(--uui-color-text-alt);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .finding-group ul {
+        margin: var(--uui-size-space-2) 0 0;
+        padding-left: 1.15em;
+      }
+      .finding-group li {
+        margin-bottom: var(--uui-size-space-1);
+        font-size: var(--uui-type-small-size);
+      }
 
+      .notes-panel {
+        margin-top: var(--uui-size-space-4);
+        padding: var(--uui-size-space-3) var(--uui-size-space-4);
+        border-radius: var(--uui-border-radius);
+        background: var(--uui-color-surface-alt);
+        border: 1px solid var(--uui-color-divider);
+      }
+      .notes-panel ul {
+        margin: 0;
+        padding-left: 1.15em;
+      }
+      .notes-panel li {
+        color: var(--uui-color-text-alt);
+        font-size: var(--uui-type-small-size);
+        margin-bottom: var(--uui-size-space-1);
+      }
+
+      .products-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--uui-size-space-3);
+      }
+      .product-card {
+        flex: 1 1 13rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: var(--uui-size-space-3);
+        padding: var(--uui-size-space-3) var(--uui-size-space-4);
+        border: 1px solid var(--uui-color-border);
+        border-radius: var(--uui-border-radius);
+        background: var(--uui-color-surface-alt);
+      }
+      .product-card-top {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: var(--uui-size-space-2);
+      }
+      .product-card-name {
+        font-weight: 700;
+      }
+      .product-card-version {
+        font-size: var(--uui-type-small-size);
+        color: var(--uui-color-text-alt);
+        font-variant-numeric: tabular-nums;
+      }
+      .product-card-bottom {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--uui-size-space-2);
+      }
+      .product-card-level {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--uui-size-space-2);
+        font-weight: 600;
+        font-size: var(--uui-type-small-size);
+      }
+      .product-card.is-off .product-card-level {
+        color: var(--uui-color-text-alt);
+        font-weight: normal;
+      }
+
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: var(--uui-size-space-2);
+        flex-wrap: wrap;
+      }
+
+      .empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: var(--uui-size-space-2);
+        padding: var(--uui-size-layout-2) var(--uui-size-space-5);
+      }
+      .empty-icon {
+        display: inline-grid;
+        place-items: center;
+        width: 3.5rem;
+        height: 3.5rem;
+        border-radius: 50%;
+        background: var(--uui-color-surface-alt);
+        color: var(--uui-color-text-alt);
+        font-size: 1.75rem;
+        margin-bottom: var(--uui-size-space-2);
+      }
+      .empty p {
+        margin: 0;
+        max-width: 54ch;
+      }
+      .empty-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: var(--uui-size-space-2);
+        margin-top: var(--uui-size-space-4);
+      }
     `,
   ];
 }
