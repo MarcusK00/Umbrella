@@ -1,4 +1,4 @@
-import { fetchCapabilities, interpretCapabilitiesResponse, siteDisabledCollections, siteNoDestructive, siteOff, siteReadOnly, siteSettingsScope } from "../capabilities.js";
+import { fetchCapabilities, interpretCapabilitiesResponse, siteDisabledCollections, siteDisabledTools, siteNoDestructive, siteOff, siteReadOnly, siteSettingsScope } from "../capabilities.js";
 
 const payload = {
   addonVersion: "17.0.0",
@@ -30,6 +30,7 @@ describe("interpretCapabilitiesResponse", () => {
     ["products not an array", { addonVersion: "1", products: "x" }],
     ["product missing id", { addonVersion: "1", products: [{ installed: true }] }],
     ["disabledCollections not a string array", { addonVersion: "1", products: [{ ...payload.products[0], disabledCollections: [1] }] }],
+    ["disabledTools not a string array", { addonVersion: "1", products: [{ ...payload.products[0], disabledTools: [1] }] }],
     ["readOnly not a boolean", { addonVersion: "1", products: [{ ...payload.products[0], readOnly: "true" }] }],
     ["noDestructive not a boolean", { addonVersion: "1", products: [{ ...payload.products[0], noDestructive: "true" }] }],
     ["off not a boolean", { addonVersion: "1", products: [{ ...payload.products[0], off: "yes" }] }],
@@ -173,5 +174,24 @@ describe("siteSettingsScope", () => {
     expect(siteSettingsScope(unknown, "forms")).toBe("site");
     expect(siteSettingsScope({ kind: "no-addon" }, "forms")).toBe("site");
     expect(siteSettingsScope({ kind: "unavailable", reason: "x" }, "forms")).toBe("site");
+  });
+});
+
+describe("siteDisabledTools", () => {
+  const withTools = (disabledTools: unknown) =>
+    interpretCapabilitiesResponse({ status: 200, data: { ...payload, products: [{ ...payload.products[1], disabledTools }] } });
+
+  it("accepts the field and returns the module's names", () => {
+    const r = withTools(["a"]);
+    expect(r.kind).toBe("ok");
+    expect(siteDisabledTools(r, "forms")).toEqual(["a"]);
+  });
+
+  it("is empty for a missing or null field, another module, or without the add-on", () => {
+    expect(siteDisabledTools(withTools(undefined), "forms")).toEqual([]);
+    expect(siteDisabledTools(withTools(null), "forms")).toEqual([]);
+    expect(siteDisabledTools(withTools(["a"]), "cms")).toEqual([]);
+    expect(siteDisabledTools({ kind: "no-addon" }, "forms")).toEqual([]);
+    expect(siteDisabledTools({ kind: "unavailable", reason: "x" }, "forms")).toEqual([]);
   });
 });

@@ -1,10 +1,9 @@
 import { createCollectionConfigLoader, shouldIncludeTool } from "@umbraco-cms/mcp-server-sdk";
-import { buildEffectiveFilterInput, buildModuleFilterInput, envNoDestructive, envSetsCollectionFilter } from "../filter-config.js";
+import { buildEffectiveFilterInput, buildModuleFilterInput, envNoDestructive, removedCollectionEnvVars } from "../filter-config.js";
 
 describe("buildModuleFilterInput", () => {
   const env = {
     UMBRACO_TOOL_MODES: "content, forms:forms, engage:analytics",
-    UMBRACO_INCLUDE_TOOL_COLLECTIONS: "automate:*",
     UMBRACO_EXCLUDE_TOOLS: "delete-document, forms:delete-form",
     UMBRACO_INCLUDE_SLICES: "read,list",
   };
@@ -22,7 +21,7 @@ describe("buildModuleFilterInput", () => {
   });
 
   it("module:* means no restriction for that list", () => {
-    expect(buildModuleFilterInput(env, "automate", false).includeToolCollections).toBeUndefined();
+    expect(buildModuleFilterInput({ UMBRACO_INCLUDE_TOOLS: "automate:*" }, "automate", false).includeTools).toBeUndefined();
   });
 
   it("slices apply to every module", () => {
@@ -57,11 +56,6 @@ describe("buildModuleFilterInput", () => {
     expect(buildModuleFilterInput(e, "automate", false).includeTools).toBeUndefined();
   });
 
-  it("does not treat -- as a module prefix in other lists", () => {
-    const e = { UMBRACO_INCLUDE_TOOL_COLLECTIONS: "forms--x" };
-    expect(buildModuleFilterInput(e, "cms", true).includeToolCollections).toEqual(["forms--x"]);
-  });
-
   it("skips empty items such as 'forms:'", () => {
     const e = { UMBRACO_EXCLUDE_TOOLS: "forms:, ,cms--" };
     expect(buildModuleFilterInput(e, "forms", false).excludeTools).toBeUndefined();
@@ -69,41 +63,29 @@ describe("buildModuleFilterInput", () => {
   });
 });
 
-describe("envSetsCollectionFilter", () => {
-  it.each([
-    ["forms exclude", { UMBRACO_EXCLUDE_TOOL_COLLECTIONS: "forms:record" }, "forms", false, true],
-    ["forms include", { UMBRACO_INCLUDE_TOOL_COLLECTIONS: "forms:form" }, "forms", false, true],
-    ["forms:*", { UMBRACO_INCLUDE_TOOL_COLLECTIONS: "forms:*" }, "forms", false, true],
-    ["unprefixed counts for CMS", { UMBRACO_EXCLUDE_TOOL_COLLECTIONS: "log-viewer" }, "cms", true, true],
-    ["unprefixed does not count for forms", { UMBRACO_EXCLUDE_TOOL_COLLECTIONS: "log-viewer" }, "forms", false, false],
-    ["another module only", { UMBRACO_EXCLUDE_TOOL_COLLECTIONS: "engage:persona" }, "forms", false, false],
-    // Review Focus 3
-    ["empty item forms:", { UMBRACO_EXCLUDE_TOOL_COLLECTIONS: "forms:, " }, "forms", false, false],
-    ["tool-level lists", { UMBRACO_EXCLUDE_TOOLS: "forms:delete-form", UMBRACO_INCLUDE_TOOLS: "forms--list-forms" }, "forms", false, false],
-    ["modes", { UMBRACO_TOOL_MODES: "forms:forms" }, "forms", false, false],
-    ["nothing set", {}, "forms", false, false],
-  ])("%s", (_label, env, id, isDefault, expected) => {
-    expect(envSetsCollectionFilter(env as NodeJS.ProcessEnv, id, isDefault)).toBe(expected);
+describe("removedCollectionEnvVars", () => {
+  it("lists the removed variables that are set", () => {
+    expect(removedCollectionEnvVars({ UMBRACO_EXCLUDE_TOOL_COLLECTIONS: "forms:folder", UMBRACO_INCLUDE_TOOL_COLLECTIONS: " " }))
+      .toEqual(["UMBRACO_EXCLUDE_TOOL_COLLECTIONS"]);
+    expect(removedCollectionEnvVars({})).toEqual([]);
   });
 });
 
 describe("buildEffectiveFilterInput", () => {
   it("turns the site list into excludeToolCollections when env is silent", () => {
     const r = buildEffectiveFilterInput({ UMBRACO_EXCLUDE_TOOLS: "forms:delete-form" }, "forms", false, ["prevalue-source"]);
-    expect(r).toEqual({ config: { excludeTools: ["delete-form"], excludeToolCollections: ["prevalue-source"] }, siteSettingsIgnored: false, defaultsApplied: [], excludeDestructive: false });
+    expect(r).toEqual({ config: { excludeTools: ["delete-form"], excludeToolCollections: ["prevalue-source"] }, defaultsApplied: [], excludeDestructive: false });
   });
 
-  it("ignores the site list when env sets collection filters for the module", () => {
-    const r = buildEffectiveFilterInput({ UMBRACO_EXCLUDE_TOOL_COLLECTIONS: "forms:record" }, "forms", false, ["prevalue-source"]);
-    expect(r).toEqual({ config: { excludeToolCollections: ["record"] }, siteSettingsIgnored: true, defaultsApplied: [], excludeDestructive: false });
-  });
-
-  it("flags ignored even when the site disabled nothing, so the dashboard can warn", () => {
-    expect(buildEffectiveFilterInput({ UMBRACO_INCLUDE_TOOL_COLLECTIONS: "forms:*" }, "forms", false, []).siteSettingsIgnored).toBe(true);
+  it("ignores UMBRACO_INCLUDE_TOOL_COLLECTIONS and UMBRACO_EXCLUDE_TOOL_COLLECTIONS", () => {
+    const env = { UMBRACO_INCLUDE_TOOL_COLLECTIONS: "forms:folder", UMBRACO_EXCLUDE_TOOL_COLLECTIONS: "forms:folder" };
+    const { config } = buildEffectiveFilterInput(env, "forms", false, ["media"]);
+    expect(config.excludeToolCollections).toEqual(["media"]);
+    expect(config.includeToolCollections).toBeUndefined();
   });
 
   it("leaves the config unchanged when the site disabled nothing", () => {
-    expect(buildEffectiveFilterInput({}, "cms", true, [])).toEqual({ config: {}, siteSettingsIgnored: false, defaultsApplied: [], excludeDestructive: false });
+    expect(buildEffectiveFilterInput({}, "cms", true, [])).toEqual({ config: {}, defaultsApplied: [], excludeDestructive: false });
   });
 
   const include = (config: ReturnType<typeof buildEffectiveFilterInput>["config"], name: string, collectionName: string) =>
@@ -132,11 +114,6 @@ describe("buildEffectiveFilterInput", () => {
   it("sets readonly when the site made the module read-only", () => {
     expect(buildEffectiveFilterInput({}, "forms", false, [], true).config).toEqual({ readonly: true });
     expect(buildEffectiveFilterInput({}, "forms", false, [], false).config).toEqual({});
-  });
-
-  it("keeps the site's read-only when env collection filters override the site's groups", () => {
-    const r = buildEffectiveFilterInput({ UMBRACO_EXCLUDE_TOOL_COLLECTIONS: "forms:record" }, "forms", false, ["prevalue-source"], true);
-    expect(r).toEqual({ config: { excludeToolCollections: ["record"], readonly: true }, siteSettingsIgnored: true, defaultsApplied: [], excludeDestructive: false });
   });
 
   it("keeps UMBRACO_READONLY=true when the site did not set read-only", () => {
@@ -175,19 +152,6 @@ describe("buildEffectiveFilterInput defaults", () => {
     expect(r.defaultsApplied).toEqual([]);
   });
 
-  it("env collection filter beats defaults", () => {
-    const r = buildEffectiveFilterInput({ UMBRACO_EXCLUDE_TOOL_COLLECTIONS: "forms:folder" }, "forms", false, null, false, defaults);
-    expect(r.config.excludeToolCollections).toEqual(["folder"]);
-    expect(r.siteSettingsIgnored).toBe(true);
-    expect(r.defaultsApplied).toEqual([]);
-  });
-
-  it("module:* ignores defaults", () => {
-    const r = buildEffectiveFilterInput({ UMBRACO_INCLUDE_TOOL_COLLECTIONS: "forms:*" }, "forms", false, null, false, defaults);
-    expect(r.config.excludeToolCollections).toBeUndefined();
-    expect(r.defaultsApplied).toEqual([]);
-  });
-
   it("no defaults and null excludes nothing", () => {
     const r = buildEffectiveFilterInput({}, "forms", false, null, false);
     expect(r.config.excludeToolCollections).toBeUndefined();
@@ -215,11 +179,5 @@ describe("no-destructive level", () => {
   it("the site level excludes destructive tools", () => {
     expect(buildEffectiveFilterInput({}, "forms", false, [], false, [], true).excludeDestructive).toBe(true);
     expect(buildEffectiveFilterInput({}, "forms", false, [], false, [], false).excludeDestructive).toBe(false);
-  });
-
-  it("the level still applies when env collection filters are set", () => {
-    const r = buildEffectiveFilterInput({ UMBRACO_INCLUDE_TOOL_COLLECTIONS: "forms:*" }, "forms", false, [], false, [], true);
-    expect(r.excludeDestructive).toBe(true);
-    expect(r.siteSettingsIgnored).toBe(true);
   });
 });

@@ -15,6 +15,7 @@ public static class McpToolLevel
 
 /// <summary>
 /// One API user's own settings for one product. They replace the site defaults for that product, all or nothing: an
-/// empty <paramref name="DisabledCollections"/> means every tool group is on.
+/// empty <paramref name="DisabledCollections"/> means every tool group is on. <paramref name="DisabledTools"/> are the
+/// switched-off tools (unprefixed names); null in rows stored before they existed, which readers treat as none.
 /// </summary>
-public sealed record McpProductOverride(IReadOnlyList<string> DisabledCollections, string Level);
+public sealed record McpProductOverride(IReadOnlyList<string> DisabledCollections, string Level, IReadOnlyList<string>? DisabledTools = null);

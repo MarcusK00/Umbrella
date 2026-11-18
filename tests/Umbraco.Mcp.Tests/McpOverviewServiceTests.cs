@@ -58,12 +58,12 @@ public class McpOverviewServiceTests
         new(Guid.NewGuid(), name, UserState.Active, ["Umb.Section.Forms", "Ua.Section.Automate"], ["umbraco-back-office-mcp"], Reported);
 
     private static McpToolCatalogue OwnCatalogue(string version, DateTimeOffset at, params (string Id, int Tools)[] modules) =>
-        new(version, modules.ToDictionary(m => m.Id, m => new McpModuleCatalogue(at, false, [new McpCollectionInfo("a", m.Tools)])));
+        new(version, modules.ToDictionary(m => m.Id, m => new McpModuleCatalogue(at, [new McpCollectionInfo("a", m.Tools)])));
 
     private static McpToolCatalogue Catalogue(string? version = Addon, params (string Id, int Tools)[] modules) =>
         new(version, modules.ToDictionary(
             m => m.Id,
-            m => new McpModuleCatalogue(Reported, false, [new McpCollectionInfo("a", m.Tools)])));
+            m => new McpModuleCatalogue(Reported, [new McpCollectionInfo("a", m.Tools)])));
 
     private static IReadOnlyList<McpFinding> Findings(
         McpCapabilities? caps = null,
@@ -239,8 +239,8 @@ public class McpOverviewServiceTests
         McpProductStatus[] own = AllProducts.Select(p => p.Id == "forms" ? p with { Off = true, ReadOnly = false, SettingsScope = McpSettingsScope.User } : p).ToArray();
         var catalogue = new McpToolCatalogue(Addon, new Dictionary<string, McpModuleCatalogue>
         {
-            ["cms"] = new(Reported, false, [new McpCollectionInfo("a", 3)]),
-            ["forms"] = new(Reported, false, [new McpCollectionInfo("a", 4)]),
+            ["cms"] = new(Reported, [new McpCollectionInfo("a", 3)]),
+            ["forms"] = new(Reported, [new McpCollectionInfo("a", 4)]),
         });
         var service = Service(
             settings: new FakeToolSettingsStore { UserCatalogues = { [user.Key] = catalogue } },
@@ -337,8 +337,8 @@ public class McpOverviewServiceTests
     {
         var catalogue = new McpToolCatalogue(Addon, new Dictionary<string, McpModuleCatalogue>
         {
-            ["cms"] = new(Reported.AddHours(-2), false, []),
-            ["forms"] = new(Reported, false, []),
+            ["cms"] = new(Reported.AddHours(-2), []),
+            ["forms"] = new(Reported, []),
         });
         var service = Service(settings: new FakeToolSettingsStore { Catalogue = catalogue });
 
@@ -401,8 +401,8 @@ public class McpOverviewServiceTests
         ];
         var catalogue = new McpToolCatalogue(Addon, new Dictionary<string, McpModuleCatalogue>
         {
-            ["cms"] = new(Reported, false, [new McpCollectionInfo("a", 3)]),
-            ["forms"] = new(Reported, false, [new McpCollectionInfo("a", 4, 1), new McpCollectionInfo("b", 6, 2)]),
+            ["cms"] = new(Reported, [new McpCollectionInfo("a", 3)]),
+            ["forms"] = new(Reported, [new McpCollectionInfo("a", 4, 1), new McpCollectionInfo("b", 6, 2)]),
         });
         var service = Service(
             settings: new FakeToolSettingsStore { UserCatalogues = { [user.Key] = catalogue } },
@@ -430,9 +430,9 @@ public class McpOverviewServiceTests
         // An older umbrella-mcp still loaded Automate; its API refuses the tools all the same.
         var catalogue = new McpToolCatalogue(Addon, new Dictionary<string, McpModuleCatalogue>
         {
-            ["cms"] = new(Reported, false, [new McpCollectionInfo("a", 3)]),
-            ["forms"] = new(Reported, false, [new McpCollectionInfo("a", 4)]),
-            ["automate"] = new(Reported, false, [new McpCollectionInfo("a", 9)]),
+            ["cms"] = new(Reported, [new McpCollectionInfo("a", 3)]),
+            ["forms"] = new(Reported, [new McpCollectionInfo("a", 4)]),
+            ["automate"] = new(Reported, [new McpCollectionInfo("a", 9)]),
         });
         var service = Service(
             settings: new FakeToolSettingsStore { UserCatalogues = { [user.Key] = catalogue } },
@@ -463,8 +463,8 @@ public class McpOverviewServiceTests
         ];
         var catalogue = new McpToolCatalogue(Addon, new Dictionary<string, McpModuleCatalogue>
         {
-            ["cms"] = new(Reported, false, [new McpCollectionInfo("a", 3), new McpCollectionInfo("b", 5)]),
-            ["forms"] = new(Reported, false, [new McpCollectionInfo("a", 4)]),
+            ["cms"] = new(Reported, [new McpCollectionInfo("a", 3), new McpCollectionInfo("b", 5)]),
+            ["forms"] = new(Reported, [new McpCollectionInfo("a", 4)]),
         });
         var service = Service(
             settings: new FakeToolSettingsStore { UserCatalogues = { [user.Key] = catalogue } },
@@ -477,26 +477,6 @@ public class McpOverviewServiceTests
 
         Assert.That(row.Access.Select(a => a.ToolCount), Is.EqualTo(new int?[] { 3, 4, 0 }));
         Assert.That(row.ToolCount, Is.EqualTo(7));
-    }
-
-    [Test]
-    public async Task User_tool_counts_are_unknown_where_the_server_environment_sets_its_own_filters()
-    {
-        McpApiUser user = NamedUser("Anna");
-        var catalogue = new McpToolCatalogue(Addon, new Dictionary<string, McpModuleCatalogue>
-        {
-            ["cms"] = new(Reported, false, [new McpCollectionInfo("a", 3)]),
-            ["forms"] = new(Reported, true, [new McpCollectionInfo("a", 4)]),
-        });
-        var service = Service(
-            settings: new FakeToolSettingsStore { UserCatalogues = { [user.Key] = catalogue } },
-            users: new FakeApiUserProvider(user));
-
-        McpOverviewApiUser row = (await service.GetOverviewAsync()).ApiUsers.Single();
-
-        Assert.That(row.Access.Single(a => a.ProductId == "forms").ToolCount, Is.Null);
-        Assert.That(row.Access.Single(a => a.ProductId == "cms").ToolCount, Is.EqualTo(3));
-        Assert.That(row.ToolCount, Is.Null);
     }
 
     [Test]
@@ -768,5 +748,97 @@ public class McpOverviewServiceTests
 
         Assert.That(row.Connected, Is.True);
         Assert.That(row.Sections, Is.EqualTo(new[] { "Umb.Section.Forms", "Ua.Section.Automate" }));
+    }
+
+    private static async Task<List<McpFinding>> ToolWarnings(
+        McpToolCatalogue? own, McpProductStatus automate)
+    {
+        McpApiUser ana = NamedUser("Ana");
+        McpProductStatus[] products = [AllProducts[0], AllProducts[1], automate];
+        var service = Service(
+            settings: new FakeToolSettingsStore { UserCatalogues = own is not null ? new() { [ana.Key] = own } : new() },
+            users: new FakeApiUserProvider(ana),
+            caps: new StubCapabilities(
+                new McpCapabilities(Addon, AllProducts),
+                new Dictionary<Guid, McpCapabilities> { [ana.Key] = new McpCapabilities(Addon, products) }));
+
+        McpOverview overview = await service.GetOverviewAsync();
+        return overview.Findings.Where(f => f.Area == McpFindingArea.Products && f.Message.Contains("switched off")).ToList();
+    }
+
+    private static McpProductStatus AutomateWith(params string[] disabledTools) =>
+        Product("automate", "Umbraco Automate") with { DisabledTools = disabledTools };
+
+    private static McpToolCatalogue OlderReport() => OwnCatalogue(Addon, Reported, ("cms", 1), ("forms", 1), ("automate", 3));
+
+    [Test]
+    public async Task Warns_when_an_older_server_ignores_switched_off_tools()
+    {
+        List<McpFinding> found = await ToolWarnings(OlderReport(), AutomateWith("publish-automation", "trigger-automation"));
+
+        Assert.That(found.Select(f => (f.Severity, f.Message)), Is.EqualTo(new[]
+        {
+            (McpFinding.Warning, "Umbraco Automate: 2 tools are switched off, but the MCP server of \"Ana\" is older and still offers them. Set umbrella-mcp@17.0.0, the add-on's version, in the AI tool's MCP configuration."),
+        }));
+    }
+
+    [Test]
+    public async Task Warning_says_1_tool_is_switched_off_for_a_single_tool()
+    {
+        List<McpFinding> found = await ToolWarnings(OlderReport(), AutomateWith("publish-automation"));
+
+        Assert.That(found.Select(f => f.Message), Is.EqualTo(new[]
+        {
+            "Umbraco Automate: 1 tool is switched off, but the MCP server of \"Ana\" is older and still offers them. Set umbrella-mcp@17.0.0, the add-on's version, in the AI tool's MCP configuration.",
+        }));
+    }
+
+    [Test]
+    public async Task Access_counts_switched_off_tools()
+    {
+        McpApiUser ana = NamedUser("Ana");
+        McpProductStatus[] products = [AllProducts[0], AllProducts[1], AutomateWith("publish-automation", "trigger-automation")];
+        var service = Service(
+            settings: new FakeToolSettingsStore { UserCatalogues = new() { [ana.Key] = OlderReport() } },
+            users: new FakeApiUserProvider(ana),
+            caps: new StubCapabilities(
+                new McpCapabilities(Addon, AllProducts),
+                new Dictionary<Guid, McpCapabilities> { [ana.Key] = new McpCapabilities(Addon, products) }));
+
+        McpOverviewApiUser row = (await service.GetOverviewAsync()).ApiUsers.Single();
+
+        Assert.That(row.Access.Single(a => a.ProductId == "automate").DisabledToolCount, Is.EqualTo(2));
+        Assert.That(row.Access.Single(a => a.ProductId == "forms").DisabledToolCount, Is.EqualTo(0));
+    }
+
+    [Test]
+    public async Task No_warning_when_the_server_reports_tools()
+    {
+        McpToolCatalogue own = new(Addon, new Dictionary<string, McpModuleCatalogue>
+        {
+            ["cms"] = new(Reported, [new McpCollectionInfo("a", 1)]),
+            ["forms"] = new(Reported, [new McpCollectionInfo("a", 1)]),
+            ["automate"] = new(Reported, [new McpCollectionInfo("a", 1, Tools: [new McpToolInfo("publish-automation", null, false, false)])]),
+        });
+
+        Assert.That(await ToolWarnings(own, AutomateWith("publish-automation")), Is.Empty);
+    }
+
+    [Test]
+    public async Task No_warning_when_nothing_is_switched_off()
+    {
+        Assert.That(await ToolWarnings(OlderReport(), AutomateWith()), Is.Empty);
+    }
+
+    [Test]
+    public async Task No_warning_when_the_product_is_off_for_the_user()
+    {
+        Assert.That(await ToolWarnings(OlderReport(), AutomateWith("publish-automation") with { Off = true }), Is.Empty);
+    }
+
+    [Test]
+    public async Task No_warning_for_a_user_without_its_own_report()
+    {
+        Assert.That(await ToolWarnings(null, AutomateWith("publish-automation")), Is.Empty);
     }
 }

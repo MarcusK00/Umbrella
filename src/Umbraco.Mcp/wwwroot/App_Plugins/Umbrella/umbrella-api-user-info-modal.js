@@ -64,6 +64,7 @@ export class UmbrellaApiUserInfoModalElement extends UmbModalBaseElement {
           <span class="level">${levelGlyph(level)}${a.sectionAccess === false ? "No access" : LEVEL_LABELS[a.level] ?? a.level}</span>
           <span class="muted small">
             ${a.sectionAccess === false ? "No user group grants its section" : a.scope === "user" ? "Own settings" : "Defaults"}
+            ${a.disabledToolCount > 0 && a.level !== "off" && a.sectionAccess !== false ? ` · ${a.disabledToolCount} ${a.disabledToolCount === 1 ? "tool" : "tools"} switched off` : nothing}
             ${a.toolCount === null || a.toolCount === undefined || a.level === "off" || a.sectionAccess === false ? nothing : html` · ${tools(a.toolCount)}`}
           </span>
         </li>`;

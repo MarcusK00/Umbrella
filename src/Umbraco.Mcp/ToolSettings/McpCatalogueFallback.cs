@@ -104,13 +104,27 @@ internal static class McpCatalogueFallback
                 ReadOnlyToolCount = Max(mine.ReadOnlyToolCount, other.ReadOnlyToolCount),
                 NonDestructiveToolCount = Max(mine.NonDestructiveToolCount, other.NonDestructiveToolCount),
                 DisabledByDefault = mine.DisabledByDefault || other.DisabledByDefault,
+                Tools = MergeTools(mine.Tools, other.Tools),
             };
         }
 
         return new McpModuleCatalogue(
             a.ReportedAt > b.ReportedAt ? a.ReportedAt : b.ReportedAt,
-            a.SiteSettingsIgnored || b.SiteSettingsIgnored,
             collections);
+    }
+
+    /// <summary>Tools by name, in the order first seen with that tool's first flags; a report without a list adds nothing.</summary>
+    private static IReadOnlyList<McpToolInfo>? MergeTools(IReadOnlyList<McpToolInfo>? a, IReadOnlyList<McpToolInfo>? b)
+    {
+        if (a is null || b is null)
+        {
+            return a ?? b;
+        }
+
+        var merged = a.ToList();
+        var seen = a.Select(t => t.Name).ToHashSet(StringComparer.Ordinal);
+        merged.AddRange(b.Where(t => seen.Add(t.Name)));
+        return merged;
     }
 
     private static int? Max(int? a, int? b) => a is null ? b : b is null ? a : Math.Max(a.Value, b.Value);
