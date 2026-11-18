@@ -2,7 +2,7 @@
 
 # Umbrella
 
-One MCP server for your Umbraco 18 site. Umbrella detects which Umbraco products the site has installed and gives your AI tool (Claude Code, VS Code, Cursor, Claude Desktop) the tools for exactly those products.
+One MCP server for your Umbraco site. Umbrella detects which Umbraco products the site has installed and gives your AI tool (Claude Code, VS Code, Cursor, Claude Desktop) the tools for exactly those products.
 
 | Package | Where it runs | What it does |
 |---|---|---|
