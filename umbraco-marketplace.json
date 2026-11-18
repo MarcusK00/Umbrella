@@ -33,16 +33,16 @@
       "Caption": "Many AI agents, each with its own access: every API user gets Off, Read-only, No deletes or Full per product"
     },
     {
-      "ImageUrl": "https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-connect.png",
-      "Caption": "Connect in minutes: the Umbrella dashboard hands each AI tool a ready-made setup to copy, and Claude Code can install Umbrella as a plugin that asks for the secret"
+      "ImageUrl": "https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-dashboard-overview.png",
+      "Caption": "Overview dashboard: connection status, default permissions per product, and one row per API user with Client setup and New connection"
     },
     {
-      "ImageUrl": "https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-new-connection.png",
-      "Caption": "Set up a person in one panel: New connection creates their API user, its access and its secret, then hands over the config for their AI tool"
+      "ImageUrl": "https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-tool-permissions.png",
+      "Caption": "Per-user tool permissions: set site-wide defaults or customise Off, Read-only, No deletes or Full per product for each API user"
     },
     {
-      "ImageUrl": "https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-teams.png",
-      "Caption": "Made for teams: everyone signs in as their own API user, so access follows the person"
+      "ImageUrl": "https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-tool-groups.jpg",
+      "Caption": "Tool groups and individual tools: toggle entire groups or single tools on and off, with Read-only and Destructive badges"
     }
   ],
   "AuthorDetails": {
