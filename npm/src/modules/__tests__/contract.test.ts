@@ -46,6 +46,17 @@ describe.each(modules.map((m) => [m.id, m] as const))("module %s", (_id, module)
     for (const name of module.defaultDisabledCollections ?? []) expect(names).toContain(name);
   });
 
+  itLoads("patches only tools the package has", async () => {
+    const loaded = await module.load();
+    const names = new Set(loaded.collections.flatMap((c) => c.tools(user).map((t) => t.name)));
+    for (const name of Object.keys(module.toolPatches ?? {})) expect(names).toContain(name);
+  });
+
+  itLoads("installs the package for the expected major", async () => {
+    const { installedPackageVersion } = await import("../../core/sdk-instance.js");
+    expect(installedPackageVersion(module.packageName)?.split(".")[0]).toBe(module.expectedMajor);
+  });
+
   itLoads("defines well-formed tools", async () => {
     const loaded = await module.load();
     for (const collection of loaded.collections) {
