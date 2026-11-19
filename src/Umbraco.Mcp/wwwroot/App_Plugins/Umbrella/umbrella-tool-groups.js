@@ -613,10 +613,9 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
     }
     const visible = this.#visibleProducts();
     const activeProduct = visible.find((p) => p.id === this._activeProduct) ?? visible[0] ?? null;
-    const activeMode = activeProduct ? this.#productState(activeProduct).mode : null;
 
     return html`
-      <div class="layout ${activeMode === "follows" ? "is-follows" : ""}">
+      <div class="layout">
         <div class="sidebar-col">${this.#renderList()}</div>
         <div
           class="editor"
@@ -674,17 +673,9 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
         flex-direction: column;
         min-width: 0;
       }
-      .layout.is-follows .list,
-      .layout.is-follows umbrella-product-card {
-        flex: 1;
-      }
       @media (max-width: 56rem) {
         .layout {
           grid-template-columns: minmax(0, 1fr);
-        }
-        .layout.is-follows .list,
-        .layout.is-follows umbrella-product-card {
-          flex: none;
         }
         .loader-wrap,
         .empty-box,
