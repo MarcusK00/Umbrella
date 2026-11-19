@@ -417,13 +417,13 @@ export class UmbrellaProductCardElement extends UmbLitElement {
 
   render() {
     if (!this.product) return nothing;
-    const name = this.product.displayName;
+    const headline = `Tool Permissions: ${this.product.displayName.replace(/^Umbraco /, "")}`;
 
     if (this.mode === "follows") {
       return html`<div class="follows-box mode-follows">
         <div class="follows-box-header">
           <h5 class="uui-h5 headline">
-            <span>${name}</span>
+            <span>${headline}</span>
           </h5>
           <div class="follows-box-actions">${this.#renderHeaderAction()}</div>
         </div>
@@ -433,7 +433,7 @@ export class UmbrellaProductCardElement extends UmbLitElement {
 
     return html`<uui-box class="mode-${this.mode}">
       <div slot="headline" class="headline">
-        <span>${name}</span>
+        <span>${headline}</span>
       </div>
       ${this.#renderHeaderAction()}
       <div class="access-section">

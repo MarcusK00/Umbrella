@@ -95,7 +95,7 @@ export class UmbrellaApiUserInfoModalElement extends UmbModalBaseElement {
               <span class="product">
                 ${seg ? html`<span class="product-dot ${segClass}" aria-hidden="true"></span>` : nothing}
                 <span>${name}</span>
-                ${!isNoAccess && a.scope === "user" ? html`<uui-tag class="compact-tag" look="secondary">Own</uui-tag>` : nothing}
+                ${!isNoAccess && a.scope === "user" ? html`<uui-tag class="compact-tag" look="secondary">Custom</uui-tag>` : nothing}
               </span>
               <span class="level ${inactive ? "is-muted" : ""}">
                 ${isNoAccess ? html`<span>No access</span>` : html`${levelGlyph(level)}<span>${LEVEL_LABELS[a.level] ?? a.level}</span>`}
@@ -108,7 +108,7 @@ export class UmbrellaApiUserInfoModalElement extends UmbModalBaseElement {
                   : isOff
                     ? "Not loaded"
                     : a.scope === "user"
-                      ? "Own settings"
+                      ? "Custom settings"
                       : "Follows defaults"}${a.disabledToolCount > 0 && !inactive
                   ? ` · ${a.disabledToolCount} switched off`
                   : ""}
