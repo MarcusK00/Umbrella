@@ -34,15 +34,19 @@
     },
     {
       "ImageUrl": "https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-dashboard-overview.png",
-      "Caption": "Overview dashboard: connection status, default permissions per product, and one row per API user with Client setup and New connection"
+      "Caption": "Overview dashboard: connection status, default permissions per product with tool counts, and one row per API user with Client setup and New connection"
     },
     {
       "ImageUrl": "https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-tool-permissions.png",
-      "Caption": "Per-user tool permissions: set site-wide defaults or customise Off, Read-only, No deletes or Full per product for each API user"
+      "Caption": "Site-wide default tool permissions: set Off, Read-only, No deletes or Full per product, inspect context footprint, and toggle tool groups or individual tools"
     },
     {
-      "ImageUrl": "https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-tool-groups.jpg",
-      "Caption": "Tool groups and individual tools: toggle entire groups or single tools on and off, with Read-only and Destructive badges"
+      "ImageUrl": "https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-tool-permissions-follows.png",
+      "Caption": "Per-API-user tool permissions: products following site defaults stay compact with a Customise button"
+    },
+    {
+      "ImageUrl": "https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-tool-permissions-custom.png",
+      "Caption": "Custom per-user permissions: override a product's access level, tool groups and individual tools, with Destructive and Read-only badges"
     }
   ],
   "AuthorDetails": {
