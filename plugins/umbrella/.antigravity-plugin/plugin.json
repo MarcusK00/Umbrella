@@ -1,0 +1,21 @@
+{
+  "$schema": "https://antigravity.google/schemas/v1/plugin.json",
+  "name": "umbrella",
+  "displayName": "Umbrella for Umbraco",
+  "version": "17.1.2",
+  "description": "Connects Antigravity to an Umbraco 17 site through the umbrella-mcp server: the CMS tools, plus Forms, Automate and Engage when the site has them.",
+  "logo": "assets/logo.png",
+  "suggestedPrompts": [
+    "Check my Umbraco site connection with get-mcp-health",
+    "List the document types and forms on my Umbraco site",
+    "Review recent Umbraco Automate runs and Engage segments"
+  ],
+  "author": {
+    "name": "MarcusK00",
+    "url": "https://github.com/MarcusK00"
+  },
+  "homepage": "https://github.com/MarcusK00/Umbrella#readme",
+  "repository": "https://github.com/MarcusK00/Umbrella",
+  "license": "MIT",
+  "keywords": ["umbraco", "mcp", "cms"]
+}

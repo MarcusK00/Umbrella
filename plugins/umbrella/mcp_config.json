@@ -1,0 +1,36 @@
+{
+  "mcpServers": {
+    "umbraco": {
+      "command": "npx",
+      "args": ["-y", "umbrella-mcp@17.1.2"],
+      "env": {
+        "UMBRACO_BASE_URL": "${UMBRACO_BASE_URL}",
+        "UMBRACO_CLIENT_ID": "${UMBRACO_CLIENT_ID}",
+        "UMBRACO_CLIENT_SECRET": "${UMBRACO_CLIENT_SECRET}",
+        "NODE_TLS_REJECT_UNAUTHORIZED": "${NODE_TLS_REJECT_UNAUTHORIZED}"
+      },
+      "variables": [
+        {
+          "name": "UMBRACO_BASE_URL",
+          "title": "Site address",
+          "description": "The https address of your Umbraco site, for example https://www.example.com. Settings → Umbrella → Overview in the backoffice shows it."
+        },
+        {
+          "name": "UMBRACO_CLIENT_ID",
+          "title": "Client id",
+          "description": "The client id of your API user, from its client credentials in the backoffice (for example, umbraco-back-office-mcp)."
+        },
+        {
+          "name": "UMBRACO_CLIENT_SECRET",
+          "title": "Client secret",
+          "description": "The client secret you saved when you added the API user's client credentials."
+        },
+        {
+          "name": "NODE_TLS_REJECT_UNAUTHORIZED",
+          "title": "Check the site's HTTPS certificate",
+          "description": "Set to 1 to verify certificates, or 0 only for a local site using the ASP.NET Core development certificate."
+        }
+      ]
+    }
+  }
+}

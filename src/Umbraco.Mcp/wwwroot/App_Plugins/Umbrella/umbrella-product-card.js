@@ -3,6 +3,7 @@ import { UmbLitElement } from "@umbraco-cms/backoffice/lit-element";
 import { UmbTextStyles } from "@umbraco-cms/backoffice/style";
 import { LEVELS, LEVEL_LABELS, glyphStyles, groupLabel, levelGlyph, tools } from "./umbrella-access.js";
 import { allowedAt, filterGroups, groupKeptCount } from "./umbrella-tool-logic.js";
+import { buildSizeSegments, formatApproxTokens, formatSizeTooltip } from "./umbrella-tool-size.js";
 
 const LEVEL_DESCRIPTIONS = {
   off: "Not loaded",
@@ -91,15 +92,23 @@ export class UmbrellaProductCardElement extends UmbLitElement {
     return { kept, total };
   }
 
+  #sizeData() {
+    if (!this.showCounts || !this.module) return null;
+    return buildSizeSegments(this.module.collections, (c) => this.#stateFor(c));
+  }
+
+  async #focusGroup(name) {
+    this._filter = "";
+    this._selectedGroup = name;
+    this._groupsExpanded = true;
+    await this.updateComplete;
+    this.shadowRoot?.querySelector(`.group-item[data-group="${CSS.escape(name)}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }
+
   /** The tools switched off in a group that is on and that the level would otherwise offer. */
   #offInGroup(collection) {
     if (!Array.isArray(collection.tools)) return 0;
     return collection.tools.filter((t) => allowedAt(this.level, t) && this.disabledTools.has(t.name)).length;
-  }
-
-  #renderTag() {
-    if (this.mode === "follows") return html`<uui-tag look="secondary">Follows defaults</uui-tag>`;
-    return nothing;
   }
 
   #renderHeaderAction() {
@@ -129,15 +138,17 @@ export class UmbrellaProductCardElement extends UmbLitElement {
   /** Collapsed summary shown when an API user follows the site defaults for this product. */
   #renderCollapsedFollows() {
     const available = this.#available();
+    const levelLabel = LEVEL_LABELS[this.level] ?? LEVEL_LABELS.full;
     return html`<div class="follows-collapsed">
-      <span class="follows-level ${this.level === "off" ? "is-off" : ""}">
+      <div class="follows-pill ${this.level === "off" ? "is-off" : ""}">
         ${levelGlyph(this.level)}
-        <span>${LEVEL_LABELS[this.level] ?? LEVEL_LABELS.full}</span>
-      </span>
-      ${available && this.level !== "off" ? html`<span class="muted">· ${available.kept} of ${tools(available.total)}</span>` : nothing}
-      ${this.disabledTools.size > 0 && this.level !== "off"
-        ? html`<span class="muted">· ${this.disabledTools.size} switched off</span>`
-        : nothing}
+        <span>${levelLabel}</span>
+      </div>
+      <p class="follows-meta muted small">
+        Inherited from site defaults${available && this.level !== "off" ? ` · ${available.kept} of ${tools(available.total)}` : ""}${this.disabledTools.size > 0 && this.level !== "off"
+          ? ` · ${this.disabledTools.size} switched off`
+          : ""}
+      </p>
     </div>`;
   }
 
@@ -172,21 +183,45 @@ export class UmbrellaProductCardElement extends UmbLitElement {
     const available = this.#available();
     if (!available) return nothing;
     const share = available.total ? Math.round((available.kept / available.total) * 100) : 0;
+    const size = this.#sizeData();
     return html`<div class="meter" aria-label="${available.kept} of ${tools(available.total)} available (${share}%)">
-      <div class="meter-head">
+      <div class="meter-head" title=${size ? formatSizeTooltip(size.keptBytes) : nothing}>
         <span class="meter-text"><strong>${available.kept}</strong> of ${tools(available.total)} available</span>
         <span class="meter-pct">${share}%</span>
       </div>
-      <div class="meter-track" role="presentation"><div class="meter-fill" style="width: ${share}%"></div></div>
+      ${size
+        ? html`<div class="meter-track is-segmented" role="group" aria-label="Context size breakdown by tool group">
+            ${size.segments.map((seg) => {
+              const pct = Math.max(1, Math.round(seg.pctOfTotal));
+              if (seg.kind === "group") {
+                const label = groupLabel(seg.name);
+                return html`<button
+                  type="button"
+                  class="meter-seg seg-${seg.colorIndex} ${this._selectedGroup === seg.name ? "is-selected" : ""}"
+                  style="width: ${seg.pctOfTotal.toFixed(2)}%"
+                  title="${label} · ${pct}% (${formatApproxTokens(seg.bytes, { unit: true })}) — click to inspect"
+                  aria-label="${label}, ${pct}% of context size"
+                  @click=${() => this.#focusGroup(seg.name)}
+                ></button>`;
+              }
+              return html`<span
+                class="meter-seg seg-other"
+                style="width: ${seg.pctOfTotal.toFixed(2)}%"
+                title="${seg.count} other ${seg.count === 1 ? "group" : "groups"} · ${pct}% (${formatApproxTokens(seg.bytes, { unit: true })})"
+              ></span>`;
+            })}
+          </div>`
+        : html`<div class="meter-track" role="presentation"><div class="meter-fill" style="width: ${share}%"></div></div>`}
     </div>`;
   }
 
-  #renderToolDetailPane(selectedEntry) {
+  #renderToolDetailPane(selectedEntry, size) {
     if (!selectedEntry) return nothing;
     const { collection: c, tools: filteredTools } = selectedEntry;
     const label = groupLabel(c.name);
     const checkedGroup = !this.disabled.has(c.name);
     const kept = groupKeptCount(c, this.#stateFor(c));
+    const rowSize = size?.byGroup.get(c.name) ?? null;
     const hasTools = Array.isArray(c.tools);
     const list = filteredTools ?? c.tools ?? [];
     const all = c.tools ?? [];
@@ -197,7 +232,7 @@ export class UmbrellaProductCardElement extends UmbLitElement {
         <div class="tools-pane-title-row">
           <h4>${label}</h4>
           ${this.showCounts
-            ? html`<span class="muted small">${checkedGroup ? `${kept} / ${c.toolCount}` : "Off"}</span>`
+            ? html`<span class="muted small" title=${rowSize ? formatSizeTooltip(rowSize.bytes) : nothing}>${checkedGroup ? `${kept} / ${c.toolCount}` : "Off"}</span>`
             : nothing}
         </div>
         ${anyOff && this.editable
@@ -253,6 +288,7 @@ export class UmbrellaProductCardElement extends UmbLitElement {
     const on = collections.filter((c) => !this.disabled.has(c.name)).length;
     const filter = this._filter.trim();
     const shown = filterGroups(collections, this._filter, groupLabel);
+    const size = this.#sizeData();
     const off = this.disabledTools.size;
 
     const collapsible = this.mode === "custom";
@@ -325,14 +361,20 @@ export class UmbrellaProductCardElement extends UmbLitElement {
               ${shown.map(({ collection: c, tools: matchedTools, matchedGroup }) => {
                 const checked = !this.disabled.has(c.name);
                 const kept = groupKeptCount(c, this.#stateFor(c));
+                const rowSize = size?.byGroup.get(c.name) ?? null;
                 const offCount = checked ? this.#offInGroup(c) : 0;
                 const label = groupLabel(c.name);
                 const isSelected = c.name === selectedName;
                 const matchHint = filter && !matchedGroup && Array.isArray(matchedTools) ? `${matchedTools.length}` : null;
+                const rowTitle =
+                  rowSize && rowSize.bytes > 0
+                    ? `${c.name} · ${formatApproxTokens(rowSize.bytes, { unit: true })} (${Math.max(1, Math.round(rowSize.pctOfTotal))}%)`
+                    : c.name;
 
                 return html`<li
                   class="group-item ${isSelected ? "is-selected" : ""} ${!checked ? "is-unchecked" : ""}"
-                  title=${c.name}
+                  data-group=${c.name}
+                  title=${rowTitle}
                 >
                   <button
                     type="button"
@@ -358,10 +400,17 @@ export class UmbrellaProductCardElement extends UmbLitElement {
                     ?disabled=${!this.editable}
                     @change=${(e) => this.#emit("groups-change", { names: [c.name], enabled: e.target.checked })}
                   ></uui-toggle>
+                  ${rowSize && rowSize.pctOfTotal > 0
+                    ? html`<span
+                        class="group-weight ${rowSize.colorIndex >= 0 ? `seg-${rowSize.colorIndex}` : "seg-other"} ${rowSize.active ? "" : "is-off"}"
+                        style="width: ${Math.max(rowSize.pctOfTotal, 1.5).toFixed(2)}%"
+                        aria-hidden="true"
+                      ></span>`
+                    : nothing}
                 </li>`;
               })}
             </ul>
-            ${this.#renderToolDetailPane(selectedEntry)}
+            ${this.#renderToolDetailPane(selectedEntry, size)}
           </div>`}
     </div>`;
   }
@@ -375,7 +424,6 @@ export class UmbrellaProductCardElement extends UmbLitElement {
         <div class="follows-box-header">
           <h5 class="uui-h5 headline">
             <span>${name}</span>
-            ${this.#renderTag()}
           </h5>
           <div class="follows-box-actions">${this.#renderHeaderAction()}</div>
         </div>
@@ -386,7 +434,6 @@ export class UmbrellaProductCardElement extends UmbLitElement {
     return html`<uui-box class="mode-${this.mode}">
       <div slot="headline" class="headline">
         <span>${name}</span>
-        ${this.#renderTag()}
       </div>
       ${this.#renderHeaderAction()}
       <div class="access-section">
@@ -404,6 +451,11 @@ export class UmbrellaProductCardElement extends UmbLitElement {
       :host {
         display: flex;
         flex-direction: column;
+        --umbrella-seg-0: var(--uui-color-interactive-emphasis, #2152a3);
+        --umbrella-seg-1: #2a9d8f;
+        --umbrella-seg-2: #e09f3e;
+        --umbrella-seg-3: #8b6cc1;
+        --umbrella-seg-other: var(--uui-color-border-emphasis, #a1a1aa);
       }
       uui-box {
         flex: 1;
@@ -455,22 +507,29 @@ export class UmbrellaProductCardElement extends UmbLitElement {
       .follows-collapsed {
         flex: 1;
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
-        flex-wrap: wrap;
         gap: var(--uui-size-space-2);
-        padding: var(--uui-box-default-padding, var(--uui-size-space-5));
+        padding: var(--uui-size-layout-1) var(--uui-box-default-padding, var(--uui-size-space-5));
         text-align: center;
       }
-      .follows-level {
+      .follows-pill {
         display: inline-flex;
         align-items: center;
         gap: var(--uui-size-space-2);
+        padding: var(--uui-size-space-1) var(--uui-size-space-3);
+        border-radius: 999px;
+        border: 1px solid var(--uui-color-border);
+        background: var(--uui-color-surface-alt);
         font-weight: 600;
       }
-      .follows-level.is-off {
+      .follows-pill.is-off {
         color: var(--uui-color-text-alt);
         font-weight: normal;
+      }
+      .follows-meta {
+        font-variant-numeric: tabular-nums;
       }
 
       .access-section {
@@ -592,14 +651,55 @@ export class UmbrellaProductCardElement extends UmbLitElement {
         background: var(--uui-color-surface-emphasis);
         overflow: hidden;
       }
+      .meter-track.is-segmented {
+        display: flex;
+        gap: 2px;
+        height: 8px;
+        border-radius: 4px;
+      }
       .meter-fill {
         height: 100%;
         border-radius: 3px;
         background: var(--uui-color-interactive-emphasis);
         transition: width 200ms ease;
       }
+      .meter-seg {
+        display: block;
+        height: 100%;
+        min-width: 3px;
+        padding: 0;
+        border: 0;
+        transition: width 200ms ease, opacity 120ms ease, filter 120ms ease;
+      }
+      button.meter-seg {
+        cursor: pointer;
+      }
+      button.meter-seg:hover,
+      button.meter-seg.is-selected {
+        filter: brightness(1.12);
+      }
+      button.meter-seg:focus-visible {
+        outline: 2px solid var(--uui-color-focus);
+        outline-offset: -1px;
+      }
+      .seg-0 {
+        background: var(--umbrella-seg-0);
+      }
+      .seg-1 {
+        background: var(--umbrella-seg-1);
+      }
+      .seg-2 {
+        background: var(--umbrella-seg-2);
+      }
+      .seg-3 {
+        background: var(--umbrella-seg-3);
+      }
+      .seg-other {
+        background: var(--umbrella-seg-other);
+      }
       @media (prefers-reduced-motion: reduce) {
-        .meter-fill {
+        .meter-fill,
+        .meter-seg {
           transition: none;
         }
       }
@@ -697,10 +797,26 @@ export class UmbrellaProductCardElement extends UmbLitElement {
         }
       }
       .group-item {
+        position: relative;
         display: flex;
         align-items: center;
         border-bottom: 1px solid var(--uui-color-divider);
         transition: background-color 100ms ease;
+      }
+      .group-weight {
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        height: 2px;
+        opacity: 0.72;
+        pointer-events: none;
+        transition: width 200ms ease, opacity 120ms ease;
+      }
+      .group-weight.seg-other {
+        opacity: 0.45;
+      }
+      .group-weight.is-off {
+        opacity: 0.22;
       }
       .group-item:last-child {
         border-bottom: 0;

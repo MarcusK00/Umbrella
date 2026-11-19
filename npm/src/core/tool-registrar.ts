@@ -1,10 +1,13 @@
-import type { McpServer, ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer, type ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import {
   createToolAnnotations,
   getRegisteredOutputSchema,
   registerToolCollection,
   shouldIncludeTool,
+  useDraft202012ToolSchemas,
   type CollectionConfiguration,
+  type ToolDefinition,
 } from "@umbraco-cms/mcp-server-sdk";
 import type { ZodRawShape, ZodType } from "zod";
 import { bindClient } from "./client-context.js";
@@ -29,12 +32,85 @@ export interface RegistrationContext {
   toolNames?: ToolNameIndex;
 }
 
+export interface PreparedTool {
+  name: string;
+  config: {
+    description: string;
+    inputSchema: ZodRawShape | undefined;
+    outputSchema: ToolDefinition<any, any>["outputSchema"];
+    annotations: ReturnType<typeof createToolAnnotations>;
+  };
+  handler: ToolHandler;
+}
+
+/** Builds the registered name, patched config and handler for one tool without touching a server. */
+export function prepareToolRegistration(
+  module: McpProductModule,
+  loaded: Pick<LoadedModule, "createApiClient">,
+  tool: ToolDefinition<any, any>,
+  references: (text: string) => string,
+): PreparedTool {
+  const patches = [...generalPatches(tool.inputSchema), ...(module.toolPatches?.[tool.name] ? [module.toolPatches[tool.name]] : [])];
+  const patched = applyToolPatches(
+    { description: tool.description ?? "", inputSchema: tool.inputSchema, handler: tool.handler as ToolHandler },
+    patches,
+    loaded.createApiClient,
+  );
+  return {
+    name: `${module.toolPrefix}${tool.name}`,
+    config: {
+      description: describeTool(module, references(patched.description)),
+      inputSchema: patched.inputSchema && prefixInputReferences(patched.inputSchema, references),
+      outputSchema: getRegisteredOutputSchema(tool),
+      annotations: createToolAnnotations(tool),
+    },
+    handler: patched.handler,
+  };
+}
+
+/**
+ * Measures the UTF-8 byte length of each tool entry as `tools/list` sends it (after Draft 2020-12 schema conversion).
+ * Uses an in-memory McpServer and `useDraft202012ToolSchemas` so sizes match runtime output exactly.
+ */
+export function measureToolListSizes(
+  entries: ReadonlyArray<Pick<PreparedTool, "name" | "config">>,
+): Map<string, number> {
+  const sizes = new Map<string, number>();
+  if (entries.length === 0) return sizes;
+
+  const measureServer = new McpServer({ name: "umbrella-measure", version: "0.0.0" });
+  const dummyHandler: ToolCallback<ZodRawShape> = async () => ({ content: [] });
+  for (const { name, config } of entries) {
+    measureServer.registerTool(name, config, dummyHandler);
+  }
+
+  let listHandler: (() => { tools: Array<{ name?: string }> }) | undefined;
+  const originalSet = measureServer.server.setRequestHandler.bind(measureServer.server);
+  measureServer.server.setRequestHandler = ((schema: unknown, handler: () => { tools: Array<{ name?: string }> }) => {
+    if (schema === ListToolsRequestSchema) listHandler = handler;
+    return originalSet(schema as never, handler as never);
+  }) as typeof measureServer.server.setRequestHandler;
+  useDraft202012ToolSchemas(measureServer);
+
+  const response = listHandler?.();
+  for (const wireTool of response?.tools ?? []) {
+    if (typeof wireTool.name === "string") {
+      sizes.set(wireTool.name, Buffer.byteLength(JSON.stringify(wireTool), "utf8"));
+    }
+  }
+  return sizes;
+}
+
 export function registerModuleTools(
   ctx: RegistrationContext,
   module: McpProductModule,
   loaded: LoadedModule,
   filter: CollectionConfiguration,
-  options: { excludeDestructive?: boolean; disabledTools?: ReadonlySet<string> } = {},
+  options: {
+    excludeDestructive?: boolean;
+    disabledTools?: ReadonlySet<string>;
+    onRegister?: (entry: { name: string; collectionName: string; config: PreparedTool["config"] }) => void;
+  } = {},
 ): { registered: number; destructiveRemoved: number; disabledRemoved: string[] } {
   let count = 0;
   let destructiveRemoved = 0;
@@ -57,28 +133,17 @@ export function registerModuleTools(
         continue;
       }
 
-      const name = `${module.toolPrefix}${tool.name}`;
-      const owner = ctx.registered.get(name);
-      if (owner) throw new DuplicateToolNameError(name, owner, module.id);
-      ctx.registered.set(name, module.id);
-      registerToolCollection(name, `${module.id}:${collectionName}`);
-
-      const patches = [...generalPatches(tool.inputSchema), ...(module.toolPatches?.[tool.name] ? [module.toolPatches[tool.name]] : [])];
-      const patched = applyToolPatches(
-        { description: tool.description, inputSchema: tool.inputSchema, handler: tool.handler as ToolHandler },
-        patches,
-        loaded.createApiClient,
-      );
+      const prepared = prepareToolRegistration(module, loaded, tool, references);
+      const owner = ctx.registered.get(prepared.name);
+      if (owner) throw new DuplicateToolNameError(prepared.name, owner, module.id);
+      ctx.registered.set(prepared.name, module.id);
+      registerToolCollection(prepared.name, `${module.id}:${collectionName}`);
+      options.onRegister?.({ name: prepared.name, collectionName, config: prepared.config });
 
       ctx.server.registerTool(
-        name,
-        {
-          description: describeTool(module, references(patched.description)),
-          inputSchema: patched.inputSchema && prefixInputReferences(patched.inputSchema, references),
-          outputSchema: getRegisteredOutputSchema(tool),
-          annotations: createToolAnnotations(tool),
-        },
-        bindClient(loaded.createApiClient, patched.handler as (...args: unknown[]) => unknown) as ToolCallback<ZodRawShape>,
+        prepared.name,
+        prepared.config,
+        bindClient(loaded.createApiClient, prepared.handler as (...args: unknown[]) => unknown) as ToolCallback<ZodRawShape>,
       );
       count++;
     }
