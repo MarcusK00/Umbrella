@@ -847,4 +847,48 @@ public class McpOverviewServiceTests
     {
         Assert.That(await ToolWarnings(null, AutomateWith("publish-automation")), Is.Empty);
     }
+
+    [Test]
+    public async Task Products_carry_default_and_total_tool_counts()
+    {
+        McpProductStatus[] products =
+        [
+            Product("cms", "Umbraco CMS"),
+            Product("forms", "Umbraco Forms") with { ReadOnly = true },
+            Product("automate", "Umbraco Automate") with { Off = true },
+        ];
+        McpToolCatalogue shared = new(Addon, new Dictionary<string, McpModuleCatalogue>
+        {
+            ["cms"] = new(Reported, [new McpCollectionInfo("document", 10, ReadOnlyToolCount: 4)]),
+            ["forms"] = new(Reported, [new McpCollectionInfo("form", 8, ReadOnlyToolCount: 3)]),
+            ["automate"] = new(Reported, [new McpCollectionInfo("automation", 6)]),
+        });
+
+        McpOverview overview = await Service(
+            caps: new StubCapabilities(new McpCapabilities(Addon, products)),
+            settings: new FakeToolSettingsStore { Catalogue = shared },
+            users: new FakeApiUserProvider()).GetOverviewAsync();
+
+        McpOverviewProduct cms = overview.Products.Single(p => p.Id == "cms");
+        McpOverviewProduct forms = overview.Products.Single(p => p.Id == "forms");
+        McpOverviewProduct automate = overview.Products.Single(p => p.Id == "automate");
+        Assert.That(cms.ToolCount, Is.EqualTo(10));
+        Assert.That(cms.TotalToolCount, Is.EqualTo(10));
+        Assert.That(forms.ToolCount, Is.EqualTo(3));
+        Assert.That(forms.TotalToolCount, Is.EqualTo(8));
+        Assert.That(automate.ToolCount, Is.EqualTo(0));
+        Assert.That(automate.TotalToolCount, Is.EqualTo(6));
+    }
+
+    [Test]
+    public async Task Unreported_product_has_null_tool_counts()
+    {
+        McpOverview overview = await Service(
+            settings: new FakeToolSettingsStore { Catalogue = McpToolCatalogue.Empty },
+            users: new FakeApiUserProvider()).GetOverviewAsync();
+
+        McpOverviewProduct cms = overview.Products.Single(p => p.Id == "cms");
+        Assert.That(cms.ToolCount, Is.Null);
+        Assert.That(cms.TotalToolCount, Is.Null);
+    }
 }

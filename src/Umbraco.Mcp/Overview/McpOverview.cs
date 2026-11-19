@@ -18,6 +18,8 @@ public static class McpFindingArea
 /// <summary>
 /// A detected product. <paramref name="Access"/> is "full", "noDestructive", "readOnly" or "off" (the site's defaults).
 /// <paramref name="SectionAlias"/> is the backoffice section an API user needs for its tools; null when it needs none (CMS).
+/// <paramref name="ToolCount"/> is how many tools the site's defaults offer from this product (0 when off, null when
+/// no report has listed the product yet), and <paramref name="TotalToolCount"/> is the product's total reported tools.
 /// A product a connected MCP server should have loaded but did not is a products finding.
 /// </summary>
 public sealed record McpOverviewProduct(
@@ -28,7 +30,9 @@ public sealed record McpOverviewProduct(
     string? Version,
     IReadOnlyList<string> Issues,
     string Access,
-    string? SectionAlias);
+    string? SectionAlias,
+    int? ToolCount = null,
+    int? TotalToolCount = null);
 
 /// <summary>What the MCP server last reported, and whether it is the add-on's version.</summary>
 public sealed record McpServerReport(string Version, DateTimeOffset ReportedAt, bool MatchesAddon);
