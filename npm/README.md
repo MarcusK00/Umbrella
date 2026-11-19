@@ -11,7 +11,7 @@ Product detection needs the [`Umbraco.Community.Umbrella`](https://www.nuget.org
   "mcpServers": {
     "umbraco": {
       "command": "npx",
-      "args": ["-y", "umbrella-mcp@18.1.2"],
+      "args": ["-y", "umbrella-mcp@18.1.3"],
       "env": {
         "UMBRACO_BASE_URL": "https://your-site",
         "UMBRACO_CLIENT_ID": "umbraco-back-office-mcp",
