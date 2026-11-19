@@ -5,13 +5,27 @@ import { UMB_NOTIFICATION_CONTEXT } from "@umbraco-cms/backoffice/notification";
 import { umbConfirmModal, umbOpenModal } from "@umbraco-cms/backoffice/modal";
 import { UmbTextStyles } from "@umbraco-cms/backoffice/style";
 import { formatDate, request } from "./umbrella-api.js";
-import { LEVEL_LABELS, formatRelative, glyphStyles, levelGlyph } from "./umbrella-access.js";
+import { LEVEL_LABELS, formatRelative, glyphStyles, levelGlyph, tools } from "./umbrella-access.js";
 import "./umbrella-access-table.js";
 import { UMBRELLA_CONNECT_MODAL } from "./umbrella-connect-modal.js";
 import { UMBRELLA_API_USER_INFO_MODAL, UMBRELLA_NEW_CONNECTION_MODAL, UMBRELLA_NEW_SECRET_MODAL } from "./umbrella-modals.js";
 import { disableUser, enableUser } from "./umbrella-users-api.js";
 
 const AREAS = { products: "Products", server: "MCP server", apiUsers: "API users" };
+
+/** Per-product accent colours, matching the Info modal's footprint bar palette. */
+const PRODUCT_COLORS = {
+  cms: "var(--uui-color-interactive-emphasis, #2152a3)",
+  engage: "#2a9d8f",
+  forms: "#e09f3e",
+  automate: "#8b6cc1",
+};
+
+const FALLBACK_COLORS = ["#2b7a9b", "#c2526f"];
+
+function productColor(id, index) {
+  return PRODUCT_COLORS[id] ?? FALLBACK_COLORS[index % FALLBACK_COLORS.length];
+}
 
 /**
  * Settings → Umbrella → Overview:
@@ -276,6 +290,24 @@ export class UmbrellaOverviewElement extends UmbLitElement {
     </uui-box>`;
   }
 
+  #defaultToolCountLabel(p) {
+    if (p.access === "off") return "Not loaded";
+    let count = p.toolCount;
+    const total = p.totalToolCount;
+    if (count === undefined) {
+      for (const u of this._data.apiUsers ?? []) {
+        const a = u.access?.find((x) => x.productId === p.id && x.scope === "site" && x.sectionAccess !== false && x.toolCount != null);
+        if (a) {
+          count = a.toolCount;
+          break;
+        }
+      }
+    }
+    if (count === null || count === undefined) return "";
+    if (total !== null && total !== undefined && count < total) return `${count} / ${tools(total)}`;
+    return tools(count);
+  }
+
   /** Installed & enabled products and their default access levels, with a prominent Edit default permissions action. */
   #renderDefaultProducts() {
     const activeProducts = this._data.products.filter((p) => p.installed && p.enabled);
@@ -286,20 +318,31 @@ export class UmbrellaOverviewElement extends UmbLitElement {
         </uui-button>
       </div>
       <div class="products-grid">
-        ${activeProducts.map(
-          (p) => html`<div class="product-card ${p.access === "off" ? "is-off" : ""}">
-            <div class="product-card-top">
-              <span class="product-card-name">${p.displayName}</span>
-              ${p.version ? html`<span class="product-card-version">${p.version}</span>` : nothing}
+        ${activeProducts.map((p, i) => {
+          const level = p.access ?? "full";
+          const levelLabel = LEVEL_LABELS[level] ?? LEVEL_LABELS.full;
+          const isOff = level === "off";
+          const hasUmbracoPrefix = p.displayName.startsWith("Umbraco ");
+          const shortName = hasUmbracoPrefix ? p.displayName.slice("Umbraco ".length) : p.displayName;
+          const countLabel = this.#defaultToolCountLabel(p);
+
+          return html`<div class="product-tile ${isOff ? "is-off" : ""}" style="--tile-accent: ${productColor(p.id, i)}">
+            <div class="tile-head">
+              <div class="tile-title">
+                ${hasUmbracoPrefix ? html`<span class="tile-kicker">Umbraco</span>` : nothing}
+                <span class="tile-name">${shortName}</span>
+              </div>
+              ${p.version ? html`<span class="tile-version">${p.version}</span>` : nothing}
             </div>
-            <div class="product-card-bottom">
-              <span class="product-card-level">
-                ${levelGlyph(p.access)}
-                <span>${LEVEL_LABELS[p.access] ?? LEVEL_LABELS.full}</span>
+            <div class="tile-foot">
+              <span class="tile-level">
+                ${levelGlyph(level)}
+                <span>${levelLabel}</span>
               </span>
+              ${countLabel ? html`<span class="tile-tools">${countLabel}</span>` : nothing}
             </div>
-          </div>`,
-        )}
+          </div>`;
+        })}
       </div>
     </uui-box>`;
   }
@@ -486,51 +529,81 @@ export class UmbrellaOverviewElement extends UmbLitElement {
       }
 
       .products-grid {
-        display: flex;
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
         gap: var(--uui-size-space-3);
       }
-      .product-card {
-        flex: 1 1 13rem;
+      .product-tile {
         display: flex;
         flex-direction: column;
         justify-content: space-between;
-        gap: var(--uui-size-space-3);
+        gap: var(--uui-size-space-4);
         padding: var(--uui-size-space-3) var(--uui-size-space-4);
         border: 1px solid var(--uui-color-border);
+        border-top: 3px solid var(--tile-accent);
         border-radius: var(--uui-border-radius);
         background: var(--uui-color-surface-alt);
       }
-      .product-card-top {
+      .product-tile.is-off {
+        --tile-accent: var(--uui-color-border-emphasis, #8b8b96);
+        border-top-style: dashed;
+        opacity: 0.78;
+      }
+      .tile-head {
         display: flex;
-        align-items: baseline;
+        align-items: flex-start;
         justify-content: space-between;
         gap: var(--uui-size-space-2);
+        min-width: 0;
       }
-      .product-card-name {
+      .tile-title {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        line-height: 1.2;
+      }
+      .tile-kicker {
+        font-size: 0.6875rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--uui-color-text-alt);
+      }
+      .tile-name {
+        font-size: 0.95rem;
         font-weight: 700;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
-      .product-card-version {
+      .tile-version {
+        flex: none;
         font-size: var(--uui-type-small-size);
         color: var(--uui-color-text-alt);
         font-variant-numeric: tabular-nums;
       }
-      .product-card-bottom {
+      .tile-foot {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: var(--uui-size-space-2);
+        gap: var(--uui-size-space-3);
       }
-      .product-card-level {
+      .tile-level {
         display: inline-flex;
         align-items: center;
         gap: var(--uui-size-space-2);
         font-weight: 600;
         font-size: var(--uui-type-small-size);
       }
-      .product-card.is-off .product-card-level {
+      .product-tile.is-off .tile-level {
         color: var(--uui-color-text-alt);
         font-weight: normal;
+      }
+      .tile-tools {
+        font-size: var(--uui-type-small-size);
+        color: var(--uui-color-text-alt);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
       }
 
       .header-actions {
