@@ -105,7 +105,7 @@ SETUP=$(curl -sfk -G -H "Authorization: Bearer $TOKEN" --data-urlencode "clientI
 SECRET="$UMBRACO_CLIENT_SECRET" CLIENT_ID="$UMBRACO_CLIENT_ID" node -e "
   const s = JSON.parse(require('fs').readFileSync(0, 'utf8'));
   if (s.clientId !== process.env.CLIENT_ID) { console.error('clientId is ' + s.clientId); process.exit(1); }
-  if (!Array.isArray(s.clients) || s.clients.length !== 6) { console.error('expected 6 clients, got ' + (s.clients && s.clients.length)); process.exit(1); }
+  if (!Array.isArray(s.clients) || s.clients.length !== 9) { console.error('expected 9 clients, got ' + (s.clients && s.clients.length)); process.exit(1); }
   if (!s.clients.every((c) => c.content.includes(process.env.CLIENT_ID))) { console.error('a client snippet lacks the client id'); process.exit(1); }
   const secret = process.env.SECRET;
   if (secret && s.clients.some((c) => c.content.includes(secret))) { console.error('a client snippet contains the client secret'); process.exit(1); }" <<<"$SETUP" \

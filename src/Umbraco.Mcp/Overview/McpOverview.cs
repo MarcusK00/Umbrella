@@ -40,8 +40,18 @@ public sealed record McpServerReport(string Version, DateTimeOffset ReportedAt, 
 /// product or has no access to its section, null without a report of its own.
 /// <paramref name="SectionAccess"/> is false when none of the user's groups grant the product's
 /// backoffice section (a product switched off for the user counts as reachable).
+/// <paramref name="SizeBytes"/> is the UTF-8 byte length of those tools as <c>tools/list</c> sends them (0 when off or
+/// without section access, null without size data).
 /// </summary>
-public sealed record McpOverviewAccess(string ProductId, string DisplayName, string Level, string Scope, int? ToolCount, bool SectionAccess, int DisabledToolCount = 0);
+public sealed record McpOverviewAccess(
+    string ProductId,
+    string DisplayName,
+    string Level,
+    string Scope,
+    int? ToolCount,
+    bool SectionAccess,
+    int DisabledToolCount = 0,
+    int? SizeBytes = null);
 
 /// <summary>
 /// An API user the MCP server has connected as, or that the dashboard's New connection flow created and that has not
@@ -49,7 +59,8 @@ public sealed record McpOverviewAccess(string ProductId, string DisplayName, str
 /// connected is in no finding and no health check. <paramref name="State"/> is "active", "disabled" or "lockedOut".
 /// The reach lists hold product display names. The report fields are from this user's own last start and are null when
 /// it has none; <paramref name="Access"/> lists the installed and enabled products, and <paramref name="ToolCount"/> is
-/// the sum of their tool counts (null when one of them is unknown). <paramref name="Groups"/> holds the names of its
+/// the sum of their tool counts (null when one of them is unknown). <paramref name="SizeBytes"/> is the sum of their
+/// <c>tools/list</c> sizes in bytes (null when one of them is unknown). <paramref name="Groups"/> holds the names of its
 /// user groups, sorted, and <paramref name="Sections"/> the backoffice sections they grant.
 /// </summary>
 public sealed record McpOverviewApiUser(
@@ -66,7 +77,8 @@ public sealed record McpOverviewApiUser(
     IReadOnlyList<McpOverviewAccess> Access,
     IReadOnlyList<string> Groups,
     IReadOnlyList<string> Sections,
-    bool Connected);
+    bool Connected,
+    int? SizeBytes = null);
 
 /// <summary>
 /// Everything the Overview dashboard and the MCP health checks show. <paramref name="CanManageUsers"/> is whether the

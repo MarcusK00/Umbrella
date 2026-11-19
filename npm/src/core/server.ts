@@ -21,7 +21,14 @@ import { parseForcedModules, selectModules } from "./module-selection.js";
 import { buildRoutingInstructions, buildToolNameIndex } from "./routing.js";
 import { checkPackageInstalled, checkPackageMajor, checkSingleSdk } from "./sdk-instance.js";
 import { describeStartupError } from "./startup-error.js";
-import { DuplicateToolNameError, listToolNames, registerModuleTools, type RegistrationContext } from "./tool-registrar.js";
+import {
+  DuplicateToolNameError,
+  listToolNames,
+  measureToolListSizes,
+  registerModuleTools,
+  type PreparedTool,
+  type RegistrationContext,
+} from "./tool-registrar.js";
 
 const EXPECTED_UMBRACO_MAJOR = "18";
 
@@ -143,6 +150,7 @@ export async function startServer(options: {
       }
     })),
   };
+  const registeredTools: Array<{ moduleId: string; collectionName: string; name: string; config: PreparedTool["config"] }> = [];
   for (const { state, loaded } of ready) {
     const { module } = state.decision;
     try {
@@ -160,7 +168,11 @@ export async function startServer(options: {
         allModeNames: loaded.allModeNames,
         allSliceNames: loaded.allSliceNames,
       }).loadFromConfig(config);
-      const result = registerModuleTools(ctx, module, loaded, filter, { excludeDestructive, disabledTools: new Set(siteDisabledTools(capabilities, module.id)) });
+      const result = registerModuleTools(ctx, module, loaded, filter, {
+        excludeDestructive,
+        disabledTools: new Set(siteDisabledTools(capabilities, module.id)),
+        onRegister: (entry) => registeredTools.push({ moduleId: module.id, ...entry }),
+      });
       state.toolCount = result.registered;
       state.destructiveRemoved = result.destructiveRemoved;
       state.disabledToolsRemoved = result.disabledRemoved;
@@ -171,6 +183,21 @@ export async function startServer(options: {
     }
   }
 
+  const registeredSizes = measureToolListSizes(registeredTools);
+  for (const { state } of ready) {
+    if (!state.loaded) continue;
+    const byGroup = new Map<string, number>();
+    let total = 0;
+    for (const entry of registeredTools) {
+      if (entry.moduleId !== state.decision.module.id) continue;
+      const bytes = registeredSizes.get(entry.name) ?? 0;
+      total += bytes;
+      byGroup.set(entry.collectionName, (byGroup.get(entry.collectionName) ?? 0) + bytes);
+    }
+    state.sizeBytes = total;
+    state.groupSizes = [...byGroup.entries()].map(([name, sizeBytes]) => ({ name, sizeBytes }));
+  }
+
   // Tell the site which tool groups exist, for the backoffice "Umbrella" dashboard. Without the add-on there is nowhere to send it.
   let catalogueReport: CatalogueReportResult | undefined;
   if (capabilities.kind === "ok") {
@@ -178,6 +205,7 @@ export async function startServer(options: {
       version,
       ready.map(({ state, loaded }) => ({ module: state.decision.module, loaded })),
       user,
+      ctx.toolNames,
     ));
   }
 

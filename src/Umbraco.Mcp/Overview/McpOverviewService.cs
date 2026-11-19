@@ -198,7 +198,8 @@ public sealed class McpOverviewService(
                 bool sectionAccess = !unreachable.Contains(p.DisplayName);
                 return new McpOverviewAccess(
                     p.Id, p.DisplayName, AccessLevel(p), p.SettingsScope, sectionAccess ? ToolCount(ownCatalogue, p) : 0, sectionAccess,
-                    sectionAccess && AccessLevel(p) != McpToolLevel.Off ? p.DisabledTools.Count : 0);
+                    sectionAccess && AccessLevel(p) != McpToolLevel.Off ? p.DisabledTools.Count : 0,
+                    sectionAccess ? SizeBytes(ownCatalogue, p) : 0);
             })
             .ToList();
         return new McpOverviewApiUser(
@@ -215,7 +216,8 @@ public sealed class McpOverviewService(
             access,
             (user.Groups ?? []).Order(StringComparer.OrdinalIgnoreCase).ToList(),
             user.AllowedSections.ToList(),
-            connected);
+            connected,
+            access.Count == 0 || access.Any(a => a.SizeBytes is null) ? null : access.Sum(a => a.SizeBytes));
     }
 
     /// <summary>
@@ -225,6 +227,11 @@ public sealed class McpOverviewService(
     private static int? ToolCount(McpToolCatalogue? ownCatalogue, McpProductStatus product) =>
         ownCatalogue is null ? null
         : ownCatalogue.Modules.TryGetValue(product.Id, out McpModuleCatalogue? module) ? McpToolCounts.Effective(module, product)
+        : 0;
+
+    private static int? SizeBytes(McpToolCatalogue? ownCatalogue, McpProductStatus product) =>
+        ownCatalogue is null ? null
+        : ownCatalogue.Modules.TryGetValue(product.Id, out McpModuleCatalogue? module) ? McpToolCounts.EffectiveSizeBytes(module, product)
         : 0;
 
     /// <summary>Installed and enabled products whose tools need a backoffice section. CMS needs none.</summary>
