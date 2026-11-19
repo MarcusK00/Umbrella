@@ -49,10 +49,15 @@ public sealed class McpOverviewService(
             }
         }
 
+        McpToolCatalogue defaultCatalogue = McpCatalogueFallback.Highest(
+            userCatalogues,
+            catalogue ?? McpToolCatalogue.Empty,
+            (users ?? []).Select(u => u.Key).ToHashSet());
+
         return new McpOverview(
             addonVersion,
             BuildFindings(caps, catalogue, users, sectionByProduct, addonVersion, userCatalogues, userCapabilities),
-            products.Select(p => BuildProduct(p, sectionByProduct.GetValueOrDefault(p.Id))).ToList(),
+            products.Select(p => BuildProduct(p, sectionByProduct.GetValueOrDefault(p.Id), defaultCatalogue)).ToList(),
             BuildServer(catalogue, addonVersion),
             (users ?? []).Select(u => BuildUser(
                     u,
@@ -157,8 +162,13 @@ public sealed class McpOverviewService(
     private static string AccessLevel(McpProductStatus p) =>
         p.Off ? McpToolLevel.Off : p.ReadOnly ? McpToolLevel.ReadOnly : p.NoDestructive ? McpToolLevel.NoDestructive : McpToolLevel.Full;
 
-    private static McpOverviewProduct BuildProduct(McpProductStatus p, string? sectionAlias) =>
-        new(p.Id, p.DisplayName, p.Installed, p.Enabled, p.Version, p.Issues, AccessLevel(p), sectionAlias);
+    private static McpOverviewProduct BuildProduct(McpProductStatus p, string? sectionAlias, McpToolCatalogue defaultCatalogue)
+    {
+        McpModuleCatalogue? module = defaultCatalogue.Modules.GetValueOrDefault(p.Id);
+        int? totalToolCount = module?.Collections.Sum(c => c.ToolCount);
+        int? toolCount = module is not null ? McpToolCounts.Effective(module, p) : p.Off ? 0 : null;
+        return new(p.Id, p.DisplayName, p.Installed, p.Enabled, p.Version, p.Issues, AccessLevel(p), sectionAlias, toolCount, totalToolCount);
+    }
 
     private static McpServerReport? BuildServer(McpToolCatalogue? catalogue, string addonVersion)
     {

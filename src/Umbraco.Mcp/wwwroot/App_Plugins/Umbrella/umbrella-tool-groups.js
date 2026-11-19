@@ -409,14 +409,14 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
           return html`<button
             type="button"
             role="tab"
-            class="product-tab ${state.level === "off" ? "is-off" : ""} ${follows ? "is-follows" : ""}"
+            class="product-tab ${state.level === "off" ? "is-off" : ""} ${follows ? "is-follows" : ""} ${mode === "custom" ? "is-custom" : ""}"
             aria-selected=${active ? "true" : "false"}
             title=${follows ? `Follows site default (${levelLabel})` : nothing}
             @click=${() => (this._activeProduct = p.id)}
           >
+            ${mode === "custom" ? html`<span class="custom-notch">Custom</span>` : nothing}
             <div class="product-tab-top">
               <span class="product-tab-name">${shortName}</span>
-              ${mode === "custom" ? html`<uui-tag class="compact-tag" look="primary" color="positive">Custom</uui-tag>` : nothing}
             </div>
             <div class="product-tab-meta">
               ${follows
@@ -428,7 +428,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
                     ${levelGlyph(state.level)}
                     <span>${levelLabel}</span>
                   </span>`}
-              ${counts ? html`<span class="product-tab-count">${counts.kept}/${counts.total}</span>` : nothing}
+              ${counts ? html`<span class="product-tab-count-slot"><span class="product-tab-count">${counts.kept}/${counts.total}</span></span>` : nothing}
             </div>
           </button>`;
         })}
@@ -502,7 +502,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
       <div class="list-section">
         <div class="list-heading-row">
           <span class="list-heading">API users</span>
-          ${users.length ? html`<uui-tag class="compact-tag" look="secondary">${users.length}</uui-tag>` : nothing}
+          ${users.length ? html`<span class="trailing-slot"><uui-tag class="compact-tag" look="secondary">${users.length}</uui-tag></span>` : nothing}
         </div>
         ${users.length > 3
           ? html`<uui-input
@@ -525,11 +525,17 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
                     ? html`<span class="entry-tags">
                         ${STATE_TAGS[u.state] ? html`<uui-tag class="compact-tag" look="secondary" color="warning">${STATE_TAGS[u.state]}</uui-tag>` : nothing}
                         ${own
-                          ? html`<uui-tag class="compact-tag" look="secondary" title=${`Own settings for ${own} ${own === 1 ? "product" : "products"}`}>${own} own</uui-tag>`
+                          ? html`<span class="trailing-slot">
+                              <span
+                                class="custom-dot"
+                                title=${`Custom settings for ${own} ${own === 1 ? "product" : "products"}`}
+                                aria-label=${`Custom settings for ${own} ${own === 1 ? "product" : "products"}`}
+                              ></span>
+                            </span>`
                           : nothing}
                       </span>`
                     : nothing;
-                  return entry(u.key, u.name, u.clientIds?.join(", "), html`<uui-avatar name=${u.name}></uui-avatar>`, tag);
+                  return entry(u.key, u.name, null, html`<uui-avatar name=${u.name}></uui-avatar>`, tag);
                 })}
               </ul>`
             : html`<p class="list-empty">No API user matches "${this._userFilter}".</p>`
@@ -547,7 +553,6 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
           <div class="editor-title">
             <div class="title-row">
               <h2 tabindex="-1">Defaults</h2>
-              <uui-tag look="secondary">All API users</uui-tag>
             </div>
           </div>
         </div>
@@ -720,7 +725,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0 var(--uui-size-space-2);
+        padding: 0 calc(var(--uui-size-space-3) + 1px) 0 var(--uui-size-space-2);
       }
       .list-heading {
         padding: 0 var(--uui-size-space-2);
@@ -805,8 +810,22 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
       .entry-tags {
         display: inline-flex;
         align-items: center;
-        gap: 4px;
+        gap: 6px;
         flex: none;
+      }
+      .trailing-slot {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 1.5rem;
+        flex: none;
+      }
+      .custom-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        flex: none;
+        background: var(--uui-color-interactive-emphasis, #2152a3);
       }
       uui-tag.compact-tag {
         flex: none;
@@ -904,6 +923,7 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
         gap: var(--uui-size-space-3);
       }
       .product-tab {
+        position: relative;
         flex: 1 1 11rem;
         display: flex;
         flex-direction: column;
@@ -918,6 +938,31 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
         text-align: left;
         cursor: pointer;
         transition: border-color 120ms ease, background-color 120ms ease, box-shadow 120ms ease;
+      }
+      .custom-notch {
+        position: absolute;
+        top: 0;
+        right: var(--uui-size-space-4);
+        width: 4.5rem;
+        box-sizing: border-box;
+        padding: 3px 0 4px;
+        border: 1px solid rgba(33, 82, 163, 0.24);
+        border-top: 0;
+        border-radius: 0 0 7px 7px;
+        background: rgba(33, 82, 163, 0.12);
+        color: var(--uui-color-interactive-emphasis, #2152a3);
+        font-size: 0.75rem;
+        font-weight: 700;
+        line-height: 1.25;
+        text-align: center;
+        white-space: nowrap;
+        pointer-events: none;
+      }
+      .product-tab[aria-selected="true"] .custom-notch {
+        top: 1px;
+      }
+      .product-tab.is-custom .product-tab-top {
+        padding-right: 5rem;
       }
       .product-tab:hover {
         border-color: var(--uui-color-border-emphasis);
@@ -945,6 +990,10 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
       }
       .product-tab-name {
         font-weight: 700;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
       .product-tab[aria-selected="true"] .product-tab-name {
         color: var(--uui-color-selected);
@@ -967,6 +1016,12 @@ export class UmbrellaToolGroupsElement extends UmbLitElement {
       .product-tab-level.is-follows {
         color: var(--uui-color-text-alt);
         font-weight: 500;
+      }
+      .product-tab-count-slot {
+        display: inline-flex;
+        justify-content: center;
+        min-width: 4.5rem;
+        flex: none;
       }
       .product-tab-count {
         padding: 1px var(--uui-size-space-2);
