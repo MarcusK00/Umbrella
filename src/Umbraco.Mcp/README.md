@@ -31,11 +31,13 @@ Your AI tool starts `umbrella-mcp`. The server signs in as an Umbraco API user, 
 
 Each person, or each AI agent, connects as its own API user, and in **Settings → Umbrella → Tool Permissions** each API user can get its own access per product: **Off**, **Read-only**, **No deletes** or **Full**. A content agent can list forms but never gets a tool to delete pages; an ops agent can run automations while Forms stays off for it. `get-mcp-health` tells each agent what it can use.
 
-![Overview dashboard: connection status, default permissions per product, and one row per API user with Client setup and New connection](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-dashboard-overview.png)
+![Overview dashboard: connection status, default permissions per product with tool counts, and one row per API user with Client setup and New connection](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-dashboard-overview.png)
 
-![Per-user tool permissions: set site-wide defaults or customise Off, Read-only, No deletes or Full per product for each API user](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-tool-permissions.png)
+![Site-wide default tool permissions: set Off, Read-only, No deletes or Full per product, inspect context footprint, and toggle tool groups or individual tools](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-tool-permissions.png)
 
-![Tool groups and individual tools: toggle entire groups or single tools on and off, with Read-only and Destructive badges](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-tool-groups.jpg)
+![Per-API-user tool permissions: products following site defaults stay compact with a Customise button](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-tool-permissions-follows.png)
+
+![Custom per-user permissions: override a product's access level, tool groups and individual tools, with Destructive and Read-only badges](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-tool-permissions-custom.png)
 
 ## 🚀 Get started in 4 steps
 
@@ -47,7 +49,7 @@ You need Umbraco 17, and Node.js 22.23.4 or later (24.22.1 or later on Node 24, 
 dotnet add package Umbraco.Community.Umbrella
 ```
 
-**2. Create the connection.** In **Settings → Umbrella → Overview**, click **New connection** in **Access per API user**. Name the person or agent, pick what it may use per product (the defaults, or Off, Read-only, No deletes or Full) and its user groups, and create it. Each person who uses an AI tool gets an API user of their own.
+**2. Create the connection.** In **Settings → Umbrella → Overview**, click **New connection** in **Connections**. Name the person or agent, pick what it may use per product (the defaults, or Off, Read-only, No deletes or Full) and its user groups, and create it. Each person who uses an AI tool gets an API user of their own.
 
 The panel then shows the client secret once (copy it: Umbraco only keeps a hash) and the config for their AI tool: Claude Code, Claude Desktop, VS Code, Cursor, Codex, Antigravity or another client. The plain version looks like this, with your site's address and the client id filled in:
 
@@ -56,7 +58,7 @@ The panel then shows the client secret once (copy it: Umbraco only keeps a hash)
   "mcpServers": {
     "umbraco": {
       "command": "npx",
-      "args": ["-y", "umbrella-mcp@17.1.2"],
+      "args": ["-y", "umbrella-mcp@17.1.3"],
       "env": {
         "UMBRACO_BASE_URL": "https://your-site",
         "UMBRACO_CLIENT_ID": "umbraco-back-office-mcp",
@@ -83,7 +85,7 @@ Then restart your AI tool and approve the `umbraco` server when asked. A config 
 
 **Using Claude Code, Codex or Antigravity?** Pick the plugin option in step 2 instead, and skip step 3: see *Install a plugin* below.
 
-**No access to the Users section?** Then New connection isn't shown. Ask someone who has it to use New connection, or to create the API user in Users → Create → API user, with client credentials and groups that grant the sections the AI should use. Then pick it under **Connect an AI tool** on the Overview to copy its config.
+**No access to the Users section?** Then New connection isn't shown. Ask someone who has it to use New connection, or to create the API user in Users → Create → API user, with client credentials and groups that grant the sections the AI should use. Then click **Client setup** on the Overview, pick that user and copy its config.
 
 **4. Say hello.** Ask the AI to *"call get-mcp-health"*. It lists each product and how many tools it loaded.
 

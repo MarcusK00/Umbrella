@@ -38,11 +38,13 @@ The server signs in as an Umbraco API user, asks the site which products it has,
 
 Each person, or each AI agent, connects as its own API user and gets its own access per product. A content agent can list forms but never gets a tool to delete pages; an ops agent can run automations while Forms stays off for it. `get-mcp-health` tells each agent what it can use.
 
-![Overview dashboard: connection status, default permissions per product, and one row per API user with Client setup and New connection](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-dashboard-overview.png)
+![Overview dashboard: connection status, default permissions per product with tool counts, and one row per API user with Client setup and New connection](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-dashboard-overview.png)
 
-![Per-user tool permissions: set site-wide defaults or customise Off, Read-only, No deletes or Full per product for each API user](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-tool-permissions.png)
+![Site-wide default tool permissions: set Off, Read-only, No deletes or Full per product, inspect context footprint, and toggle tool groups or individual tools](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-tool-permissions.png)
 
-![Tool groups and individual tools: toggle entire groups or single tools on and off, with Read-only and Destructive badges](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-tool-groups.jpg)
+![Per-API-user tool permissions: products following site defaults stay compact with a Customise button](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-tool-permissions-follows.png)
+
+![Custom per-user permissions: override a product's access level, tool groups and individual tools, with Destructive and Read-only badges](https://raw.githubusercontent.com/MarcusK00/Umbrella/v17/main/docs/images/umbrella-tool-permissions-custom.png)
 
 ## Get started
 
@@ -60,7 +62,7 @@ Each person, or each AI agent, connects as its own API user and gets its own acc
 2. **Create the connection.** In **Settings → Umbrella → Overview**, click **New connection**: name the person or agent, pick what it may use per product and its user groups, and create it. Copy the client secret it shows once (Umbraco only keeps a hash), then the config for their AI tool, and follow the steps it shows. Using Claude Code, Codex or Antigravity? Pick the plugin there: see *Plugins* below.
 3. **Say hello.** Ask the AI to *"call get-mcp-health"*. It lists each product and how many tools it loaded.
 
-No access to the Users section? Then New connection isn't shown: ask someone who has it, or have them create the API user in Users → Create → API user, then pick it under **Connect an AI tool** on the Overview. Older Umbrella versions have no New connection and work that way too.
+No access to the Users section? Then New connection isn't shown: ask someone who has it, or have them create the API user in Users → Create → API user, then click **Client setup** on the Overview to copy its config. Older Umbrella versions have no New connection and work that way too.
 
 The setup guide has each step in detail, including the secret, plugins and troubleshooting: [for Umbraco 18](https://github.com/MarcusK00/Umbrella/blob/v18/main/README.md) and [for Umbraco 17](https://github.com/MarcusK00/Umbrella/blob/v17/main/README.md).
 
