@@ -1,7 +1,7 @@
 {
   "name": "umbrella",
   "displayName": "Umbrella for Umbraco",
-  "version": "18.1.1",
+  "version": "18.1.2",
   "description": "Connects Claude Code to an Umbraco 18 site through the umbrella-mcp server: the CMS tools, plus Forms, Automate and Engage when the site has them.",
   "author": {
     "name": "MarcusK00",
