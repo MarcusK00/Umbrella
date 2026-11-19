@@ -1,7 +1,7 @@
 import { css, html, live, nothing } from "@umbraco-cms/backoffice/external/lit";
 import { UmbLitElement } from "@umbraco-cms/backoffice/lit-element";
 import { UmbTextStyles } from "@umbraco-cms/backoffice/style";
-import { LEVELS, LEVEL_LABELS, glyphStyles, groupLabel, levelGlyph, tools } from "./umbrella-access.js";
+import { LEVELS, glyphStyles, groupLabel, levelGlyph, tools } from "./umbrella-access.js";
 import { allowedAt, filterGroups, groupKeptCount } from "./umbrella-tool-logic.js";
 import { buildSizeSegments, formatApproxTokens, formatSizeTooltip } from "./umbrella-tool-size.js";
 
@@ -115,6 +115,7 @@ export class UmbrellaProductCardElement extends UmbLitElement {
     if (this.mode === "follows") {
       return html`<uui-button
         slot="header-actions"
+        class="header-action-btn"
         look="primary"
         compact
         label="Customise"
@@ -125,6 +126,7 @@ export class UmbrellaProductCardElement extends UmbLitElement {
     if (this.mode === "custom") {
       return html`<uui-button
         slot="header-actions"
+        class="header-action-btn"
         look="secondary"
         compact
         label="Use defaults"
@@ -133,23 +135,6 @@ export class UmbrellaProductCardElement extends UmbLitElement {
       ></uui-button>`;
     }
     return nothing;
-  }
-
-  /** Collapsed summary shown when an API user follows the site defaults for this product. */
-  #renderCollapsedFollows() {
-    const available = this.#available();
-    const levelLabel = LEVEL_LABELS[this.level] ?? LEVEL_LABELS.full;
-    return html`<div class="follows-collapsed">
-      <div class="follows-pill ${this.level === "off" ? "is-off" : ""}">
-        ${levelGlyph(this.level)}
-        <span>${levelLabel}</span>
-      </div>
-      <p class="follows-meta muted small">
-        Inherited from site defaults${available && this.level !== "off" ? ` · ${available.kept} of ${tools(available.total)}` : ""}${this.disabledTools.size > 0 && this.level !== "off"
-          ? ` · ${this.disabledTools.size} switched off`
-          : ""}
-      </p>
-    </div>`;
   }
 
   #renderLadder() {
@@ -417,23 +402,22 @@ export class UmbrellaProductCardElement extends UmbLitElement {
 
   render() {
     if (!this.product) return nothing;
-    const name = this.product.displayName;
+    const headline = `${this.product.displayName.replace(/^Umbraco /, "")} Permissions`;
 
     if (this.mode === "follows") {
       return html`<div class="follows-box mode-follows">
         <div class="follows-box-header">
           <h5 class="uui-h5 headline">
-            <span>${name}</span>
+            <span>${headline}</span>
           </h5>
           <div class="follows-box-actions">${this.#renderHeaderAction()}</div>
         </div>
-        ${this.#renderCollapsedFollows()}
       </div>`;
     }
 
     return html`<uui-box class="mode-${this.mode}">
       <div slot="headline" class="headline">
-        <span>${name}</span>
+        <span>${headline}</span>
       </div>
       ${this.#renderHeaderAction()}
       <div class="access-section">
@@ -471,6 +455,9 @@ export class UmbrellaProductCardElement extends UmbLitElement {
         align-items: center;
         gap: var(--uui-size-space-3);
         flex-wrap: wrap;
+        font-size: var(--uui-type-h5-size, 14px);
+        line-height: 21px;
+        font-weight: 700;
       }
       .muted {
         color: var(--uui-color-text-alt);
@@ -480,7 +467,6 @@ export class UmbrellaProductCardElement extends UmbLitElement {
       }
 
       .follows-box {
-        flex: 1;
         display: flex;
         flex-direction: column;
         box-sizing: border-box;
@@ -494,42 +480,15 @@ export class UmbrellaProductCardElement extends UmbLitElement {
         display: flex;
         align-items: center;
         column-gap: var(--uui-size-space-5);
-        border-bottom: 1px solid var(--uui-color-divider-standalone);
         padding: var(--uui-box-header-padding, var(--uui-size-space-4) var(--uui-size-space-5));
       }
-      .follows-box-header h5 {
+      .follows-box-header h5.headline {
         margin: 0;
+        font-weight: 700;
       }
       .follows-box-actions {
         margin-left: auto;
         flex: none;
-      }
-      .follows-collapsed {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: var(--uui-size-space-2);
-        padding: var(--uui-size-layout-1) var(--uui-box-default-padding, var(--uui-size-space-5));
-        text-align: center;
-      }
-      .follows-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: var(--uui-size-space-2);
-        padding: var(--uui-size-space-1) var(--uui-size-space-3);
-        border-radius: 999px;
-        border: 1px solid var(--uui-color-border);
-        background: var(--uui-color-surface-alt);
-        font-weight: 600;
-      }
-      .follows-pill.is-off {
-        color: var(--uui-color-text-alt);
-        font-weight: normal;
-      }
-      .follows-meta {
-        font-variant-numeric: tabular-nums;
       }
 
       .access-section {
@@ -740,8 +699,10 @@ export class UmbrellaProductCardElement extends UmbLitElement {
         flex: 1;
         min-width: 0;
       }
+      .header-action-btn,
       .groups-toggle-btn {
         flex: none;
+        min-width: 7.25rem;
       }
       .groups-toggle-btn uui-symbol-expand {
         margin-left: 4px;

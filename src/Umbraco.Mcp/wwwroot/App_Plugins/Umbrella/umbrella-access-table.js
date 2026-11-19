@@ -9,7 +9,7 @@ const STATE_TAGS = { disabled: "Disabled", lockedOut: "Locked out" };
 /**
  * The Overview's API users table: one row per API user an MCP server connected as, then the API users the New connection
  * flow created that have not connected yet; one column per active product (evenly sized), a Last connected column,
- * and row actions. Every cell uses a strict two-line layout so labels, badges and subtitles align across every column.
+ * and row actions. Every cell is a single line so rows stay compact and aligned; full details live in the Info modal.
  *
  * Events (bubbling): `edit-permissions` { key }, `info`, `new-secret`, `toggle-disabled` and `forget`, each { key }.
  */
@@ -46,23 +46,15 @@ export class UmbrellaAccessTableElement extends UmbLitElement {
     return this.products.filter((p) => p.installed && p.enabled);
   }
 
-  #renderCellContent(primary, secondary, isMuted = false, own = false) {
-    return html`<div class="cell">
-      <div class="cell-primary ${isMuted ? "is-muted" : ""}">${primary}</div>
-      <div class="cell-secondary">
-        <span>${secondary}</span>
-        ${own
-          ? html`<uui-tag class="compact-tag" look="secondary" title="This API user has its own settings for this product">Own</uui-tag>`
-          : nothing}
-      </div>
-    </div>`;
+  #renderCellContent(primary, isMuted = false) {
+    return html`<div class="cell-primary ${isMuted ? "is-muted" : ""}">${primary}</div>`;
   }
 
   #renderUserCell(u, product, productStyle) {
     const a = u.access?.find((x) => x.productId === product.id);
     if (!a) {
-      return html`<uui-table-cell class="product-col" style=${productStyle}>
-        ${this.#renderCellContent(html`<span>–</span>`, u.connected === false ? "Pending" : "Not reported", true, false)}
+      return html`<uui-table-cell class="product-col" style=${productStyle} title=${u.connected === false ? "Pending" : "Not reported"}>
+        ${this.#renderCellContent(html`<span>–</span>`, true)}
       </uui-table-cell>`;
     }
     if (a.sectionAccess === false) {
@@ -71,22 +63,22 @@ export class UmbrellaAccessTableElement extends UmbLitElement {
         style=${productStyle}
         title="None of this API user's user groups grant the ${product.displayName} section, so it gets no ${product.displayName} tools."
       >
-        ${this.#renderCellContent(html`<span>No access</span>`, "No section access", true, false)}
+        ${this.#renderCellContent(html`<span>No access</span>`, true)}
       </uui-table-cell>`;
     }
     const level = a.level ?? "full";
+    const levelLabel = LEVEL_LABELS[level] ?? LEVEL_LABELS.full;
     const isOff = level === "off";
-    const own = a.scope === "user";
-    const primary = html`${levelGlyph(level)}<span>${LEVEL_LABELS[level] ?? LEVEL_LABELS.full}</span>`;
-    const secondary = isOff
-      ? "Not loaded"
-      : a.toolCount === null || a.toolCount === undefined
-        ? u.connected === false
-          ? "Pending"
-          : "Not reported"
-        : tools(a.toolCount);
-    return html`<uui-table-cell class="product-col" style=${productStyle}>
-      ${this.#renderCellContent(primary, secondary, isOff, own)}
+    const isCustom = a.scope === "user";
+    const label = isCustom ? (isOff ? levelLabel : "Custom") : "Default";
+    const primary = html`${levelGlyph(level)}<span>${label}</span>`;
+    const countDetail = !isOff && a.toolCount !== null && a.toolCount !== undefined ? ` · ${tools(a.toolCount)}` : "";
+    const disabledDetail = isCustom && !isOff && a.disabledToolCount > 0 ? ` (${a.disabledToolCount} switched off)` : "";
+    const title = isCustom
+      ? `Custom settings for ${product.displayName}: ${levelLabel}${countDetail}${disabledDetail}`
+      : `Follows default permissions for ${product.displayName}: ${levelLabel}${countDetail}`;
+    return html`<uui-table-cell class="product-col" style=${productStyle} title=${title}>
+      ${this.#renderCellContent(primary, isOff)}
     </uui-table-cell>`;
   }
 
@@ -97,29 +89,19 @@ export class UmbrellaAccessTableElement extends UmbLitElement {
       <uui-table-cell class="who-col">
         <div class="who">
           <uui-avatar name=${u.name}></uui-avatar>
-          <div class="who-text">
-            <div class="cell-primary">
-              <strong class="user-name" title=${u.name}>${u.name}</strong>
-              ${STATE_TAGS[u.state]
-                ? html`<uui-tag class="compact-tag" color="warning" look="primary">${STATE_TAGS[u.state]}</uui-tag>`
-                : nothing}
-            </div>
-            <div class="cell-secondary">
-              <span class="mono" title=${u.clientIds?.[0] ?? ""}>${u.clientIds?.length ? u.clientIds[0] : "No client id"}</span>
-            </div>
+          <div class="cell-primary who-name">
+            <strong class="user-name" title=${u.name}>${u.name}</strong>
+            ${STATE_TAGS[u.state]
+              ? html`<uui-tag class="compact-tag" color="warning" look="primary">${STATE_TAGS[u.state]}</uui-tag>`
+              : nothing}
           </div>
         </div>
       </uui-table-cell>
       ${columns.map((p) => this.#renderUserCell(u, p, productStyle))}
       <uui-table-cell class="last-connected-col">
         ${connected
-          ? this.#renderCellContent(
-              html`<span title=${formatDate(u.lastConnected)}>${formatRelative(u.lastConnected)}</span>`,
-              formatDate(u.lastConnected),
-              false,
-              false,
-            )
-          : this.#renderCellContent(html`<span>Not connected</span>`, "Waiting for first start", true, false)}
+          ? this.#renderCellContent(html`<span title=${formatRelative(u.lastConnected)}>${formatDate(u.lastConnected)}</span>`, false)
+          : this.#renderCellContent(html`<span title="Waiting for first start">Not connected</span>`, true)}
       </uui-table-cell>
       <uui-table-cell class="actions actions-col">
         <div class="row-actions">
@@ -210,12 +192,9 @@ export class UmbrellaAccessTableElement extends UmbLitElement {
         background: var(--uui-color-surface-alt);
       }
       uui-table-cell {
-        vertical-align: top;
-        padding-top: var(--uui-size-space-4);
-        padding-bottom: var(--uui-size-space-4);
-      }
-      uui-table-cell.actions {
         vertical-align: middle;
+        padding-top: var(--uui-size-space-3);
+        padding-bottom: var(--uui-size-space-3);
       }
 
       .who-col {
@@ -234,17 +213,8 @@ export class UmbrellaAccessTableElement extends UmbLitElement {
         min-width: 11rem;
         max-width: 16rem;
       }
-      .who-text {
+      .who-name {
         flex: 1;
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-        min-width: 0;
-      }
-      .who-text .cell-primary,
-      .who-text .cell-secondary {
-        display: flex;
-        max-width: 100%;
         min-width: 0;
       }
       .user-name {
@@ -254,26 +224,22 @@ export class UmbrellaAccessTableElement extends UmbLitElement {
       }
       uui-avatar {
         flex: none;
-        font-size: 0.8rem;
-        width: 2.25rem;
-        height: 2.25rem;
+        font-size: 0.75rem;
+        width: 2rem;
+        height: 2rem;
       }
       .user-row.is-disabled {
         opacity: 0.72;
       }
 
-      /* Strict 2-line cell structure with uniform product column floor so spacing never shifts per permission */
-      .cell {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-        min-width: 0;
+      .product-col .cell-primary {
+        min-width: 6.75rem;
       }
-      .product-col .cell {
+      .last-connected-col .cell-primary {
         min-width: 7.75rem;
-      }
-      .last-connected-col .cell {
-        min-width: 7.25rem;
+        font-weight: normal;
+        color: var(--uui-color-text-alt);
+        font-variant-numeric: tabular-nums;
       }
       .cell-primary {
         display: inline-flex;
@@ -288,34 +254,11 @@ export class UmbrellaAccessTableElement extends UmbLitElement {
         color: var(--uui-color-text-alt);
         font-weight: normal;
       }
-      .cell-secondary {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        height: 1.2rem;
-        line-height: 1.2rem;
-        color: var(--uui-color-text-alt);
-        font-size: var(--uui-type-small-size);
-        white-space: nowrap;
-        font-variant-numeric: tabular-nums;
-      }
 
       uui-tag.compact-tag {
         flex: none;
         --uui-tag-font-size: 0.6875rem;
         --uui-tag-padding: 0 6px;
-      }
-
-      .mono {
-        font-family: var(--uui-font-monospace, ui-monospace, Menlo, Consolas, monospace);
-        font-size: 0.92em;
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .muted {
-        color: var(--uui-color-text-alt);
       }
 
       .actions {
